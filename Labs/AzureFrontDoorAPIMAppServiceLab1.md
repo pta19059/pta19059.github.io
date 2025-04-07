@@ -5,8 +5,6 @@ slug: /
 sidebar_label: 'Welcome'
 ---
 
-![](images/microsoft-azure-image-banner-800-optimized.jpg)
-
 ## Introduction
 
 Welcome to this hands-on lab exploring a powerful and scalable web application architecture on Azure! In this lab, you'll learn how to integrate Azure Front Door, API Management (APIM), and App Service to create a robust and globally distributed solution. Azure Front Door acts as a global load balancer, providing high availability and performance. APIM centralizes API management, security, and observability. App Service hosts your web application, providing a fully managed platform. 
