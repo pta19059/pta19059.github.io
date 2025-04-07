@@ -88,7 +88,7 @@ app.listen(port, () => {
 });
 
 ```
-Source code: [my-app-node](https://github.com/pta19059/my-node-app)
+<u>Source code</u>: [my-app-node](https://github.com/pta19059/my-node-app)
 
 Now let's start to deploy our App service and below I'll provide step-by-step to deploy it integrating the sample code mentioned above.
 
