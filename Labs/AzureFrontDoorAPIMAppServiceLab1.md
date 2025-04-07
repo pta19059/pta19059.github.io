@@ -31,7 +31,7 @@ Get ready to deploy and configure a highly available and performant web applicat
 
 
 
-**<u>Create a Resource Group for your Lab</u>**
+## <u>Create a Resource Group for your Lab</u>
 
 Create a Resource Group and provide name,select the Region and your subscription to provision it.
 
