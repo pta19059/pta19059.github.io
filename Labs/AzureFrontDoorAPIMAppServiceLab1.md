@@ -5,7 +5,7 @@ slug: /
 sidebar_label: 'Welcome'
 ---
 
-## Lab Diagram
+## Lab Architecture Diagram
 
 ![](images/Exported-Diagram.svg)
 
@@ -32,8 +32,12 @@ Get ready to deploy and configure a highly available and performant web applicat
 **Create a Resource Group for your Lab**
 
 Create a Resource Group and provide name,select the Region and your subscription to provision it.
+
 For this Lab we'll use **project-integration-001**. 
-A resource group in Azure is a logical container that holds related resources for an Azure solution. These resources include virtual machines, databases, and virtual networks, among others. Resource groups help manage and organize resources based on their lifecycle and security.
+A resource group in Azure is a logical container that holds related resources for an Azure solution. 
+
+These resources include virtual machines, databases, and virtual networks, among others. Resource groups help manage and organize resources based on their lifecycle and security.
+
 Once Finished to review all the tabs, **Click Review + create**.
 
 ![](images/RG.jpg)
@@ -43,13 +47,17 @@ Once Finished to review all the tabs, **Click Review + create**.
 
 Before to deploy the entire architecture (as described in our Lab Diagram),in this lab,our primary focus will be on deploying the following components:
 
-**Azure Front Door**: This will serve as the entry point for our application. Azure Front Door is a scalable and secure entry point for fast delivery of your global, mission-critical applications. It provides global load balancing, SSL offloading, and application acceleration to ensure high availability and performance. 
-**Reference**:[Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview)
+**Azure Front Door**: This will serve as the entry point for our application. Azure Front Door is a scalable and secure entry point for fast delivery of your global, mission-critical applications. It provides global load balancing, SSL offloading, and application acceleration to ensure high availability and performance.
 
-**API Management (APIM)**: Azure Front Door will route traffic to the APIM, which acts as a gateway to manage, secure, and monitor APIs.               **Reference**:[API Management](https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts)
+**Official Documentation**: [Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview)
+
+**API Management (APIM)**: Azure Front Door will route traffic to the APIM, which acts as a gateway to manage, secure, and monitor APIs.
+
+**Official Documentation**: [API Management](https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts)
 
 **App Service**: The APIM will then route traffic to the App Service, where a REST API is hosted. The App Service provides a fully managed platform for building, deploying, and scaling web applications.
-**Reference**:[App Service](https://learn.microsoft.com/en-us/azure/app-service/overview)
+
+**Official Documentation**: [App Service](https://learn.microsoft.com/en-us/azure/app-service/overview)
 
 Throughout this lab, you'll learn how to configure each service and connect them to create a secure, scalable, and manageable application. 
 By the end of this lab, you'll have a solid understanding of how these services work together to build modern cloud applications.
@@ -129,8 +137,9 @@ To test your REST API, open a new page in your browser and copy your Default Dom
 Now we're ready to provision our API Management Service.
 
 
+## Deploy API Management Service 
 
-1) **Provision API Management Service**
+## Steps
 
 In Azure, find in the Search Bar **API Management Service** and click on it.
 
@@ -149,8 +158,6 @@ Finally, click **Review + create**.
 When deployment is completed (you have to wait a couple of minutes), you will land to the APIM main page.
 
 We are now going to create a simple GET API (GET UserId) where when we input a userID we'll get a response from our backend (our App Service) with the JSON tested before in our Web App.
-
-## Steps
 
 Under **APIs** -- Click **APIs** and then **Add API** . Select then **HTTP Manually define an HTTP API**.
 
