@@ -5,11 +5,6 @@ slug: /
 sidebar_label: 'Welcome'
 ---
 
-## Lab Architecture Diagram
-
-![](images/Exported-Diagram.svg)
-
-
 ## Introduction
 
 Welcome to this hands-on lab exploring a powerful and scalable web application architecture on Azure! In this lab, you'll learn how to integrate Azure Front Door, API Management (APIM), and App Service to create a robust and globally distributed solution. Azure Front Door acts as a global load balancer, providing high availability and performance. APIM centralizes API management, security, and observability. App Service hosts your web application, providing a fully managed platform. 
@@ -19,22 +14,28 @@ By the end of this lab, you'll have a solid understanding of how these services 
 
 Get ready to deploy and configure a highly available and performant web application on Azure!
 
+## Lab Architecture Diagram
+
+![](images/Exported-Diagram.svg)
+
 ## Lab Steps
 
-**Login to Azure**
+**<u>Login to Azure</u>**
 
 * Login to Azure.
-* Check using the correct subscription.
+* Check if you're using the correct subscription.
 
 ![](images/AzureLogin.jpg)
 
 
-**Create a Resource Group for your Lab**
+
+**<u>Create a Resource Group for your Lab</u>**
 
 Create a Resource Group and provide name,select the Region and your subscription to provision it.
 
-For this Lab we'll use **project-integration-001**. 
-A resource group in Azure is a logical container that holds related resources for an Azure solution. 
+For this Lab we'll use **project-integration-001**.
+
+A **resource group** in Azure is a logical container that holds related resources for an Azure solution. 
 
 These resources include virtual machines, databases, and virtual networks, among others. Resource groups help manage and organize resources based on their lifecycle and security.
 
@@ -43,21 +44,34 @@ Once Finished to review all the tabs, **Click Review + create**.
 ![](images/RG.jpg)
 
 
-## Start Create your Resources (Azure Front Door, APIM , App Service)
+## Start Create your Resources (Azure Front Door,APIM,App Service)
 
 Before to deploy the entire architecture (as described in our Lab Diagram),in this lab,our primary focus will be on deploying the following components:
 
-**Azure Front Door**: This will serve as the entry point for our application. Azure Front Door is a scalable and secure entry point for fast delivery of your global, mission-critical applications. It provides global load balancing, SSL offloading, and application acceleration to ensure high availability and performance.
+==================================================================================================================================================================
+**Azure Front Door**: This will serve as the entry point for our application. 
+
+Azure Front Door is a scalable and secure entry point for fast delivery of your global, mission-critical applications. 
+
+It provides global load balancing, SSL offloading, and application acceleration to ensure high availability and performance.
 
 **Official Documentation**: [Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview)
+
+==================================================================================================================================================================
 
 **API Management (APIM)**: Azure Front Door will route traffic to the APIM, which acts as a gateway to manage, secure, and monitor APIs.
 
 **Official Documentation**: [API Management](https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts)
 
-**App Service**: The APIM will then route traffic to the App Service, where a REST API is hosted. The App Service provides a fully managed platform for building, deploying, and scaling web applications.
+==================================================================================================================================================================
+
+**App Service**: The APIM will then route traffic to the App Service, where a REST API is hosted. 
+
+The App Service provides a fully managed platform for building, deploying, and scaling web applications.
 
 **Official Documentation**: [App Service](https://learn.microsoft.com/en-us/azure/app-service/overview)
+
+==================================================================================================================================================================
 
 Throughout this lab, you'll learn how to configure each service and connect them to create a secure, scalable, and manageable application. 
 By the end of this lab, you'll have a solid understanding of how these services work together to build modern cloud applications.
@@ -95,7 +109,7 @@ Now let's start to deploy our App service and below I'll provide step-by-step to
 
 ## Steps
 
-1) **Provision App Service**
+**Provision App Service**
 
 * Go to the Azure Portal --> find **App Service**.
 
@@ -133,9 +147,7 @@ To test your REST API, open a new page in your browser and copy your Default Dom
 
 ![](images/restapi.jpg)
 
-
-Now we're ready to provision our API Management Service.
-
+Now we're ready to provision our **API Management Service**.
 
 ## Deploy API Management Service 
 
@@ -252,7 +264,6 @@ Origin host name, select your APIM service from the list.
 Click **Review + create**.
 
 ![](images/FDCreate.jpg)
-
 
 In the main page, once the deployment is completed take note about of the Endpoint hostname. We will use later to complete our lab.
 
