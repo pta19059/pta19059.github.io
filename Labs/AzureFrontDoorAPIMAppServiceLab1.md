@@ -160,7 +160,7 @@ Under **APIs** -- Click **APIs** and then **Add API** . Select then **HTTP Manua
 
 In the Window of the creation of the HTTP API, click the tab **Full**.
 
-Input a Display name and in the Web Service URL use the Default domain name of your App Service deployed (https://xxxxxxxxxxxxxx.centralus-01.azurewebsites.net).
+Input a Display name and in the Web Service URL use the Default domain name of your App Service deployed (**https://xxxxxxxxxxxxxx.centralus-01.azurewebsites.net**).
 
 URL Scheme leaves **HTTPS**.
 
@@ -259,7 +259,7 @@ Click on the **Origin groups** tab on your left, verify in the **Origin host nam
 Then, click **Update**.
 
 
-Open a new browser, paste your endpoint hostname adding **api/users/123** at the end (it should be https://xxxxxxxxxxxxxx.b01.azurefd.net/api/users/123) and if you see the JSON good job you have completed this Lab testing out Azure Front Door, APIM and App Service. 
+Open a new browser, paste your endpoint hostname adding **api/users/123** at the end (it should be **https://xxxxxxxxxxxxxx.b01.azurefd.net/api/users/123**) and if you see the JSON good job you have completed this Lab testing out Azure Front Door, APIM and App Service. 
 
 **Well Done!**
 
