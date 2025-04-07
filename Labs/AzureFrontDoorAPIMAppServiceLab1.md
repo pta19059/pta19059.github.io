@@ -130,7 +130,7 @@ Github Actions will do the job for you.
 
 To test your REST API, open a new page in your browser and copy your Default Domain and add **/api/users/123** at the end.
 
-![](images/restapi.jpg)
+
 
 Now we're ready to provision our **API Management Service**.
 
