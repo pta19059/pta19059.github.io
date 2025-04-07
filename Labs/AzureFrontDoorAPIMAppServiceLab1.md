@@ -247,7 +247,7 @@ Origin host name, select your APIM service from the list.
 
 Click **Review + create**.
 
-![](images/FDCreate.jpg)
+![](images/FDCreate.png)
 
 In the main page, once the deployment is completed take note about of the Endpoint hostname. We will use later to complete our lab.
 
