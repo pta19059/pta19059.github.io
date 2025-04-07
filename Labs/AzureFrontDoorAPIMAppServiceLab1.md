@@ -5,7 +5,7 @@ slug: /
 sidebar_label: 'Welcome'
 ---
 
-![](images/AzureImage.jpg)
+![](images/microsoft-azure-image-banner-800-optimized.jpg)
 
 ## Introduction
 
