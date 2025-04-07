@@ -26,3 +26,19 @@ The following are required to complete the lab:
   * locally [install instructions](https://docs.microsoft.com/cli/azure/install-azure-cli).
   * accesed via the [cloud Shell](https://shell.azure.com).
 
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>La mia pagina web</title>
+  <style>
+    header, .header, nav, .navbar { 
+      display: none !important; 
+    }
+  </style>
+</head>
+<body>
+  <h1>Benvenuto nella mia pagina!</h1>
+  <p>Sito personale ospitato su GitHub Pages.</p>
+</body>
+</html>
