@@ -5,7 +5,7 @@ slug: /
 sidebar_label: 'Introduction'
 ---
 
-![](images/hello.png)
+<img src="images/hello.png" alt="Description" width="200"/>
 
 # Welcome!
 
