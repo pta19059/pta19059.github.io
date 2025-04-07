@@ -46,32 +46,15 @@ Once Finished to review all the tabs, **Click Review + create**.
 
 ## Start Create your Resources (Azure Front Door,APIM,App Service)
 
-Before to deploy the entire architecture (as described in our Lab Diagram),in this lab,our primary focus will be on deploying the following components:
+Before to deploy the entire architecture (as described in our Lab Architecture Diagram),our primary focus will be on deploying the following components:
 
-==================================================================================================================================================================
-**Azure Front Door**: This will serve as the entry point for our application. 
+## Overview
 
-Azure Front Door is a scalable and secure entry point for fast delivery of your global, mission-critical applications. 
-
-It provides global load balancing, SSL offloading, and application acceleration to ensure high availability and performance.
-
-**Official Documentation**: [Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview)
-
-==================================================================================================================================================================
-
-**API Management (APIM)**: Azure Front Door will route traffic to the APIM, which acts as a gateway to manage, secure, and monitor APIs.
-
-**Official Documentation**: [API Management](https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts)
-
-==================================================================================================================================================================
-
-**App Service**: The APIM will then route traffic to the App Service, where a REST API is hosted. 
-
-The App Service provides a fully managed platform for building, deploying, and scaling web applications.
-
-**Official Documentation**: [App Service](https://learn.microsoft.com/en-us/azure/app-service/overview)
-
-==================================================================================================================================================================
+| **Service** | **Description** | **Official Documentation** |
+|-------------|-----------------|----------------------------|
+| **Azure Front Door** | This will serve as the entry point for our application. Azure Front Door is a scalable and secure entry point for fast delivery of your global, mission-critical applications. It provides global load balancing, SSL offloading, and application acceleration to ensure high availability and performance. | [Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview) |
+| **API Management (APIM)** | Azure Front Door will route traffic to the APIM, which acts as a gateway to manage, secure, and monitor APIs. | [API Management](https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts) |
+| **App Service** | The APIM will then route traffic to the App Service, where a REST API is hosted. The App Service provides a fully managed platform for building, deploying, and scaling web applications. | [App Service](https://learn.microsoft.com/en-us/azure/app-service/overview) |
 
 Throughout this lab, you'll learn how to configure each service and connect them to create a secure, scalable, and manageable application. 
 By the end of this lab, you'll have a solid understanding of how these services work together to build modern cloud applications.
