@@ -142,7 +142,7 @@ In Azure, find in the Search bar **API Management Service** and click on it.
 
 Click **Create** and let's start to create the Service.
 
-Select the Resource Group (project-integration-001), Region and provide a Resource Name.
+Select the **Resource Group** (**project-integration-001**), Region and provide a Resource Name.
 
 For the Organization name / Administrator email, provide a name and an email (these fields are used for the Developer Portal and for email notifications).
 
