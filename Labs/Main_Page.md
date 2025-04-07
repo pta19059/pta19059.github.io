@@ -26,16 +26,3 @@ The following are required to complete the lab:
   * locally [install instructions](https://docs.microsoft.com/cli/azure/install-azure-cli).
   * accesed via the [cloud Shell](https://shell.azure.com).
 
-
-<html lang="it">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    header, .header, nav, .navbar { 
-      display: none !important; 
-    }
-  </style>
-</head>
-<body>
-</body>
-</html>
