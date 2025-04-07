@@ -22,7 +22,7 @@ Get ready to deploy and configure a highly available and performant web applicat
 
 ## Lab Steps
 
-**<u>Login to Azure</u>**
+## Login to Azure
 
 * Login to Azure.
 * Check if you're using the correct subscription.
@@ -31,7 +31,7 @@ Get ready to deploy and configure a highly available and performant web applicat
 
 
 
-## <u>Create a Resource Group for your Lab</u>
+## reate a Resource Group for your Lab
 
 Create a Resource Group and provide name,select the Region and your subscription to provision it.
 
