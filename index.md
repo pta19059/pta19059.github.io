@@ -20,7 +20,7 @@ Each lab will guide you step-by-step through exploring and understanding Azure t
 Enjoy learning and experimenting!
 
 
-
+![](images/AzureIcon.jpg)
 
 
 [Labs Page](https://pta19059.github.io/Labs/Main_Page)
