@@ -7,7 +7,7 @@ sidebar_label: 'Introduction'
 
 # Azure Front Door - APIM - App Service
 
-Hands-on Lab
+## Hands-on Lab
 
 ![](images/1000034469.png)
 
