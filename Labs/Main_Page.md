@@ -4,7 +4,7 @@ id: intro
 slug: /
 sidebar_label: 'Introduction'
 ---
-<a href="https://pta19059.github.io/"></a>
+<a href="https://pta19059.github.io/" style="visibility: hidden;"></a>
 # Azure Front Door - APIM - App Service
 
 ## Hands-on Lab
