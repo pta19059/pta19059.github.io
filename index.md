@@ -9,7 +9,7 @@ sidebar_label: 'Introduction'
 
 # Welcome!
 
-Hi, I'm **Stefano Sguotti**, Digital Technical Specialist in App Innovation.
+Hi, I'm **Stefano Sguotti**, Digital Technical Specialist in App Innovation here in Microsoft.
 
 In my role, I assist developers, architects, and organizations in leveraging Microsoft Azure cloud services to build modern, scalable, and secure applications.
 
