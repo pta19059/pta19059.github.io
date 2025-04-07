@@ -130,7 +130,7 @@ Github Actions will do the job for you.
 
 To test your REST API, open a new page in your browser and copy your Default Domain and add **/api/users/123** at the end.
 
-
+![](images/restapi.jpg)
 
 Now we're ready to provision our **API Management Service**.
 
@@ -138,7 +138,7 @@ Now we're ready to provision our **API Management Service**.
 
 ## Steps
 
-In Azure, find in the Search Bar **API Management Service** and click on it.
+In Azure, find in the Search bar **API Management Service** and click on it.
 
 Click **Create** and let's start to create the Service.
 
