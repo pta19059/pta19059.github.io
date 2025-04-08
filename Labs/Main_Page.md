@@ -31,4 +31,4 @@ The following are required to complete the labs:
 
 | Choose your Lab |
 |---|
-| [Azure Front Door - APIM - App Service - Lab1](https://pta19059.github.io/Labs/AzureFrontDoorAPIMAppServiceLab1) |
+| <a href="https://pta19059.github.io/Labs/AzureFrontDoorAPIMAppServiceLab1" target="_blank" rel="noopener noreferrer">**Azure Front Door - APIM - App Service - Lab1**</a> |
