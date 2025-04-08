@@ -100,14 +100,22 @@ Now let's start to deploy our App service and below I'll provide step-by-step to
 
 ![](images/AppServiceAzure.jpg)
 
-Click on **Create** button and let's start the creation process. 
+Click on **Create** button and let's start the creation process.
+
 Select **Web App** on the menu that will appear.
+
 Select Resource Group (**project-integration-001**) , provide a name for your Web App.
+
 In the Runtime Stack --> Select **Node 22 TLS**. OS leaves selected **Linux**.
+
 Select the Region.
+
 In the Pricing Plans --> select **Free F1** for this Lab.
+
 Zone Redundancy leave Disabled for this Lab.
+
 Leave the Default options, only in the Networking part check if **Enable public access** is On.
+
 Then click **Review + create**. Wait until the deployment will be completed.
 
 ![](images/DeployWebApp.jpg)
@@ -118,8 +126,11 @@ Once the deployment is completed, you will land in the main page of your WebApp.
 
 
 Now let's deploy our test REST API. In order to do that, let's click under **Deployment --> Deployment Center**.
+
 For this lab, I used my personal GitHub Account and I connected it directly to my Web App for CI/CD.
+
 if you have a personal Github Account, you can simply create a Repo with the code provided and connect your GitHub Account to your Web App. 
+
 Github Actions will do the job for you.
 
 ![](images/DeploymentCenterAppService.png)
