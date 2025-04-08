@@ -6,7 +6,7 @@ url: "https://pta19059.github.io"
 permalink: pretty
 
 # Build settings
-theme: minima # o un altro tema se ne stai usando uno diverso
+# theme: minima # o un altro tema se ne stai usando uno diverso
 
 # Plugins (opzionale, solo se necessario)
 plugins:
