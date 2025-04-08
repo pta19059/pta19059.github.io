@@ -21,12 +21,11 @@ Dive in and enjoy the learning journey!
 
 The following are required to complete the labs:
 
- **Azure Subscription** -  [pricing](https://azure.microsoft.com/pricing/details/container-apps/)
-
- **Azure CLI** - this can be used either:
-  * locally [install instructions](https://docs.microsoft.com/cli/azure/install-azure-cli).
-  * accesed via the [cloud Shell](https://shell.azure.com).
-  * Visual Studio Code - [VSCode](https://code.visualstudio.com/)
+| Resource | Description | Access/Installation |
+|---|---|---|
+| Azure Subscription - Pricing | Information about Azure subscription options and pricing models. |  |
+| Azure CLI | Command-line tool for managing Azure resources. | Locally install instructions or accessed via the Cloud Shell. |
+| Visual Studio Code (VSCode) | Code editor with Azure extensions for managing Azure resources. |  |
 
 
 ## Labs Episodes
