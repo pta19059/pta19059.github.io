@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Main Page"
-permalink: /
+permalink: /Main_Page/
 ---
 
 # Welcome to Azure Labs - Episodes
