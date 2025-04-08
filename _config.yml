@@ -1,5 +1,5 @@
 title: "Il mio sito Labs"
-baseurl: "/Labs" # nome del tuo repository, se il sito è ospitato in una sottocartella
+baseurl: "/" # nome del tuo repository, se il sito è ospitato in una sottocartella
 url: "https://pta19059.github.io"
 
 # Permalink settings
