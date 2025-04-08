@@ -19,8 +19,6 @@ Each lab will guide you step-by-step through exploring and understanding Azure t
 
 Enjoy learning and experimenting!
 
-[Labs Page]({{ "/Main_Page/" | relative_url }})
-
-| Name |
+| Have a fun! |
 |---|
 | [Labs Page]({{ "/Main_Page/" | relative_url }}) |
