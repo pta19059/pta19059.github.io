@@ -22,6 +22,7 @@ Dive in and enjoy the learning journey!
 The following are required to complete the labs:
 
  **Azure Subscription** -  [pricing](https://azure.microsoft.com/pricing/details/container-apps/)
+ 
  **Azure CLI** - this can be used either:
   * locally [install instructions](https://docs.microsoft.com/cli/azure/install-azure-cli).
   * accesed via the [cloud Shell](https://shell.azure.com).
