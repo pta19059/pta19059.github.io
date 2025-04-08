@@ -1,0 +1,13 @@
+title: "Il mio sito Labs"
+baseurl: "/Labs" # nome del tuo repository, se il sito è ospitato in una sottocartella
+url: "https://pta19059.github.io"
+
+# Permalink settings
+permalink: pretty
+
+# Build settings
+theme: minima # o un altro tema se ne stai usando uno diverso
+
+# Plugins (opzionale, solo se necessario)
+plugins:
+  - jekyll-feed
