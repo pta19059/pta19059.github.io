@@ -72,7 +72,7 @@ const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Endpoint di esempio
+// Example endpoint
 app.get('/api/users/:id', (req, res) => {
   const userId = req.params.id;
   res.json({
@@ -82,7 +82,7 @@ app.get('/api/users/:id', (req, res) => {
   });
 });
 
-// Avvia il server
+// Start the server
 app.listen(port, () => {
   console.log(`API simulata in ascolto alla porta ${port}`);
 });
