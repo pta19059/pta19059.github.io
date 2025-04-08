@@ -5,7 +5,7 @@ slug: /
 sidebar_label: 'Introduction'
 ---
 
-
+<img src="images/BannerMicro.jpg">
 
 
 <div style="display: flex;">
