@@ -1,6 +1,5 @@
 ---
 layout: default
-title: ""
 permalink: /Main_Page/
 ---
 
