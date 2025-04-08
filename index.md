@@ -6,8 +6,8 @@ sidebar_label: 'Introduction'
 ---
 
 <div style="display: flex;">
-  <img src="images/hello.png" alt="Description" width="200" height="150" style="margin-right: 10px;"/>
-  <img src="images/hello2.png" alt="Description" width="200" height="150"/>
+  <img src="images/hello.png" alt="Description" width="200" height="230" style="margin-right: 10px;"/>
+  <img src="images/hello2.jpg" alt="Description" width="200" height="230"/>
 </div>
 
 # Welcome!
