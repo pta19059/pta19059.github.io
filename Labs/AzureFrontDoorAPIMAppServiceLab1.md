@@ -129,7 +129,7 @@ Now let's deploy our test REST API. In order to do that, let's click under **Dep
 
 For this lab, I used my personal GitHub Account and I connected it directly to my Web App for CI/CD.
 
-if you have a personal Github Account, you can simply create a Repo with the code provided and connect your GitHub Account to your Web App. 
+if you have a personal Github Account, you can simply create a Repo (or Clone it) with the code provided and connect your GitHub Account to your Web App. 
 
 Github Actions will do the job for you.
 
