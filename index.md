@@ -23,4 +23,4 @@ Enjoy learning and experimenting!
 
 | Name |
 |---|
-| [![Labs Page]({{ "/Main_Page/" | relative_url }})]({{ "/Main_Page/" | relative_url }}) |
+| [Labs Page]({{ "/Main_Page/" | relative_url }}) |
