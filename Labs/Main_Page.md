@@ -23,13 +23,13 @@ The following are required to complete the labs:
 
 | Resources |
 |---|---|
-| **Azure Subscription** - [pricing](https://azure.microsoft.com/pricing/details/container-apps/) |  |
-| **Azure CLI** - this can be used either:  * locally [install instructions](https://docs.microsoft.com/cli/azure/install-azure-cli).  * accessed via the [cloud Shell](https://shell.azure.com)*. |  |
-| **Visual Studio Code** - [VSCode](https://code.visualstudio.com/) |  |
+| **Azure Subscription** - [pricing](https://azure.microsoft.com/pricing/details/container-apps/) |  
+| **Azure CLI** - this can be used either:  * locally [install instructions](https://docs.microsoft.com/cli/azure/install-azure-cli).  * accessed via the [cloud Shell](https://shell.azure.com)*. |  
+| **Visual Studio Code** - [VSCode](https://code.visualstudio.com/) |  
 
 
 ## Labs Episodes
 
-| Lab Links |
+| Choose your Lab |
 |---|
 | [Azure Front Door - APIM - App Service - Lab1](https://pta19059.github.io/Labs/AzureFrontDoorAPIMAppServiceLab1) |
