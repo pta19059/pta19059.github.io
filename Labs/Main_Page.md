@@ -30,6 +30,6 @@ The following are required to complete the labs:
 
 ## Labs Episodes
 
-| Lab Episodes |
+| Lab Links |
 |---|
 | [Azure Front Door - APIM - App Service - Lab1](https://pta19059.github.io/Labs/AzureFrontDoorAPIMAppServiceLab1) |
