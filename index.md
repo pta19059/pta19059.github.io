@@ -11,7 +11,7 @@ sidebar_label: 'Introduction'
 
 Hi, I'm **Stefano Sguotti**, **Digital Technical Specialist in App Innovation** here in Microsoft.
 
-In my role, I assist **developers, architects, and organizations** in leveraging Microsoft Azure cloud services to build modern, scalable, and secure applications.
+In my role, I assist **developers, architects, and organizations** in leveraging **Microsoft Azure cloud services** to build modern, scalable, and secure applications.
 
 The purpose of the labs I'm creating is to help you get **hands-on experience** and build confidence with various Azure services in a practical and straightforward way.
 
