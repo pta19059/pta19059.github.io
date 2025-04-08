@@ -1,8 +1,7 @@
 ---
-sidebar_position: 0
-id: welcome
-slug: /
-sidebar_label: 'Welcome'
+layout: default
+title: "Main Page"
+permalink: /
 ---
 
 # Welcome to Azure Labs - Episodes
