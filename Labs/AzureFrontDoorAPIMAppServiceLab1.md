@@ -147,6 +147,15 @@ Now we're ready to provision our **API Management Service**.
 
 ## Deploy API Management Service 
 
+## Best Practices APIM
+<details>
+
+This document summarizes best practices for using APIM Service. More detailed information can be found at the following link:
+
+- [Configuration recommendations - Microsoft Docs](https://learn.microsoft.com/en-us/azure/well-architected/service-guides/api-management/operational-excellence#configuration-recommendations)
+
+</details>
+
 ## Steps
 
 In Azure, find in the Search bar **API Management Service** and click on it.
