@@ -237,20 +237,26 @@ Now we have set up **API Management Service** and **App Service**. Let's now as 
 
 ## Deploy Azure Front Door
 
-## Steps
-
-<details>
-  <summary>Best practices for Front Door</summary>
-
-   This summarizes best practices for using Azure Front Door.
-
-   [Google](https://learn.microsoft.com/en-us/azure/frontdoor/best-practices)
-
-</details>
-
-
 We're going to deploy Azure Front Door but for the scope of this Lab we'll deploy it using basic configurations. 
 We'll explain as well how to put some common Best Practice to secure the service.
+
+<details>
+  <summary><strong>Best Practices for Azure Front Door</strong></summary>
+
+  This document summarizes best practices for using Azure Front Door. More detailed information can be found in the following link:
+
+  - [Azure Front Door Best Practices - Microsoft Docs](https://learn.microsoft.com/en-us/azure/frontdoor/best-practices)
+
+  **Key Recommendations:**
+  - Enable HTTPS and use custom domain names.
+  - Use Web Application Firewall (WAF) policies to protect your endpoints.
+  - Implement caching strategies effectively.
+  - Monitor your service health and usage regularly.
+  - Ensure secure backend communications.
+  - Regularly review and update security policies.
+</details>
+
+## Steps
 
 In your search bar, find out **"Front Doors"** and when you find it click on **Create** to start the provisioning.
 For this Lab, let's keep the default Settings and **click Continue to create a Front Door**.
