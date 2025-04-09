@@ -242,9 +242,9 @@ Now we have set up **API Management Service** and **App Service**. Let's now as 
 <details>
   <summary>Best practices for Front Door</summary>
    This summarizes best practices for using Azure Front Door.
-   [Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/best-practices)
-
+   <a href="https://learn.microsoft.com/en-us/azure/frontdoor/best-practices">Azure Front Door BP/a>
 </details>
+
 
 We're going to deploy Azure Front Door but for the scope of this Lab we'll deploy it using basic configurations. 
 We'll explain as well how to put some common Best Practice to secure the service.
