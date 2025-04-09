@@ -64,6 +64,17 @@ By the end of this lab, you'll have a solid understanding of how these services 
 
 ## Deploy App Service
 
+## Best Practices App Service
+<details>
+
+This document summarizes best practices for using App Service. 
+
+More detailed information can be found at the following link:
+
+- [Deployment best practices - Microsoft Docs](https://learn.microsoft.com/en-us/azure/app-service/deploy-best-practices)
+
+</details>
+
 We're going to deploy our App Service that will host our test REST API. 
 For your REST API we're going to use this sample code:
 
