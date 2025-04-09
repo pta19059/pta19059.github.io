@@ -240,7 +240,7 @@ We're going to deploy Azure Front Door, but for the scope of this lab we'll depl
 
 ## Best Practices Azure Front Door
 <details>
-<summary>Session Information</summary>
+
 This document summarizes best practices for using Azure Front Door. More detailed information can be found at the following link:
 
 - [Azure Front Door Best Practices - Microsoft Docs](https://learn.microsoft.com/en-us/azure/frontdoor/best-practices)
