@@ -239,15 +239,11 @@ Now we have set up **API Management Service** and **App Service**. Let's now as 
 
 ## Steps
 
-## Expandable Section Example
-
 <details>
-  <summary>Click here to expand!</summary>
+  <summary>Best practices for Front Door</summary>
+   This summarizes best practices for using Azure Front Door.
+   https://learn.microsoft.com/en-us/azure/frontdoor/best-practices
 
-  This content is hidden by default and is displayed when the summary is clicked.
-
-  - You can put any Markdown or HTML here
-  - Lists, images, code snippets, etc.
 </details>
 
 We're going to deploy Azure Front Door but for the scope of this Lab we'll deploy it using basic configurations. 
