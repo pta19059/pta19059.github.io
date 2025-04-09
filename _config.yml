@@ -5,8 +5,14 @@ url: "https://pta19059.github.io"
 # Permalink settings
 permalink: pretty
 
+# Markdown processor settings
+markdown: kramdown
+
+kramdown:
+  parse_block_html: true
+
 # Build settings
-# theme: minima # o un altro tema se ne stai usando uno diverso
+# theme: minima # o un altro tema, se ne stai usando uno diverso
 
 # Plugins (opzionale, solo se necessario)
 plugins:
