@@ -56,7 +56,7 @@ Once Finished to review all the tabs, **Click Review + create**.
 ![](images/RG.jpg)
 
 
-## Start Create your Resources (Azure Front Door,APIM,App Service)
+## Start Create your Resources (Azure Front Door - APIM - App Service)
 
 Before to deploy the entire architecture (as described in our Lab Architecture Diagram),our primary focus will be on deploying the following components:
 
