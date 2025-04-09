@@ -3,7 +3,6 @@ sidebar_position: 0
 id: welcome
 slug: /
 sidebar_label: 'Welcome'
-markdown: kramdown
 ---
 
 ![](images/microsoft-azure-image-banner-800-optimized.jpg)
