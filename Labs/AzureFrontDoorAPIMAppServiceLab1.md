@@ -81,10 +81,10 @@ More detailed information can be found at the following link:
 
 </details>
 
-## Steps
-We're going to deploy our App Service that will host our test **REST API**.
+## REST API Code
+We're going to deploy our **App Service** that will host our test **REST API**.
 
-For your REST API we're going to use this sample code:
+For your **REST API** we're going to use this **sample code**:
 
 ```
 const express = require('express');
@@ -119,21 +119,21 @@ Now let's start to deploy our App service and below I'll provide step-by-step to
 
 ![](images/AppServiceAzure.jpg)
 
-Click on **Create** button and let's start the creation process.
+- Click on **Create** button and let's start the creation process.
 
-Select **Web App** on the menu that will appear.
+- Select **Web App** on the menu that will appear.
 
-Select Resource Group (**project-integration-001**) , provide a name for your Web App.
+- Select **Resource Group** (**project-integration-001**) , provide a **name** for your Web App.
 
-In the **Runtime Stack** --> Select **Node 22 TLS**. OS leaves selected **Linux**.
+- In the **Runtime Stack** --> Select **Node 22 TLS**. **OS** leaves selected **Linux**.
 
-Select the **Region**.
+- Select the **Region**.
 
-In the **Pricing Plans** --> select **Free F1** for this Lab.
+- In the **Pricing Plans** --> select **Free F1** for this Lab.
 
-**Zone Redundancy** leaves **disabled** for this Lab.
+- **Zone Redundancy** leaves **disabled** for this Lab.
 
-Leave the **Default options**, only in the Networking part check if **Enable public access** is **On**.
+- Leave the **Default options**, only in the Networking part check if **Enable public access** is **On**.
 
 Then click **Review + create**. Wait until the deployment will be completed.
 
@@ -148,7 +148,7 @@ Now let's deploy our test **REST API**. In order to do that, let's click under *
 
 For this lab, I used my personal **GitHub Account** and I connected it directly to my Web App for **CI/CD**.
 
-if you have a **personal Github Account**, you can simply create a Repo (or Clone it) with the code provided and connect your GitHub Account to your Web App. 
+if you have a **personal Github Account**, you can simply create a **Repo (or Clone it)** with the code provided and connect your GitHub Account to your Web App. 
 
 Github Actions will do the job for you.
 
@@ -179,15 +179,15 @@ More detailed information can be found at the following link:
 
 ## Steps
 
-In Azure, find in the Search bar **API Management Service** and click on it.
+- In Azure, find in the Search bar **API Management Service** and click on it.
 
-Click **Create** and let's start to create the Service.
+- Click **Create** and let's start to create the Service.
 
-Select the **Resource Group** (**project-integration-001**), Region and provide a Resource Name.
+- Select the **Resource Group** (**project-integration-001**), Region and provide a Resource Name.
 
-For the **Organization name / Administrator email**, provide a **name** and an **email** (these fields are used for the Developer Portal and for email notifications).
+- For the **Organization name / Administrator email**, provide a **name** and an **email** (these fields are used for the Developer Portal and for email notifications).
 
-**Pricing Tier** , for this Lab use **Developer (no SLA)**.
+- **Pricing Tier** , for this Lab use **Developer (no SLA)**.
 
 Finally, click **Review + create**.
 
@@ -197,27 +197,27 @@ When deployment is completed (you have to wait a couple of minutes), you will la
 
 We are now going to create a simple **GET API (GET UserId)** where when we input a **userid** we'll get a response from our backend (our App Service) with the JSON tested before in our Web App.
 
-Under **APIs** -- Click **APIs** and then **Add API** . Select then **HTTP Manually define an HTTP API**.
+- Under **APIs** -- Click **APIs** and then **Add API** . Select then **HTTP Manually define an HTTP API**.
 
-In the Window of the creation of the HTTP API, click the tab **Full**.
+- In the Window of the creation of the HTTP API, click the tab **Full**.
 
-Input a Display name and in the Web Service URL use the Default domain name of your App Service deployed (**https://xxxxxxxxxxxxxx.centralus-01.azurewebsites.net**).
+- Input a Display name and in the Web Service URL use the Default domain name of your App Service deployed (**https://xxxxxxxxxxxxxx.centralus-01.azurewebsites.net**).
 
-URL Scheme leaves **HTTPS**.
+- URL Scheme leaves **HTTPS**.
 
-In the API URL Suffix, input **api/users**.
+- In the API URL Suffix, input **api/users**.
 
-Leave the **Default Settings** and then click **Create**.
+- Leave the **Default Settings** and then click **Create**.
 
 Once the API is deployed, in the Settings Tab deselect for now **Subscription required**.
 
 ![](images/APISettings.jpg)
 
-In the Design tab, add an operation and call it **GET UserId**.
+- In the Design tab, add an operation and call it **GET UserId**.
 
-URL select GET and input **/{UserId}**.
+- URL select GET and input **/{UserId}**.
 
-Click **ALL Operations**, and in the **inbound processing tab** add this policy (remember to replace the backend service base-url with yours Domain name of your App Service)
+- Click **ALL Operations**, and in the **inbound processing tab** add this policy (remember to replace the backend service base-url with yours Domain name of your App Service)
 
 
 ```
@@ -256,7 +256,7 @@ At the end, all settings should looks like as per image below:
 
 Now we need to test our **API** in **APIM**.
 
-Click on **Test** Tab , and input in UserId **123**.
+- Click on **Test** Tab , and input in UserId **123**.
 
 When you click **Send** you should receive **200 OK** with the JSON message.
 
@@ -288,21 +288,21 @@ This document summarizes best practices for using Azure Front Door. More detaile
 
 ## Steps
 
-In your search bar, find out **"Front Doors"** and when you find it click on **Create** to start the provisioning.
+- In your search bar, find out **"Front Doors"** and when you find it click on **Create** to start the provisioning.
 
-For this Lab, let's keep the default Settings and **click Continue to create a Front Door**.
+- For this Lab, let's keep the default Settings and **click Continue to create a Front Door**.
 
-Select **Resource Group** (**project-integration-001**).
+- Select **Resource Group** (**project-integration-001**).
 
-Provide a **name** for your Front Door Service.
+- Provide a **name** for your Front Door Service.
 
-**Tier**, select **Standard** for this Lab.
+- **Tier**, select **Standard** for this Lab.
 
-**Endpoint name** - Provide a name (apim-gateway, etc.). it will be generated the Endpoint hostname automatically.
+- **Endpoint name** - Provide a name (apim-gateway, etc.). it will be generated the Endpoint hostname automatically.
 
-Origin Type, select **API Management**.
+- Origin Type, select **API Management**.
 
-**Origin host name**, select your APIM service from the list.
+- **Origin host name**, select your APIM service from the list.
 
 Click **Review + create**.
 
