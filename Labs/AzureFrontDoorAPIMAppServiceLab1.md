@@ -255,6 +255,8 @@ This document summarizes best practices for using Azure Front Door. More detaile
 - Regularly review and update security policies.
 </details>
 
+## 
+
 ## Steps
 
 In your search bar, find out **"Front Doors"** and when you find it click on **Create** to start the provisioning.
