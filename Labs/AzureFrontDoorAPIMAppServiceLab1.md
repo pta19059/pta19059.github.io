@@ -234,31 +234,24 @@ When you click **Send** you should receive **200 OK** with the JSON message.
 
 Now we have set up **API Management Service** and **App Service**. Let's now as a final step to deploy **Azure Front Door** in front of APIM.
 
-
 ## Deploy Azure Front Door
 
-We're going to deploy Azure Front Door but for the scope of this Lab we'll deploy it using basic configurations. 
-We'll explain as well how to put some common Best Practice to secure the service.
+We're going to deploy Azure Front Door, but for the scope of this lab we'll deploy it using basic configurations. We'll also explain how to implement some common best practices to secure the service.
 
 <details>
   <summary><strong>Best Practices for Azure Front Door</strong></summary>
 
-  This document summarizes best practices for using Azure Front Door. More detailed information can be found in the following link:
+  This document summarizes best practices for using Azure Front Door. More detailed information can be found at the following link:
 
   - [Azure Front Door Best Practices - Microsoft Docs](https://learn.microsoft.com/en-us/azure/frontdoor/best-practices)
 
   **Key Recommendations:**
 
   - Enable HTTPS and use custom domain names.
-  
   - Use Web Application Firewall (WAF) policies to protect your endpoints.
-  
   - Implement caching strategies effectively.
-  
   - Monitor your service health and usage regularly.
-  
   - Ensure secure backend communications.
-  
   - Regularly review and update security policies.
 </details>
 
