@@ -32,8 +32,8 @@ By the end of this lab, you'll have a solid understanding of how these services 
 
 ## Login to Azure
 
-* Login to Azure.
-* Check if you're using the correct subscription.
+* Login to **Azure**.
+* Check if you're using the correct **Subscription**.
 
 ![](images/AzureLogin.jpg)
 
@@ -41,13 +41,15 @@ By the end of this lab, you'll have a solid understanding of how these services 
 
 ## Create a Resource Group for your Lab
 
-Create a Resource Group and provide name,select the Region and your subscription to provision it.
+Create a **Resource Group** and provide name, select the **Region** and your **Subscription** to provision it.
 
 For this Lab we'll use **project-integration-001**.
 
 A **resource group** in Azure is a logical container that holds related resources for an Azure solution. 
 
-These resources include virtual machines, databases, and virtual networks, among others. Resource groups help manage and organize resources based on their lifecycle and security.
+These resources include virtual machines, databases, and virtual networks, among others. 
+
+**Resource groups** help manage and organize resources based on their lifecycle and security.
 
 Once Finished to review all the tabs, **Click Review + create**.
 
@@ -60,15 +62,11 @@ Before to deploy the entire architecture (as described in our Lab Architecture D
 
 ## Overview
 
-| **Service** | **Description** | **Official Documentation** |
-|-------------|-----------------|----------------------------|
-| **Azure Front Door** | This will serve as the entry point for our application. Azure Front Door is a scalable and secure entry point for fast delivery of your global, mission-critical applications. It provides global load balancing, SSL offloading, and application acceleration to ensure high availability and performance. | [Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview) |
-| **API Management (APIM)** | Azure Front Door will route traffic to the APIM, which acts as a gateway to manage, secure, and monitor APIs. | [API Management](https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts) |
-| **App Service** | The APIM will then route traffic to the App Service, where a REST API is hosted. The App Service provides a fully managed platform for building, deploying, and scaling web applications. | [App Service](https://learn.microsoft.com/en-us/azure/app-service/overview) |
-
-Throughout this lab, you'll learn how to configure each service and connect them to create a secure, scalable, and manageable application. 
-By the end of this lab, you'll have a solid understanding of how these services work together to build modern cloud applications.
-
+| **Service** | **Description** | **Official Documentation** | **Video Resources** |
+|-------------|-----------------|----------------------------|---------------------|
+| **Azure Front Door** | This will serve as the entry point for our application. Azure Front Door is a scalable and secure entry point for fast delivery of your global, mission-critical applications. It provides global load balancing, SSL offloading, and application acceleration to ensure high availability and performance. | [Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview) | [Azure Front Door](https://www.youtube.com/watch?v=DHiZbIks9i0&t=1537s) |
+| **API Management (APIM)** | Azure Front Door will route traffic to the APIM, which acts as a gateway to manage, secure, and monitor APIs. | [API Management](https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts) | [APIM Deep Dive](https://www.youtube.com/watch?v=PXtFq5wmGt0&t=1154s) |
+| **App Service** | The APIM will then route traffic to the App Service, where a REST API is hosted. The App Service provides a fully managed platform for building, deploying, and scaling web applications. | [App Service](https://learn.microsoft.com/en-us/azure/app-service/overview) | [App Service](https://www.youtube.com/watch?v=4BwyqmRTrx8&t=50s) |
 
 ## Deploy App Service
 
@@ -84,7 +82,8 @@ More detailed information can be found at the following link:
 </details>
 
 ## Steps
-We're going to deploy our App Service that will host our test REST API. 
+We're going to deploy our App Service that will host our test **REST API**.
+
 For your REST API we're going to use this sample code:
 
 ```
@@ -116,7 +115,7 @@ Now let's start to deploy our App service and below I'll provide step-by-step to
 
 **Provision App Service**
 
-* Go to the Azure Portal --> find **App Service**.
+* Go to the **Azure Portal** --> find out **App Service**.
 
 ![](images/AppServiceAzure.jpg)
 
@@ -126,15 +125,15 @@ Select **Web App** on the menu that will appear.
 
 Select Resource Group (**project-integration-001**) , provide a name for your Web App.
 
-In the Runtime Stack --> Select **Node 22 TLS**. OS leaves selected **Linux**.
+In the **Runtime Stack** --> Select **Node 22 TLS**. OS leaves selected **Linux**.
 
-Select the Region.
+Select the **Region**.
 
-In the Pricing Plans --> select **Free F1** for this Lab.
+In the **Pricing Plans** --> select **Free F1** for this Lab.
 
-Zone Redundancy leave Disabled for this Lab.
+**Zone Redundancy** leaves **disabled** for this Lab.
 
-Leave the Default options, only in the Networking part check if **Enable public access** is On.
+Leave the **Default options**, only in the Networking part check if **Enable public access** is **On**.
 
 Then click **Review + create**. Wait until the deployment will be completed.
 
@@ -145,11 +144,11 @@ Once the deployment is completed, you will land in the main page of your WebApp.
 ![](images/mainpageappservice.jpg)
 
 
-Now let's deploy our test REST API. In order to do that, let's click under **Deployment --> Deployment Center**.
+Now let's deploy our test **REST API**. In order to do that, let's click under **Deployment --> Deployment Center**.
 
-For this lab, I used my personal GitHub Account and I connected it directly to my Web App for CI/CD.
+For this lab, I used my personal **GitHub Account** and I connected it directly to my Web App for **CI/CD**.
 
-if you have a personal Github Account, you can simply create a Repo (or Clone it) with the code provided and connect your GitHub Account to your Web App. 
+if you have a **personal Github Account**, you can simply create a Repo (or Clone it) with the code provided and connect your GitHub Account to your Web App. 
 
 Github Actions will do the job for you.
 
@@ -159,18 +158,18 @@ Github Actions will do the job for you.
 
 ![](images/GithubActions.jpg)
 
-To test your REST API, open a new page in your browser and copy your Default Domain and add **/api/users/123** at the end.
+To test your **REST API**, open a new page in your browser and copy your Default Domain and add **/api/users/123** at the end.
 
 ![](images/restapi.jpg)
 
-Now we're ready to provision our **API Management Service**.
+If you see the output, Good Job! Now we're ready to provision our **API Management Service**.
 
 ## Deploy API Management Service 
 
 ## Best Practices APIM
 <details>
 
-This document summarizes best practices for using APIM Service. 
+This document summarizes best practices for using **APIM Service**. 
 
 More detailed information can be found at the following link:
 
@@ -186,9 +185,9 @@ Click **Create** and let's start to create the Service.
 
 Select the **Resource Group** (**project-integration-001**), Region and provide a Resource Name.
 
-For the Organization name / Administrator email, provide a name and an email (these fields are used for the Developer Portal and for email notifications).
+For the **Organization name / Administrator email**, provide a **name** and an **email** (these fields are used for the Developer Portal and for email notifications).
 
-Pricing Tier , for this Lab use **Developer (no SLA)**.
+**Pricing Tier** , for this Lab use **Developer (no SLA)**.
 
 Finally, click **Review + create**.
 
@@ -196,7 +195,7 @@ Finally, click **Review + create**.
 
 When deployment is completed (you have to wait a couple of minutes), you will land to the APIM main page.
 
-We are now going to create a simple GET API (GET UserId) where when we input a userID we'll get a response from our backend (our App Service) with the JSON tested before in our Web App.
+We are now going to create a simple **GET API (GET UserId)** where when we input a **userid** we'll get a response from our backend (our App Service) with the JSON tested before in our Web App.
 
 Under **APIs** -- Click **APIs** and then **Add API** . Select then **HTTP Manually define an HTTP API**.
 
@@ -208,7 +207,7 @@ URL Scheme leaves **HTTPS**.
 
 In the API URL Suffix, input **api/users**.
 
-Leave the Default Settings and then click Create.
+Leave the **Default Settings** and then click **Create**.
 
 Once the API is deployed, in the Settings Tab deselect for now **Subscription required**.
 
@@ -218,7 +217,7 @@ In the Design tab, add an operation and call it **GET UserId**.
 
 URL select GET and input **/{UserId}**.
 
-Click **ALL Operations**, and in the inbound processing tab add this policy (remember to replace the backend service base-url with yours Domain name of your App Service)
+Click **ALL Operations**, and in the **inbound processing tab** add this policy (remember to replace the backend service base-url with yours Domain name of your App Service)
 
 
 ```
@@ -246,7 +245,7 @@ Click **ALL Operations**, and in the inbound processing tab add this policy (rem
 ```
 Click **Save**.
 
-In the Backend, Select **HTTP(s) endpoint** and add your Service URL that will be your domain name of your App Service ).
+In the Backend, Select **HTTP(s) endpoint** select **Override** option and add your Service URL that will be your domain name of your App Service.
 
 ![](images/BackendAPIM.jpg)
 
@@ -255,15 +254,16 @@ At the end, all settings should looks like as per image below:
 ![](images/APIMallsettings.jpg)
 
 
-Now we need to test our API in APIM.
+Now we need to test our **API** in **APIM**.
 
-Click on **Test** Tab , and input in UserId 123. 
+Click on **Test** Tab , and input in UserId **123**.
+
 When you click **Send** you should receive **200 OK** with the JSON message.
 
 ![](images/JSONAPIM.jpg) 
 
 
-Now we have set up **API Management Service** and **App Service**. Let's now as a final step to deploy **Azure Front Door** in front of APIM.
+Good Job! Now we have set up **API Management Service** and **App Service**. Let's now as a final step to deploy **Azure Front Door** in front of APIM.
 
 ## Deploy Azure Front Door
 
@@ -289,34 +289,35 @@ This document summarizes best practices for using Azure Front Door. More detaile
 ## Steps
 
 In your search bar, find out **"Front Doors"** and when you find it click on **Create** to start the provisioning.
+
 For this Lab, let's keep the default Settings and **click Continue to create a Front Door**.
 
-Select **Resource Group** (project-integration-001).
+Select **Resource Group** (**project-integration-001**).
 
-Provide a name for your Front Door Service.
+Provide a **name** for your Front Door Service.
 
-Tier, select **Standard** for this Lab.
+**Tier**, select **Standard** for this Lab.
 
-Endpoint name - Provide a name (apim-gateway, etc.). it will be generated the Endpoint hostname.
+**Endpoint name** - Provide a name (apim-gateway, etc.). it will be generated the Endpoint hostname automatically.
 
 Origin Type, select **API Management**.
 
-Origin host name, select your APIM service from the list.
+**Origin host name**, select your APIM service from the list.
 
 Click **Review + create**.
 
 ![](images/FDCreate.png)
 
-In the main page, once the deployment is completed take note about of the Endpoint hostname. We will use later to complete our lab.
+In the main page, once the deployment is completed take note about of the **Endpoint hostname**. We will use later to complete our lab.
 
-Click on the **Origin groups** tab on your left, verify in the **Origin host name** there is your APIM Service and in the Health Probes complete all the fields as per image below:
+Click on the **Origin groups** tab on your left, verify in the **Origin host name** there is your APIM Service and in the **Health Probes** complete all the fields as per image below:
 
 ![](images/OriginGroupsAFD.jpg)
 
 Then, click **Update**.
 
 
-Open a new browser, paste your endpoint hostname adding **api/users/123** at the end (it should be **https://xxxxxxxxxxxxxx.b01.azurefd.net/api/users/123**) and if you see the JSON good job you have completed this Lab testing out Azure Front Door, APIM and App Service. 
+Open a new browser, copy/paste your **Front Door endpoint hostname** adding **api/users/123** at the end (it should be **https://xxxxxxxxxxxxxx.b01.azurefd.net/api/users/123**) and if you see the JSON good job you have completed this Lab testing out Azure Front Door, APIM and App Service. 
 
 **Well Done!**
 
