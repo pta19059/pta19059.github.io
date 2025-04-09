@@ -9,7 +9,7 @@ sidebar_label: 'Welcome'
 
 ## Introduction
 
-Welcome to this hands-on lab exploring a powerful and scalable web application architecture on **Azure**! 
+Welcome to this **hands-on lab** exploring a powerful and scalable web application architecture on **Azure**! 
 
 In this lab, you'll learn how to integrate **Azure Front Door**, **API Management (APIM)**, and **App Service** to create a robust and globally distributed solution. 
 
