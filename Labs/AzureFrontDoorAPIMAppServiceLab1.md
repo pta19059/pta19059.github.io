@@ -75,7 +75,7 @@ More detailed information can be found at the following link:
 
 </details>
 
-
+## Steps
 We're going to deploy our App Service that will host our test REST API. 
 For your REST API we're going to use this sample code:
 
