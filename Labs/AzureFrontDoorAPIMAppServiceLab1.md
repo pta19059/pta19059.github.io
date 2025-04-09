@@ -238,7 +238,7 @@ Now we have set up **API Management Service** and **App Service**. Let's now as 
 
 We're going to deploy Azure Front Door, but for the scope of this lab we'll deploy it using basic configurations. We'll also explain how to implement some common best practices to secure the service.
 
-:::tip Best Practices for Azure Front Door
+<details>
 
 This document summarizes best practices for using Azure Front Door. More detailed information can be found at the following link:
 
@@ -252,7 +252,8 @@ This document summarizes best practices for using Azure Front Door. More detaile
 - Monitor your service health and usage regularly.
 - Ensure secure backend communications.
 - Regularly review and update security policies.
-:::
+
+</details>
 
 ## Steps
 
