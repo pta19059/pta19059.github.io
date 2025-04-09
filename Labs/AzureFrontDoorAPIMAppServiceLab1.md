@@ -244,8 +244,8 @@ Now we have set up **API Management Service** and **App Service**. Let's now as 
 
    This summarizes best practices for using Azure Front Door.
 
-   [Google] (https://learn.microsoft.com/en-us/azure/frontdoor/best-practices)
-   
+   [Google](https://learn.microsoft.com/en-us/azure/frontdoor/best-practices)
+
 </details>
 
 
