@@ -103,7 +103,7 @@ app.get('/api/users/:id', (req, res) => {
 
 // Start the server
 app.listen(port, () => {
-  console.log(`API simulata in ascolto alla porta ${port}`);
+  console.log(`Simulated API listening on the port ${port}`);
 });
 
 ```
