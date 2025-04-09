@@ -20,7 +20,8 @@ In this lab, you'll learn how to integrate **Azure Front Door**, **API Managemen
 **App Service** hosts your web application, providing a fully managed platform.
 
 This lab will guide you through configuring each service and connecting them to create a secure, scalable, and manageable application. 
-You'll learn how to leverage **Front Door** for dynamic request acceleration, **APIM** for API security and traffic management, and **App Service** for easy deployment and scaling of your web app. 
+You'll learn how to leverage **Front Door** for dynamic request acceleration, **APIM** for API security and traffic management, and **App Service** for easy deployment and scaling of your web app.
+
 By the end of this lab, you'll have a solid understanding of how these services work together to build modern cloud applications. 
 
 ## Lab Architecture Diagram
