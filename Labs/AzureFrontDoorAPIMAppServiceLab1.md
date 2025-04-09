@@ -248,11 +248,17 @@ We'll explain as well how to put some common Best Practice to secure the service
   - [Azure Front Door Best Practices - Microsoft Docs](https://learn.microsoft.com/en-us/azure/frontdoor/best-practices)
 
   **Key Recommendations:**
+
   - Enable HTTPS and use custom domain names.
+  
   - Use Web Application Firewall (WAF) policies to protect your endpoints.
+  
   - Implement caching strategies effectively.
+  
   - Monitor your service health and usage regularly.
+  
   - Ensure secure backend communications.
+  
   - Regularly review and update security policies.
 </details>
 
