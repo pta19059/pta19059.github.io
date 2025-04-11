@@ -104,10 +104,6 @@ When the process is completed in **Services-Repositories** in ACR you should see
 
 Now it's the time to deploy our Container using the feature in place in App Service.
 
-```
-az acr build --registry <name> --image xxxxxxxx.azurecr.io/docker-lab-container-html:latest --platform linux/amd64 .
-
-```
 - Step 1: Create a Linux plan (if it doesn't already exist)
 
 ```  
