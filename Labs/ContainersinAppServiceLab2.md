@@ -13,7 +13,7 @@ sidebar_label: 'Welcome'
 
 This lab demonstrates the process of containerizing a simple HTML web page and deploying it to Azure App Service. 
 
-The goal is to create a basic HTML page, package it within a **Docker container** that can run locally on a laptop, push the container image to **Azure Container Registry (ACR)**, and finally, deploy the application to Azure App Service using the container image. 
+The goal is to create a basic HTML page, package it within a **Docker container** that can run locally on a laptop, push the container image to **Azure Container Registry (ACR)**, and finally, deploy the application to **Azure App Service** using the container image. 
 
 This exercise showcases a common workflow for modern web application development and deployment, emphasizing the benefits of containerization for portability and consistency across different environments.
 
