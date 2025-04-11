@@ -28,3 +28,92 @@ Here's a breakdown of the key elements included:
 **Benefits**: Highlights the advantages of containerization (portability, consistency).
 **Target Audience**: Implies a target audience of developers interested in learning containerization and cloud deployment.
 
+## Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [VSCode](https://code.visualstudio.com/)
+- Create a **Resource Group** for your resources.
+
+
+## Lab Steps 
+
+First of all, clone this repo locally [html-container-lab](https://github.com/pta19059/html-container-lab).
+
+This is a basically a simple HTML page that will be used for our Lab.
+
+Next step is contanarizing it using Docker and nginx and have it running in our local system.
+
+For this lab, there is already a Dockerfile prepared so you don't have to create one.
+
+## Docker Commands
+
+- **Build the Image**
+
+- Open a Terminal (VS Code one for example).
+
+- Go to the directory you have cloned and where your Dockerfile resides.
+
+```
+docker build -t docker-lab-html-container .
+
+```
+- **Run the Container**
+
+```
+docker run -d -p 8080:80 --name docker-lab-container-html docker-lab-html-container 
+
+```
+
+Now you can open a browser and if you run http://localhost:8080 you can see your webpage!
+
+![](images/HTMLPage.jpg)
+
+
+- **Create an Azure Container Registry**
+
+- Go to **Azure**.
+- Search for **Container Registries**.
+- Click **Create**.
+
+![](images/ACRCreation.jpg)
+
+In the windows that appear, select the **Resource Group** you have created and give a **name** of your registry.
+
+Select **Location** and for this lab keeps as a **Pricing Plan - Standard.**
+
+Then click **Review + create**.
+
+**Docker Image built in ACR**
+
+In the folder you have cloned, inside it run the below command to build the image but this time directly in ACR.
+
+```
+az acr build --registry <name> --image xxxxxxxx.azurecr.io/docker-lab-container-html:latest --platform linux/amd64 .
+
+```
+
+When the process is completed in **Services-Repositories** in ACR you should see your image.
+
+![](images/RepoACR.jpg)
+
+
+## Deploy the Container in Container Apps
+
+Now it's the time to deploy our Container using the feature in place in App Service.
+
+```
+az acr build --registry <name> --image xxxxxxxx.azurecr.io/docker-lab-container-html:latest --platform linux/amd64 .
+
+```
+- Step 1: Create a Linux plan (if it doesn't already exist)
+  
+  az appservice plan create --name myLinuxPlan --resource-group appsvc_windows_centralus --sku B1 --is-linux
+  
+- Step 2: Create the Web App
+  
+  az webapp create --resource-group appsvc_windows_centralus --plan myLinuxPlan --name labhtmlcontainerWebApp11042025 --deployment-container-image-name stefanoacr.azurecr.io/docker-lab-container-html:latest
+
+```
+
+
+
