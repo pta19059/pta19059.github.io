@@ -26,7 +26,7 @@ Here's a breakdown of the key elements included:
 - Containerizing it with Docker.
 - Pushing the image to ACR.
 - Deploying to Azure App Service (using Container Feature).
-- 
+  
 **Benefits**: Highlights the advantages of containerization (portability, consistency).
 
 **Target Audience**: Implies a target audience of developers interested in learning containerization and cloud deployment.
