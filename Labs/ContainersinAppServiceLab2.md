@@ -106,14 +106,26 @@ az acr build --registry <name> --image xxxxxxxx.azurecr.io/docker-lab-container-
 
 ```
 - Step 1: Create a Linux plan (if it doesn't already exist)
-  
+
+```  
   az appservice plan create --name myLinuxPlan --resource-group appsvc_windows_centralus --sku B1 --is-linux
-  
+
+```  
 - Step 2: Create the Web App
-  
+
+``` 
   az webapp create --resource-group appsvc_windows_centralus --plan myLinuxPlan --name labhtmlcontainerWebApp11042025 --deployment-container-image-name stefanoacr.azurecr.io/docker-lab-container-html:latest
 
 ```
+
+After a couple of minutes, you will have your container deployed and running in App Service.
+
+![](images/ContainerrunningAppService.jpg)
+
+Now if you open a browser and run the Default Domain (https://labhtmlcontainerwebapp11042025.azurewebsites.net) you will have your HTML Page up and running!
+
+![](images/HTMLSiteAppService.jpg) 
+
 
 
 
