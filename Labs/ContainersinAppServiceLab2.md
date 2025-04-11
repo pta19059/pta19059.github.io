@@ -20,6 +20,7 @@ This exercise showcases a common workflow for modern web application development
 Here's a breakdown of the key elements included:
 
 **Purpose**: Clearly states the objective of the lab.
+
 **Steps**: Outlines the main stages of the lab:
 - Creating the HTML page.
 - Containerizing it with Docker.
