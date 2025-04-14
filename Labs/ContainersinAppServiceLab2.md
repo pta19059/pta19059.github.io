@@ -150,7 +150,7 @@ Now you'll have some **Warnings** that are displayed.
 
 - Leave **Container type** as **Single Container** and keep as a Registry source **ACR**.
 
-- In the **Registry Settings**, select **Managed Identity** .
+- In the **Registry Settings**, select **Managed Identity**.
 
 - **Identity** must be **System assigned**.
 
