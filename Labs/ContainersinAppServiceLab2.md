@@ -123,6 +123,10 @@ After a couple of minutes, you will have your container deployed and running in 
 
 ![](images/ContainerrunningAppService.jpg)
 
+- Click on the name of your container and verify in the window that will appear if the port is 80. Otherwise, input 80 and click Apply.
+
+![](images/Containerport.jpg) 
+
 Now if you open a browser and run the Default Domain (https://labhtmlcontainerwebapp11042025.azurewebsites.net) you will have your HTML Page up and running!
 
 ![](images/HTMLSiteAppService.jpg) 
