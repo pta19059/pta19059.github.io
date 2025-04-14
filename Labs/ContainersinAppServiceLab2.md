@@ -44,7 +44,7 @@ First of all, clone this repo locally [html-container-lab](https://github.com/pt
 
 This is a basically a simple HTML page that will be used for our Lab.
 
-Next step is contanarizing it using Docker and nginx and have it running in our local system.
+Next step is contanarizing it using **Docker** and **Nginx** and have it running in our local system.
 
 For this lab, there is already a Dockerfile prepared so you don't have to create one.
 
