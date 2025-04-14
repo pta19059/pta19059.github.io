@@ -179,3 +179,7 @@ Now if you open a browser and run the Default Domain (https://xxxxxxxxxxxxxx.azu
 **Well Done!** You have now completed this simple lab and yout obtained the basic knowledge to migrate a **simple HTML Page** in **App Service** using the **Container feature**!
 
 ![](images/yourock.gif)
+
+---
+
+*developed by **Stefano Sguotti - App Innovation Specialist WE***

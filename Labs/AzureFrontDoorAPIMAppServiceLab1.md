@@ -325,5 +325,9 @@ Open a new browser, copy/paste your **Front Door endpoint hostname** adding **ap
 
 ![](images/yourock.gif)
 
+---
+
+*developed by **Stefano Sguotti - App Innovation Specialist WE***
+
 
 

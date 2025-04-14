@@ -40,4 +40,4 @@ The following are required to complete the labs:
 
 ---
 
-*developed by Stefano Sguotti - App Innovation Specialist WE*
+*developed by **Stefano Sguotti - App Innovation Specialist WE***

@@ -28,3 +28,7 @@ Each lab will guide you **step-by-step** through exploring and understanding **A
 | Have a fun! |
 |---|
 | [Labs Page]({{ "/Main_Page/" | relative_url }}) |
+
+---
+
+*developed by **Stefano Sguotti - App Innovation Specialist WE***
