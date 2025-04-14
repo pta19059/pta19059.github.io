@@ -94,7 +94,7 @@ Then click **Review + create**.
 
 **Docker Image built in ACR**
 
-- Run **az acr login --name xxxxxx**.
+- Run **az acr login --name xxxxxx** command.
 
 In the folder you have cloned, inside it run the below command to build the image but this time directly in ACR.
 
