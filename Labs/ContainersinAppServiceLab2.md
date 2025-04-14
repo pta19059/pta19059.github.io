@@ -92,7 +92,7 @@ Select **Location** and for this lab keeps as a **Pricing Plan - Standard.**
 
 Then click **Review + create**.
 
-**Docker Image built in ACR**
+## Docker Image built in ACR
 
 - Run **az acr login** command.
   
