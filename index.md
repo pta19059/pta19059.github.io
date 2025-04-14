@@ -29,6 +29,8 @@ Each lab will guide you **step-by-step** through exploring and understanding **A
 |---|
 | [Labs Page]({{ "/Main_Page/" | relative_url }}) |
 
----
+<div style="text-align: right; font-style: italic;">
 
-*developed by **Stefano Sguotti - App Innovation Specialist WE***
+developed by Stefano Sguotti - App Innovation Specialist WE
+
+</div>
