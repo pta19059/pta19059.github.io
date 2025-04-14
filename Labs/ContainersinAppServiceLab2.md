@@ -78,7 +78,7 @@ Now you can open a browser and if you run **http://localhost:8080** you can see 
 ![](images/HTMLPage.jpg)
 
 
-**Create an Azure Container Registry**
+## Create an Azure Container Registry
 
 - Go to **Azure**.
 - Search for **Container Registries**.
