@@ -134,6 +134,8 @@ After a couple of minutes, you will have your WebApp deployed in App Service.
 
 ![](images/WebApp.jpg)
 
+- Click the name of the **WebApp** that you have deployed.
+
 - Click on **Deployment** --> **Deployment Center**.
 
 Now you'll have some **Warnings** that are displayed.
