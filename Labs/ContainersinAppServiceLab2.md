@@ -11,7 +11,7 @@ sidebar_label: 'Welcome'
 
 ![](images/containers-app-service.jpg)
 
-This lab demonstrates the process of containerizing a simple HTML web page and deploying it to Azure App Service. 
+This lab demonstrates the process of containerizing a simple ***HTML web page** and deploying it to **Azure App Service**. 
 
 The goal is to create a basic HTML page, package it within a **Docker container** that can run locally on a laptop, push the container image to **Azure Container Registry (ACR)**, and finally, deploy the application to **Azure App Service** using the container image. 
 
@@ -52,9 +52,11 @@ For this lab, there is already a Dockerfile prepared so you don't have to create
 
 - **Build the Image**
 
-- Open a Terminal (VS Code one for example).
+- Open a **Terminal** (VS Code one for example).
 
 - Go to the directory you have cloned and where your Dockerfile resides.
+
+![](images/VSfolder.jpg)
 
 ```
 docker build -t docker-lab-html-container .
@@ -67,12 +69,12 @@ docker run -d -p 8080:80 --name docker-lab-container-html docker-lab-html-contai
 
 ```
 
-Now you can open a browser and if you run http://localhost:8080 you can see your webpage!
+Now you can open a browser and if you run **http://localhost:8080** you can see your webpage!
 
 ![](images/HTMLPage.jpg)
 
 
-- **Create an Azure Container Registry**
+**Create an Azure Container Registry**
 
 - Go to **Azure**.
 - Search for **Container Registries**.
@@ -80,7 +82,7 @@ Now you can open a browser and if you run http://localhost:8080 you can see your
 
 ![](images/ACRCreation.jpg)
 
-In the windows that appear, select the **Resource Group** you have created and give a **name** of your registry.
+In the window that appear, select the **Resource Group** you have created and give a **name** of your registry.
 
 Select **Location** and for this lab keeps as a **Pricing Plan - Standard.**
 
@@ -102,18 +104,18 @@ When the process is completed in **Services-Repositories** in ACR you should see
 
 ## Deploy the Container in Container Apps
 
-Now it's the time to deploy our Container using the feature in place in App Service.
+Now it's the time to deploy our **Container** using the feature in place in **App Service**.
 
-- Step 1: Create a Linux plan (if it doesn't already exist)
+- Step 1: Create a **Linux plan** (if it doesn't already exist)
 
 ```  
-  az appservice plan create --name myLinuxPlan --resource-group appsvc_windows_centralus --sku B1 --is-linux
+  az appservice plan create --name myLinuxPlan --resource-group <name_RG> --sku B1 --is-linux
 
 ```  
 - Step 2: Create the Web App
 
 ``` 
-  az webapp create --resource-group appsvc_windows_centralus --plan myLinuxPlan --name labhtmlcontainerWebApp11042025 --deployment-container-image-name stefanoacr.azurecr.io/docker-lab-container-html:latest
+  az webapp create --resource-group <name_RG> --plan myLinuxPlan --name <name_WebApp> --deployment-container-image-name xxxxxxxxxx.azurecr.io/docker-lab-container-html:latest
 
 ```
 
@@ -125,6 +127,6 @@ Now if you open a browser and run the Default Domain (https://labhtmlcontainerwe
 
 ![](images/HTMLSiteAppService.jpg) 
 
+**Well Done!** You have now completed this simple lab and yout obtained the basic knowledge to migrate a **simple HTML Page** in **App Service** using the **Container feature**!
 
-
-
+![](images/yourock.gif)
