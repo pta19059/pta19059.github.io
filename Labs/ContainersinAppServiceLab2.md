@@ -11,7 +11,7 @@ sidebar_label: 'Welcome'
 
 ![](images/containers-app-service.jpg)
 
-This lab demonstrates the process of containerizing a simple ***HTML web page** and deploying it to **Azure App Service**. 
+This lab demonstrates the process of containerizing a simple **HTML web page** and deploying it to **Azure App Service**. 
 
 The goal is to create a basic HTML page, package it within a **Docker container** that can run locally on a laptop, push the container image to **Azure Container Registry (ACR)**, and finally, deploy the application to **Azure App Service** using the container image. 
 
