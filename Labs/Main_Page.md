@@ -29,6 +29,10 @@ The following are required to complete the labs:
 
 ## Labs Episodes
 
+> **⚠️ WARNING:**  
+> These labs are created solely for learning purposes.  
+> They must **NOT** be used in production environments.
+
 | Choose your Lab |
 |---|
 | <a href="https://pta19059.github.io/Labs/AzureFrontDoorAPIMAppServiceLab1" target="_blank" rel="noopener noreferrer">**Lab 1 - Azure Front Door - APIM - App Service**</a> |

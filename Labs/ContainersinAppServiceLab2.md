@@ -9,10 +9,6 @@ sidebar_label: 'Welcome'
 
 ## Introduction
 
-> **⚠️ WARNING:**  
-> These labs are created solely for learning purposes.  
-> They must **NOT** be used in production environments.
-
 ![](images/containers-app-service.jpg)
 
 This lab demonstrates the process of containerizing a simple ***HTML web page** and deploying it to **Azure App Service**. 
