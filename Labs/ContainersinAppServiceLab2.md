@@ -50,7 +50,7 @@ For this lab, there is already a Dockerfile prepared so you don't have to create
 
 ## Docker Commands
 
-- **Build the Image**
+**Build the Image**
 
 - Open a **Terminal** (VS Code one for example).
 
