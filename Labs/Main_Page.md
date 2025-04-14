@@ -12,9 +12,10 @@ Welcome to this comprehensive series of **hands-on labs** designed to help you u
 Whether you're a developer, architect, or IT professional, these labs will provide you with practical experience and knowledge to effectively use Azure in a variety of real-world scenarios.
 
 Throughout these labs, you'll explore different **Azure services**, learn how to integrate them into your projects, and get hands-on practice with common use cases that our customers often encounter. 
+
 By the end of this series, you'll be well-equipped to leverage Azure's powerful capabilities to build, deploy, and manage applications and services in the cloud.
 
-Dive in and enjoy the learning journey!
+**Dive in and enjoy the learning journey!**
 
 ![](images/1000034469.png)
 
