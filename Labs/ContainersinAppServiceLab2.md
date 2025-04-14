@@ -95,7 +95,7 @@ Then click **Review + create**.
 **Docker Image built in ACR**
 
 - Run **az acr login** command.
-- 
+  
 ```
 az acr login --name xxxxxx
 
