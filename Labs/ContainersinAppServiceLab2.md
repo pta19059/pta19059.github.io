@@ -180,6 +180,8 @@ Now if you open a browser and run the Default Domain (https://xxxxxxxxxxxxxx.azu
 
 ![](images/yourock.gif)
 
+---
+
 <div style="text-align: right; font-size: small; font-style: italic;">
 developed by <strong>Stefano Sguotti - App Innovation Specialist WE</strong>
 </div>

@@ -38,6 +38,8 @@ The following are required to complete the labs:
 | <a href="https://pta19059.github.io/Labs/AzureFrontDoorAPIMAppServiceLab1" target="_blank" rel="noopener noreferrer">**Lab 1 - Azure Front Door - APIM - App Service**</a> |
 |<a href="https://pta19059.github.io/Labs/ContainersinAppServiceLab2" target="_blank" rel="noopener noreferrer">**Lab 2 - Containers in App Service**</a> |
 
+---
+
 <div style="text-align: right; font-size: small; font-style: italic;">
 developed by <strong>Stefano Sguotti - App Innovation Specialist WE</strong>
 </div>
