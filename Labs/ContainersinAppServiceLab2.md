@@ -94,7 +94,7 @@ Then click **Review + create**.
 
 **Docker Image built in ACR**
 
-- Run az acr login --name <name>.
+- Run **az acr login --name <name>**.
 
 In the folder you have cloned, inside it run the below command to build the image but this time directly in ACR.
 
@@ -142,7 +142,7 @@ Now you'll have some **Warnings** that are displayed.
 
 - **Source** - keep **Container Registry** flagged.
 
-Leave **Container type** as **Single Container** and keep as a Registry source **ACR**.
+- Leave **Container type** as **Single Container** and keep as a Registry source **ACR**.
 
 - In the **Registry Settings**, select **Managed Identity** .
 
@@ -160,7 +160,9 @@ Using these settings, we configure our container app deployment model and regist
 
 - Click  **Restart** to update your app.
 
-Now you will have your container in the list, but it appears with a Status **Not available**. Wait a couple of minutes then refresh the page and you'll see it up and running.
+Now you will have your container in the list, but it appears with a Status **Not available**. 
+
+Wait a couple of minutes then refresh the page and you'll see it up and running.
 
 ![](images/ContainerrunningAppService.jpg)
 
