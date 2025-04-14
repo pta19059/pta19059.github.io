@@ -5,7 +5,7 @@ permalink: /Main_Page/
 
 # Welcome to Azure Labs - Episodes
 
-Hi there!
+Hi Folks!
 
 Welcome to this comprehensive series of **hands-on labs** designed to help you understand and master the various **Azure services**. Whether you're a developer, architect, or IT professional, these labs will provide you with practical experience and knowledge to effectively use Azure in a variety of real-world scenarios.
 
