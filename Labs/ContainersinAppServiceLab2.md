@@ -123,7 +123,7 @@ After a couple of minutes, you will have your container deployed and running in 
 
 ![](images/ContainerrunningAppService.jpg)
 
-- Click on the name of your container and verify in the window that will appear if the port is 80. Otherwise, input 80 and click Apply.
+- Click on the name of your container and verify in the window that will appear if the port is **80**. Otherwise, input **80** and click **Apply**.
 
 ![](images/Containerport.jpg) 
 
