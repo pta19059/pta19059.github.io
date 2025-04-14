@@ -23,7 +23,7 @@ The purpose of the labs we're creating is to help you get **hands-on experience*
 
 Each lab will guide you **step-by-step** through exploring and understanding **Azure technologies**, enabling you to develop innovative, reliable, and performant solutions.
 
-**Enjoy learning and experimenting!**"
+**Enjoy learning and experimenting!**
 
 | Have a fun! |
 |---|
