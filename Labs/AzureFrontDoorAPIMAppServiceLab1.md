@@ -79,7 +79,11 @@ This document summarizes best practices for using App Service.
 
 More detailed information can be found at the following link:
 
-- [Deployment best practices - Microsoft Docs](https://learn.microsoft.com/en-us/azure/app-service/deploy-best-practices)
+- [Deployment best practices](https://learn.microsoft.com/en-us/azure/app-service/deploy-best-practices)
+
+App Service Secure Baseline (Multi-tenant and ASE)
+
+- [App Service Secure Baseline](https://github.com/Azure/appservice-landing-zone-accelerator/blob/main/scenarios/secure-baseline-multitenant/README.md)
 
 </details>
 
