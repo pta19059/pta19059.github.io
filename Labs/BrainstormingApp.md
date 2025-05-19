@@ -110,7 +110,8 @@ This will deploy:
 
 ## Link
 
-<a href="https://github.com/pta19059/BrainstormApp" target="_blank" rel="noopener noreferrer">
+<a href="https://github.com/pta19059/BrainstormApp" target="_blank" rel="noopener noreferrer">Repo BrainstormingApp</a>
+
 
 ## Contributing
 
