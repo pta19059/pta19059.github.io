@@ -110,7 +110,7 @@ This will deploy:
 
 ## Link
 
-https://github.com/pta19059/BrainstormApp
+<a href="https://github.com/pta19059/BrainstormApp" target="_blank" rel="noopener noreferrer">
 
 ## Contributing
 
