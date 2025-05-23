@@ -120,6 +120,10 @@ The recommended way to deploy this application is using Visual Studio Code and t
 
 For more details, see the [Azure Tools for VS Code documentation](https://learn.microsoft.com/en-us/azure/developer/vscode/).
 
+## Repo
+
+<a href="https://github.com/pta19059/BrainstormApp" target="_blank" rel="noopener noreferrer">**Lab 3 - Brainstormingapp**</a> 
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
