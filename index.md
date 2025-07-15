@@ -1,8 +1,6 @@
 ---
-sidebar_position: 0
-id: intro
-slug: /
-sidebar_label: 'Introduction'
+layout: default
+title: "Azure Labs - Welcome"
 ---
 
 <img src="images/BannerMicro.jpg">

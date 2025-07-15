@@ -1,8 +1,7 @@
 ---
-sidebar_position: 0
-id: welcome
-slug: /
-sidebar_label: 'Welcome'
+layout: default
+title: "Lab 3 - Business Brainstorming App"
+permalink: /Labs/BrainstormingApp/
 ---
 
 ![](images/microsoft-azure-image-banner-800-optimized.jpg)

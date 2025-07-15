@@ -1,5 +1,5 @@
-title: ""
-baseurl: "/" # nome del tuo repository, se il sito è ospitato in una sottocartella
+title: "Azure Labs - Microsoft App Innovation"
+baseurl: "" # For GitHub Pages main repository
 url: "https://pta19059.github.io"
 
 # Permalink settings

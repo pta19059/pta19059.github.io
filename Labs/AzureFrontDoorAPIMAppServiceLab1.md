@@ -1,8 +1,7 @@
 ---
-sidebar_position: 0
-id: welcome
-slug: /
-sidebar_label: 'Welcome'
+layout: default
+title: "Lab 1 - Azure Front Door - APIM - App Service"
+permalink: /Labs/AzureFrontDoorAPIMAppServiceLab1/
 ---
 
 ![](images/microsoft-azure-image-banner-800-optimized.jpg)

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page.title | default: site.title }}</title>
+  <link rel="stylesheet" href="{{ '/Labs/assets/css/sidebar.css' | relative_url }}">
+  <link rel="stylesheet" href="{{ '/Labs/assets/css/custom.css' | relative_url }}">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; margin: 0; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    img { max-width: 100%; height: auto; }
+    table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+    table, th, td { border: 1px solid #ddd; }
+    th, td { padding: 12px; text-align: left; }
+    th { background-color: #f2f2f2; }
+  </style>
+</head>
+<body>
+  {% include sidebar.html %}
+  
+  <main class="content">
+    <div class="container">
+      {{ content }}
+    </div>
+  </main>
+
+  <script src="{{ '/Labs/assets/js/sidebar.js' | relative_url }}"></script>
+</body>
+</html>
