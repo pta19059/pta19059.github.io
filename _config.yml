@@ -1,6 +1,14 @@
 title: "Azure Labs - Microsoft App Innovation"
+description: "Hands-on Azure learning labs by Microsoft App Innovation Specialists. Learn Azure Front Door, APIM, App Service, Containers, and OpenAI."
 baseurl: "" # For GitHub Pages main repository
 url: "https://pta19059.github.io"
+author:
+  name: "Stefano Sguotti & Branislav Buna"
+  email: ""
+twitter:
+  username: ""
+github:
+  repository_url: "https://github.com/pta19059/pta19059.github.io"
 
 # Permalink settings
 permalink: pretty
@@ -13,6 +21,8 @@ kramdown:
 # Build settings
 # theme: minima # o un altro tema, se ne stai usando uno diverso
 
-# Plugins (opzionale, solo se necessario)
+# Plugins (GitHub Pages compatible)
 plugins:
   - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag

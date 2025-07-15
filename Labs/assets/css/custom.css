@@ -1,3 +1,48 @@
-a[href="https://pta19059.github.io/"] {
-    background-color: yellow;
-  }
+/* Highlight home page links */
+a[href*="pta19059.github.io"] {
+    background-color: #fff3cd;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+/* General styling improvements */
+.content {
+    line-height: 1.6;
+}
+
+.content h1, .content h2, .content h3 {
+    color: #2c3e50;
+    margin-top: 2em;
+}
+
+.content code {
+    background-color: #f8f9fa;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+}
+
+.content pre {
+    background-color: #f8f9fa;
+    padding: 1em;
+    border-radius: 5px;
+    overflow-x: auto;
+}
+
+.content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+}
+
+.content table th,
+.content table td {
+    border: 1px solid #dee2e6;
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.content table th {
+    background-color: #e9ecef;
+    font-weight: bold;
+}
