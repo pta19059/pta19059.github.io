@@ -1,28 +1,29 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#080c14">
-  <meta name="description" content="Fossil Noir: un piccolo action survival horror in pixel art. Gioca gratis nel browser.">
-  <title>Fossil Noir — Neon Extinction</title>
+  <meta name="theme-color" content="#09111b">
+  <meta name="description" content="Fossil Noir: a side-scrolling pixel-art action survival game. Play free in your browser.">
+  <title>Fossil Noir — A Pixel Noir Game</title>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <main class="shell">
-    <header class="masthead"><span class="eyebrow">VESPER // 2091</span><span class="edition">A PIXEL NOIR EXPERIENCE <i></i> 01</span></header>
-    <div class="heading"><div><p class="kicker">IL PASSATO HA TROVATO UNA PORTA.</p><h1>FOSSIL <em>NOIR</em></h1></div><span class="serial">AXIOM FILE<br>09—26</span></div>
-    <section class="cabinet" aria-label="Videogioco Fossil Noir">
-      <div class="cabinet-top"><span><b class="live"></b> TRANSMISSION // LIVE</span><span id="status">SIGNAL: STANDBY</span></div>
-      <div class="screen-wrap"><canvas id="game" width="480" height="270" aria-label="Area di gioco Fossil Noir"></canvas>
-        <div id="overlay" class="overlay"><div class="panel"><span class="panel-id">DOSSIER 001 / CLASSIFIED</span><h2 id="overlay-title">LA CITTÀ<br>RICORDA TUTTO.</h2><p id="overlay-text">La pioggia nasconde le tracce. Sotto Vesper, Axiom ha aperto una frattura nel tempo. Entra, trova le prove e sopravvivi.</p><button id="start" type="button">INIZIA L'INDAGINE <span>↗</span></button><small id="overlay-foot">UN PROTOTIPO GIOCABILE · 4 SCENE · 1 CASO</small></div></div>
-        <div id="puzzle" class="overlay hidden"><div class="panel puzzle-panel"><span class="panel-id">AXIOM // ACCESS CONTROL</span><h2>CODICE DI ACCESSO</h2><p id="puzzle-clue"></p><div id="code-display" class="code-display">_ _ _</div><div class="num-grid"></div><button id="cancel-puzzle" type="button" class="secondary">CHIUDI [ESC]</button></div></div>
+    <header class="topline"><span><b class="signal"></b> VESPER CITY / 2091</span><span>AN ORIGINAL PIXEL NOIR GAME</span></header>
+    <div class="intro"><div><div class="overline">CASE FILE 001 <span>✦</span> THE PAST IS LOOSE</div><h1>FOSSIL <em>NOIR</em><span class="title-dot">.</span></h1><p>A detective. A fractured timeline. Something ancient on the rooftops.</p></div><div class="side-mark">01 / 04<br>SECTORS</div></div>
+    <section class="machine" aria-label="Fossil Noir browser game">
+      <div class="machine-bar"><span><i></i> AXIOM SECURITY FEED</span><span id="status">SECTOR 01 / STANDBY</span></div>
+      <div class="screen-wrap">
+        <canvas id="game" width="480" height="360" aria-label="Fossil Noir game screen"></canvas>
+        <div id="overlay" class="overlay"><div class="panel"><span class="panel-id">// INCOMING TRANSMISSION</span><h2 id="overlay-title">THE CITY<br>REMEMBERS.</h2><p id="overlay-text">Axiom cracked time open beneath Vesper. Find the evidence, cross the rooftops, and make it out alive.</p><button id="start" type="button">START THE CASE <span>↗</span></button><small id="overlay-foot">4 STAGES · 2 ACCESS CODES · 1 LAST CHANCE</small></div></div>
+        <div id="puzzle" class="overlay hidden"><div class="panel puzzle-panel"><span class="panel-id">AXIOM // ACCESS CONTROL</span><h2>ENTER CODE</h2><p id="puzzle-clue"></p><div id="code-display" class="code-display">_ _ _</div><div class="num-grid"></div><button id="cancel-puzzle" type="button" class="secondary">CLOSE [ESC]</button></div></div>
       </div>
-      <div class="cabinet-bottom"><span>NO SAVE FILES WERE HARMED</span><span>© VESPER SYSTEMS</span></div>
+      <div class="machine-foot"><span>◈ SIDE-SCROLLING / PIXEL ART / SURVIVAL</span><span>NO SAVE DATA LEAVES YOUR DEVICE</span></div>
     </section>
-    <div class="below"><div class="brief"><span class="section-label">// 01 — IL CASO</span><p><strong>Una città in ginocchio. Un passato fuori controllo.</strong> Vesti i panni di Elias Vane: detective, sopravvissuto, ultimo ostacolo tra Axiom e una nuova estinzione.</p></div><div class="controls"><span class="section-label">// 02 — COMANDI</span><div class="keys"><span><kbd>WASD</kbd> MUOVI</span><span><kbd>CLICK / SPAZIO</kbd> SPARA</span><span><kbd>SHIFT</kbd> SCHIVA</span><span><kbd>Q</kbd> ISTINTO</span><span><kbd>F</kbd> COLPISCI</span><span><kbd>E</kbd> USA</span><span><kbd>R</kbd> RICARICA</span></div></div></div>
-    <div class="mobile-controls" id="mobile-controls" aria-label="Comandi touch"><div class="joystick" id="joystick"><div class="stick" id="stick"></div></div><div class="action-buttons"><button data-action="slow">TEMPO</button><button data-action="shoot">FUOCO</button><button data-action="dodge">SCHIVA</button><button data-action="melee">COLPISCI</button><button data-action="interact">USA</button><button data-action="reload">RIC.</button></div></div>
-    <footer>FOSSIL NOIR <span>◆</span> MADE FOR THE DARK</footer>
+    <div class="under"><section><h3>THE CASE</h3><p><strong>Vesper doesn't sleep.</strong> Play as Elias Vane, a detective hunting the truth behind Axiom's bio-mechanical dinosaurs. Keep moving. Every bullet counts.</p></section><section><h3>DESKTOP CONTROLS</h3><div class="keys"><span><kbd>A D</kbd> MOVE</span><span><kbd>W / SPACE</kbd> JUMP</span><span><kbd>J / CLICK</kbd> FIRE</span><span><kbd>SHIFT</kbd> DASH</span><span><kbd>Q</kbd> SLOW TIME</span><span><kbd>F</kbd> MELEE</span><span><kbd>E</kbd> USE</span><span><kbd>R</kbd> RELOAD</span></div></section></div>
+    <div class="mobile-controls" aria-label="Touch game controls"><div class="joystick" id="joystick"><div class="stick" id="stick"></div></div><div class="action-buttons"><button data-action="jump">JUMP</button><button data-action="shoot">FIRE</button><button data-action="dodge">DASH</button><button data-action="slow">TIME</button><button data-action="melee">MELEE</button><button data-action="interact">USE</button><button data-action="reload">RELOAD</button></div></div>
+    <footer><span>FOSSIL NOIR © 2091 VESPER</span><span>BUILT FOR THE DARK <b>✦</b></span></footer>
   </main>
   <script src="./game.js"></script>
 </body>

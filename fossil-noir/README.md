@@ -1,6 +1,6 @@
 # Fossil Noir
 
-Playable, original pixel-art action survival horror demo for GitHub Pages. Built in plain HTML, CSS and JavaScript; no build step, account, analytics, or backend required.
+Playable, original side-scrolling pixel-art action survival horror demo for GitHub Pages. Built in plain HTML, CSS and JavaScript; no build step, account, analytics, or backend required.
 
 Open `index.html` locally, or visit `https://pta19059.github.io/fossil-noir/` once GitHub Pages publishes the directory.
 
@@ -8,12 +8,13 @@ Open `index.html` locally, or visit `https://pta19059.github.io/fossil-noir/` on
 
 | Action | Desktop | Mobile |
 | --- | --- | --- |
-| Move | WASD / arrows | Joystick |
-| Shoot | Mouse click / Space (auto aim) | FUOCO (auto aim) |
-| Dodge / wall run near cover | Shift | SCHIVA |
-| Slow time | Hold Q | Hold TEMPO |
-| Melee | F | COLPISCI |
-| Interact | E | USA |
-| Reload | R | RIC. |
+| Move | A/D or left/right | Joystick |
+| Jump / wall leap | W, up or Space | JUMP |
+| Shoot | Mouse click or J (auto aim) | FIRE (auto aim) |
+| Dash | Shift | DASH |
+| Slow time | Hold Q | Hold TIME |
+| Melee | F | MELEE |
+| Interact | E | USE |
+| Reload | R | RELOAD |
 
-Four scenes, two code locks, a safe room checkpoint, limited ammunition and a final bioweapon encounter. All graphics are drawn directly on the Canvas; game progress is kept in memory for the current session.
+Four side-scrolling scenes, roof gaps, two code locks, a safehouse checkpoint, limited ammunition and a final bio-weapon encounter. All characters, dinosaurs, brick rooftops, skyline layers and effects are original and drawn directly on the Canvas. Progress is kept in memory for the current session.
