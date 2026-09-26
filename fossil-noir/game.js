@@ -76,8 +76,13 @@
     const my=(press('KeyS')||press('ArrowDown')?1:0)-(press('KeyW')||press('ArrowUp')?1:0)+touch.y;
     const len=Math.hypot(mx,my)||1;player.dx=(mx||player.dirX)/len;player.dy=(my||player.dirY)/len;
     player.dodge=.38;player.iframe=Math.max(player.iframe,.34);player.focus-=14;
-    const nearWall=stages[scene].walls.some(b=>rectHit(player.x,player.y,17,b));
+    const nearWall=stages[scene].walls.find(b=>rectHit(player.x,player.y,17,b));
     player.wallRun=nearWall ? .38 : 0;
+    if(nearWall){
+      // Redirect the dodge along nearby cover: a short, invulnerable wall run.
+      if(nearWall.h>nearWall.w){player.dx=0;player.dy=Math.sign(my||player.dirY||1);}
+      else{player.dx=Math.sign(mx||player.dirX||1);player.dy=0;}
+    }
     pointBurst(player.x,player.y,nearWall?C.cyan:C.acid,7);
   }
   function melee(){if(player.melee>0)return;player.melee=.5;let hit=false;
