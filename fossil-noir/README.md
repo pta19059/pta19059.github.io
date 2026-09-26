@@ -17,6 +17,9 @@ Open `index.html` locally, or visit `https://pta19059.github.io/fossil-noir/` on
 | Melee | F | MELEE |
 | Interact | E | USE |
 | Reload | R | RELOAD |
+| Select weapon | 1 / 2 / 3, or C to cycle | WEAPON |
+| Mount / dismount | G near a cyan saddle; dismount on solid ground | RIDE / GET OFF |
+| Strider bite / charge | F / Shift while mounted | BITE / CHARGE |
 
 Four side-scrolling scenes, roof gaps, two code locks, a safehouse checkpoint, limited ammunition and a final bio-weapon encounter. Compact characters, six-pose footwork, distinct backbend and shoot-dive poses, telegraphed dinosaur attacks, a parallax city and pixel bullet-time rings are drawn directly on the Canvas. Gun rendering and projectile spawning share one shoulder/barrel transform, including during dodges. Sprites use original designs: Elias, Razor raptors, Ironback armored quadrupeds, skull sentries and the Crown Rex. Progress is kept in memory for the current session.
 
@@ -31,3 +34,16 @@ Vesper, 2091. A distress call on a lost partner's radio frequency draws Elias ba
 4. **The Fracture** — Sublevel B9: a containment ring opens onto a living prehistoric forest. Spores, roots and floating debris surround Crown Rex. Defeat it and use the shutdown console to seal the breach.
 
 Five optional case files can be inspected with E / USE. Reading pauses gameplay; close a file with E, Enter, Escape or the on-screen button. Outdoor rain is confined to Vesper and the safehouse windows. Chapters have distinct materials, lighting, architecture, objectives and entry narration. The case files are original fictional lore for this game.
+
+
+## Arsenal and mounted combat
+
+All three weapons are available from the start, with separate magazines and reserves. Switching cancels a reload without transferring ammunition. Caches resupply each weapon; the safehouse checkpoint preserves the complete inventory.
+
+- Pistol: 12 rounds, deliberate accurate fire.
+- Shotgun: 4 shells, five pellets per shot and a short effective range.
+- Carbine: 18 rounds, faster automatic fire, lower damage per round.
+
+The friendly cyan-armored R-09 Strider appears in chapters 1, 3 and 4. G / RIDE links Elias's arm to its control saddle. Mounted movement is faster, jumps are higher, and every firearm works from the saddle. F / BITE delivers a close-range bite; Shift / CHARGE spends instinct to ram each enemy once per charge. Six armor points absorb incoming damage. A disabled mount ejects Elias with brief protection. Dismounting requires solid ground and finds a safe spot on the current platform. Mounts stay in their own chapter.
+
+New threats: Venom Spitters launch arcing acid that leaves temporary damaging pools; Wirewings telegraph aerial dives; Rift Stalkers telegraph short teleports to a valid platform before resuming their attack. All new enemy actions and acid pools respond to bullet time.
