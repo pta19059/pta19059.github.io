@@ -6,25 +6,26 @@
   <meta name="theme-color" content="#09111b">
   <meta name="description" content="Fossil Noir: a side-scrolling pixel-art action survival game. Play free in your browser.">
   <title>Fossil Noir — A Pixel Noir Game</title>
-  <link rel="stylesheet" href="./style.css?v=20260926">
+  <link rel="stylesheet" href="./style.css?v=20260926-nightfall">
 </head>
 <body>
   <main class="shell">
     <header class="topline"><span><b class="signal"></b> VESPER CITY / 2091</span><span>AN ORIGINAL PIXEL NOIR GAME</span></header>
-    <div class="intro"><div><div class="overline">CASE FILE 001 <span>✦</span> THE PAST IS LOOSE</div><h1>FOSSIL <em>NOIR</em><span class="title-dot">.</span></h1><p>A detective. A fractured timeline. Something ancient on the rooftops.</p></div><div class="side-mark">01 / 04<br>SECTORS</div></div>
+    <div class="intro"><div><div class="overline">CASE FILE 001 <span>✦</span> THE PAST IS LOOSE</div><h1>FOSSIL <em>NOIR</em><span class="title-dot">.</span></h1><p>A city drowning in rain. A past that refuses to stay buried.</p></div><div class="side-mark">01 / 04<br>SECTORS</div></div>
     <section class="machine" aria-label="Fossil Noir browser game">
       <div class="machine-bar"><span><i></i> AXIOM SECURITY FEED</span><span id="status">SECTOR 01 / STANDBY</span></div>
       <div class="screen-wrap">
         <canvas id="game" width="480" height="360" aria-label="Fossil Noir game screen"></canvas>
-        <div id="overlay" class="overlay"><div class="panel"><span class="panel-id">// INCOMING TRANSMISSION</span><h2 id="overlay-title">THE CITY<br>REMEMBERS.</h2><p id="overlay-text">Axiom cracked time open beneath Vesper. Find the evidence, cross the rooftops, and make it out alive.</p><button id="start" type="button">START THE CASE <span>↗</span></button><small id="overlay-foot">4 STAGES · 2 ACCESS CODES · 1 LAST CHANCE</small></div></div>
+        <div id="overlay" class="overlay"><div class="panel"><span class="panel-id">// INCOMING TRANSMISSION</span><h2 id="overlay-title">THE CITY<br>REMEMBERS.</h2><p id="overlay-text">Vesper, 2091. A distress call from a lost partner leads Elias Vane from rain-soaked rooftops to the cloning labs beneath the city. Axiom opened the past. Something came through.</p><button id="start" type="button">START THE CASE <span>↗</span></button><small id="overlay-foot">4 CHAPTERS · 5 CASE FILES · ONE OPEN WOUND</small></div></div>
         <div id="puzzle" class="overlay hidden"><div class="panel puzzle-panel"><span class="panel-id">AXIOM // ACCESS CONTROL</span><h2>ENTER CODE</h2><p id="puzzle-clue"></p><div id="code-display" class="code-display">_ _ _</div><div class="num-grid"></div><button id="cancel-puzzle" type="button" class="secondary">CLOSE [ESC]</button></div></div>
+        <div id="dossier" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dossier-title"><div class="panel dossier-panel"><span id="dossier-source" class="panel-id">CASE ARCHIVE</span><h2 id="dossier-title">CASE FILE</h2><p id="dossier-body" class="dossier-copy"></p><button id="close-dossier" type="button">BACK TO THE CASE <span>↗</span></button><small>GAME PAUSED / E, ENTER OR ESC TO CLOSE</small></div></div>
       </div>
       <div class="machine-foot"><span>◈ SIDE-SCROLLING / PIXEL ART / SURVIVAL</span><span>NO SAVE DATA LEAVES YOUR DEVICE</span></div>
     </section>
-    <div class="under"><section><h3>THE CASE</h3><p><strong>Vesper doesn't sleep.</strong> Play as Elias Vane, a detective hunting the truth behind Axiom's bio-mechanical dinosaurs. Cowboy hat. One good eye. A steel arm. Keep moving. Every bullet counts.</p></section><section><h3>DESKTOP CONTROLS</h3><div class="keys"><span><kbd>A D</kbd> MOVE</span><span><kbd>W / SPACE</kbd> JUMP</span><span><kbd>J / CLICK</kbd> FIRE</span><span><kbd>SHIFT</kbd> DODGE</span><span><kbd>Q</kbd> SLOW TIME</span><span><kbd>F</kbd> MELEE</span><span><kbd>E</kbd> USE</span><span><kbd>R</kbd> RELOAD</span></div><p class="combat-tip">Stand still + SHIFT to lean back. Move + SHIFT to dive. Hold Q to slow bullets and bites.</p></section></div>
+    <div class="under"><section><h3>THE CASE</h3><p><strong>Vesper, 2091. The Black Rain case.</strong> Five years ago, Elias lost an eye, an arm and his partner in an Axiom raid. Tonight, her old radio frequency is alive again. Follow the evidence through neon rooftops, an abandoned precinct, the Lazarus cloning wing and a reactor torn open to prehistory. Read the files. Every room holds part of the truth.</p></section><section><h3>DESKTOP CONTROLS</h3><div class="keys"><span><kbd>A D</kbd> MOVE</span><span><kbd>W / SPACE</kbd> JUMP</span><span><kbd>J / CLICK</kbd> FIRE</span><span><kbd>SHIFT</kbd> DODGE</span><span><kbd>Q</kbd> SLOW TIME</span><span><kbd>F</kbd> MELEE</span><span><kbd>E</kbd> USE</span><span><kbd>R</kbd> RELOAD</span></div><p class="combat-tip">Stand still + SHIFT to lean back. Move + SHIFT to dive. Hold Q to slow bullets and bites.</p></section></div>
     <div class="mobile-controls" aria-label="Touch game controls"><div class="joystick" id="joystick"><div class="stick" id="stick"></div></div><div class="action-buttons"><button data-action="jump">JUMP</button><button data-action="shoot">FIRE</button><button data-action="dodge">DODGE</button><button data-action="slow">TIME</button><button data-action="melee">MELEE</button><button data-action="interact">USE</button><button data-action="reload">RELOAD</button></div></div>
     <footer><span>FOSSIL NOIR © 2091 VESPER</span><span>BUILT FOR THE DARK <b>✦</b></span></footer>
   </main>
-  <script src="./game.js?v=20260926"></script>
+  <script src="./game.js?v=20260926-nightfall"></script>
 </body>
 </html>

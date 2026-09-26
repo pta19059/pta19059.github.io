@@ -6,6 +6,7 @@
   const spriteCanvas=document.createElement('canvas');spriteCanvas.width=128;spriteCanvas.height=128;
   const spriteContext=spriteCanvas.getContext('2d',{willReadFrequently:true});
   const overlay=document.getElementById('overlay'),puzzle=document.getElementById('puzzle');
+  const dossier=document.getElementById('dossier');
   const startButton=document.getElementById('start'),status=document.getElementById('status');
   const W=480,H=360;
   g.imageSmoothingEnabled=false;
@@ -16,6 +17,23 @@
     {name:'AXIOM RESEARCH WING',note:'Containment protocol: 3 · 1 · 4.',code:'314',width:1430,roofs:[{x:0,w:245,y:265},{x:285,w:265,y:240},{x:590,w:280,y:263},{x:910,w:235,y:243},{x:1185,w:245,y:262}],enemies:[{x:385,type:'raptor'},{x:665,type:'raptor'},{x:786,type:'turret'},{x:1041,type:'brute'}],pickups:[{x:205,type:'ammo'},{x:735,type:'med'},{x:1081,type:'ammo'}],clue:{x:1012,y:243},terminal:{x:1220,y:262},exit:{x:1380,y:262}},
     {name:'THE FRACTURE',width:1080,roofs:[{x:0,w:1080,y:268}],enemies:[{x:752,type:'boss'},{x:460,type:'raptor'}],pickups:[{x:224,type:'ammo'},{x:530,type:'med'}],exit:{x:1021,y:268}}
   ];
+  const chapterDetails=[
+    {location:'VESPER / RAIN DISTRICT',quote:'The rain could never wash this city clean.',objective:'FIND THE WITNESS NOTE / REACH SAFEHOUSE 09',exitLabel:'SAFEHOUSE 09'},
+    {location:'OLD PRECINCT / ROOM 09',quote:'One good eye. Too many ghosts.',objective:'EXAMINE THE CASE FILES / TAKE THE SERVICE LIFT',exitLabel:'DESCEND TO B6'},
+    {location:'AXIOM / SUBLEVEL B6',quote:'They did not find fossils. They made weapons.',objective:'RECOVER LAZARUS DATA / UNLOCK THE CORE',exitLabel:'REACTOR ACCESS'},
+    {location:'CHRONAL REACTOR / GROUND ZERO',quote:'Sixty-six million years. One trigger away.',objective:'BRING DOWN CROWN REX / SEAL THE BREACH',exitLabel:'SEAL THE RIFT'}
+  ];
+  scenes.forEach((s,i)=>Object.assign(s,chapterDetails[i]));
+  const caseFiles={
+    witness:{title:'THE LAST SHIPMENT',source:'WITNESS NOTE / VESPER ROOFTOPS',body:'Shipment 09 was not carrying fossils. It was carrying things that were still breathing. Axiom moved the survivors below the city. Someone cut the power before I could follow.\n\nThe old precinct is still safe. Stairwell access: 2 - 4 - 1.\n\nIf you hear claws on the fire escape, leave the lights off.'},
+    blackrain:{title:'THE BLACK RAIN CASE',source:'ELIAS VANE / PERSONAL ARCHIVE',body:'Five years ago, a raid on Axiom took my eye, my arm, and my partner, Mara Vale. The company called it a reactor accident. The police closed the case.\n\nTonight, a distress call came through on Mara\'s old frequency. It led to the rooftops, and a shipment of creatures that should not exist.\n\nThe service lift behind this office reaches Axiom\'s abandoned utility tunnels. I know the way down.'},
+    arm:{title:'A BORROWED SECOND',source:'WORKBENCH / PROTOTYPE AX-09',body:'AX-09. The serial inside my mechanical arm matches Axiom\'s prototype inventory. Its chronal capacitor lets me move between the pulses of a damaged timeline.\n\nThat is what instinct feels like: a borrowed second. It never lasts.\n\nSomeone rebuilt me with the same technology that opened the breach. I intend to find out why.'},
+    lazarus:{title:'PROJECT LAZARUS',source:'AXIOM / RESTRICTED RESEARCH',body:'The temporal breach retrieves living prehistoric DNA. Axiom clones the specimens, modifies their aggression and grafts command hardware into their nervous systems.\n\nContainment failed when the first Crown-class organism severed its control tether. The broken tanks were not an accident.\n\nEmergency reactor access: 3 - 1 - 4.\n\nSeal the breach at the core. Do not allow another shipment to leave Vesper.'},
+    reactor:{title:'THE OTHER SIDE',source:'REACTOR / EMERGENCY RECORD',body:'The aperture is no simulation. Beyond the containment ring lies a living prehistoric world. Spores and root systems have already crossed into the chamber.\n\nCrown Rex is feeding on the reactor discharge. The shutdown console will not respond while the organism is tethered to the core.\n\nDestroy the bio-weapon, then reach the console at the far end of the chamber.'}
+  };
+  scenes[0].clue.file='witness';scenes[2].clue.file='lazarus';
+  scenes[1].files=[{x:410,y:273,file:'blackrain'},{x:540,y:273,file:'arm'}];
+  scenes[3].files=[{x:170,y:268,file:'reactor'}];
   const stats={raptor:{hp:3,speed:34,r:19,hit:1},brute:{hp:7,speed:18,r:26,hit:2},turret:{hp:4,speed:0,r:17,hit:1},boss:{hp:25,speed:18,r:43,hit:2}};
   const keys=new Set(),edge=new Set(),touch={x:0,shoot:false,slow:false};
   let mode='menu',stage=0,player,enemies=[],bullets=[],drops=[],particles=[],unlocked=false,checkpoint=null,camera=0,aim=null;
@@ -44,16 +62,16 @@
     player.dash=0;player.dodgeCooldown=0;player.wall=0;player.wallRun=0;player.vx=0;player.land=0;
     if(!restore){player.x=65;player.y=s.roofs[0].y;player.vy=0;player.ground=true;player.inv=.7;}
     enemies=s.enemies.map((e,i)=>({...e,y:floorAt(e.x,s),...stats[e.type],max:stats[e.type].hp,dir:i%2?1:-1,shoot:rand(.8,1.7),attack:.6,flash:0,anim:i,wind:0,lunge:0}));
-    drops=s.pickups.map(p=>({...p,y:floorAt(p.x,s)-13,taken:false}));banner=2.4;
+    drops=s.pickups.map(p=>({...p,y:floorAt(p.x,s)-13,taken:false}));banner=4;
     status.textContent=`SECTOR 0${index+1} / ${s.name}`;
     if(s.safe&&!restore){player.hp=Math.min(5,player.hp+2);player.reserve=Math.min(60,player.reserve+8);player.focus=100;checkpoint={hp:player.hp,ammo:player.ammo,reserve:player.reserve};note('SAFEHOUSE // CHECKPOINT REACHED',4);}
-    else note(s.safe?'CHECKPOINT RESTORED':index===3?'THE BREACH IS STILL OPEN':'FIND THE AXIOM ACCESS TERMINAL',3.4);
+    else note(s.safe?'CHECKPOINT RESTORED':s.objective,3.4);
   }
   function begin(fromSave=false){player=freshPlayer();if(fromSave&&checkpoint){player.hp=checkpoint.hp;player.ammo=checkpoint.ammo;player.reserve=checkpoint.reserve;setup(1,true);unlocked=true;}else{checkpoint=null;setup(0);}
-    mode='play';overlay.classList.add('hidden');puzzle.classList.add('hidden');startButton.blur();}
+    mode='play';overlay.classList.add('hidden');puzzle.classList.add('hidden');dossier.classList.add('hidden');startButton.blur();}
   function finish(won){mode=won?'win':'dead';overlay.classList.remove('hidden');
     document.getElementById('overlay-title').innerHTML=won?'THE FUTURE<br>IS YOURS.':'CASE FILE<br>INTERRUPTED.';
-    document.getElementById('overlay-text').textContent=won?'The breach is sealed. Axiom cannot hide the evidence. Elias steps out into the rain, alive.':'Vesper still needs a detective. Try again from your last safehouse.';
+    document.getElementById('overlay-text').textContent=won?'The reactor falls silent. The breach is sealed, and the Lazarus files are out of Axiom\'s hands. Above the tunnels, Vesper is still raining. The Black Rain case is open again.':'Vesper still needs a detective. Try again from your last safehouse.';
     startButton.innerHTML=won?'PLAY AGAIN <span>↗</span>':checkpoint?'RESUME FROM SAFEHOUSE <span>↗</span>':'TRY AGAIN <span>↗</span>';
     document.getElementById('overlay-foot').textContent=won?'CASE 001 / CLOSED':'CASE 001 / STILL OPEN';
   }
@@ -110,7 +128,7 @@
     burst(tip.x,tip.y,P.cream,5);shake=1.3;
   }
   function hitEnemy(e,n){if(e.hp<=0)return;e.hp-=n;e.flash=.14;burst(e.x,e.y-14,P.red,8);
-    if(e.hp<=0){player.focus=clamp(player.focus+12,0,100);shake=e.type==='boss'?5:2;if(e.type==='boss'){unlocked=true;note('THE WEAPON IS DOWN // REACH THE GATE',5);}else if(Math.random()<.22)drops.push({x:e.x,y:e.y-13,type:'ammo',taken:false});}
+    if(e.hp<=0){player.focus=clamp(player.focus+12,0,100);shake=e.type==='boss'?5:2;if(e.type==='boss'){unlocked=true;note('THE WEAPON IS DOWN // USE THE SHUTDOWN CONSOLE',5);}else if(Math.random()<.22)drops.push({x:e.x,y:e.y-13,type:'ammo',taken:false});}
   }
   function bulletHitsEnemy(b,e){
     const bounds=e.type==='boss'?{left:-76,right:70,top:-69}:e.type==='brute'?{left:-51,right:51,top:-54}:e.type==='turret'?{left:-19,right:27,top:-38}:{left:-43,right:43,top:-49};
@@ -122,14 +140,18 @@
     if(landed)player.focus=clamp(player.focus+10,0,100);burst(player.x+player.face*19,player.y-17,P.cyan,6);
   }
   function hurt(n){if(player.inv>0||mode!=='play')return;player.hp=Math.max(0,player.hp-n);player.inv=1.1;shake=5;burst(player.x,player.y-18,P.red,14);note('HIT // FIND COVER',1.8);if(player.hp===0)finish(false);}
-  function interact(){if(mode!=='play')return;const s=scenes[stage];
-    if(s.clue&&Math.abs(player.x-s.clue.x)<31&&Math.abs(player.y-s.clue.y)<45){note('CASE NOTE: '+s.note,6);return;}
-    if(s.terminal&&!unlocked&&Math.abs(player.x-s.terminal.x)<34&&Math.abs(player.y-s.terminal.y)<45){mode='puzzle';puzzle.classList.remove('hidden');document.getElementById('puzzle-clue').textContent=s.note;enteredCode='';showCode();return;}
+  function nearbyFile(){const s=scenes[stage];return [...(s.clue?[s.clue]:[]),...(s.files||[])].find(f=>Math.abs(player.x-f.x)<31&&Math.abs(player.y-f.y)<45);}
+  function openDossier(id){const file=caseFiles[id];if(!file)return;mode='dossier';keys.clear();edge.clear();touch.shoot=false;touch.slow=false;player.vx=0;
+    document.getElementById('dossier-source').textContent=file.source;document.getElementById('dossier-title').textContent=file.title;document.getElementById('dossier-body').textContent=file.body;dossier.classList.remove('hidden');document.getElementById('close-dossier').focus();}
+  function closeDossier(){if(mode!=='dossier')return;mode='play';dossier.classList.add('hidden');keys.clear();edge.clear();touch.x=0;document.getElementById('stick').style.transform='';}
+  function interact(){if(mode!=='play')return;const s=scenes[stage],file=nearbyFile();
+    if(file){openDossier(file.file);return;}
+    if(s.terminal&&!unlocked&&Math.abs(player.x-s.terminal.x)<34&&Math.abs(player.y-s.terminal.y)<45){mode='puzzle';puzzle.classList.remove('hidden');document.getElementById('puzzle-clue').textContent=stage===0?'The witness left the stairwell code in a note on the previous rooftop.':'Find the emergency access code in the Lazarus research file.';enteredCode='';showCode();return;}
     if(Math.abs(player.x-s.exit.x)<40&&Math.abs(player.y-s.exit.y)<48){if(stage===3){if(unlocked)finish(true);else note('THE BIO-WEAPON STILL LIVES',2);}else if(unlocked)setup(stage+1);else note('LOCKED // FIND THE ACCESS TERMINAL',2);return;}
     note('NOTHING TO USE HERE',1.3);
   }
   function showCode(){document.getElementById('code-display').textContent=(enteredCode+'___').slice(0,3).split('').join(' ');}
-  function digit(d){if(mode!=='puzzle')return;enteredCode+=d;showCode();if(enteredCode.length===3){if(enteredCode===scenes[stage].code){unlocked=true;mode='play';puzzle.classList.add('hidden');note('ACCESS GRANTED // REACH THE GATE',4);burst(scenes[stage].terminal.x,scenes[stage].terminal.y-28,P.acid,22);}else{note('ACCESS DENIED',2);setTimeout(()=>{enteredCode='';showCode();},400);}}}
+  function digit(d){if(mode!=='puzzle')return;enteredCode+=d;showCode();if(enteredCode.length===3){if(enteredCode===scenes[stage].code){unlocked=true;mode='play';puzzle.classList.add('hidden');note('ACCESS GRANTED // '+scenes[stage].exitLabel,4);burst(scenes[stage].terminal.x,scenes[stage].terminal.y-28,P.acid,22);}else{note('ACCESS DENIED',2);setTimeout(()=>{enteredCode='';showCode();},400);}}}
   function update(dt){time+=dt*(1-slowAmount*.75);shake=Math.max(0,shake-dt*17);if(mode!=='play')return;
     const s=scenes[stage],p=player;
     banner=Math.max(0,banner-dt);noticeTime=Math.max(0,noticeTime-dt);p.inv=Math.max(0,p.inv-dt);p.fire=Math.max(0,p.fire-dt);p.melee=Math.max(0,p.melee-dt);p.wallRun=Math.max(0,p.wallRun-dt);p.land=Math.max(0,p.land-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);
@@ -143,6 +165,7 @@
     const dashing=k('ShiftLeft')||k('ShiftRight');if(dashing&&!edge.has('DASH')){dodge();edge.add('DASH');}if(!dashing)edge.delete('DASH');
     if(k('KeyF')&&!edge.has('MELEE')){melee();edge.add('MELEE');}if(!k('KeyF'))edge.delete('MELEE');
     if(k('KeyE')&&!edge.has('USE')){interact();edge.add('USE');}if(!k('KeyE'))edge.delete('USE');
+    if(mode!=='play'||s!==scenes[stage])return;
     if(k('KeyR'))reload();if(k('KeyJ')||touch.shoot)shoot();
     const slow=(k('KeyQ')||touch.slow)&&p.focus>0;
     slowAmount=clamp(slowAmount+(slow?dt*7:-dt*5),0,1);
@@ -197,64 +220,200 @@
     bullets=bullets.filter(b=>b.life>0);
     for(const v of particles){v.x+=v.vx*dt;v.y+=v.vy*dt;v.life-=dt;}particles=particles.filter(v=>v.life>0);
   }
-  function sky(){
-    const lab=stage===2,rift=stage===3,safe=stage===1;
-    const colors=rift?['#284d50','#51817a','#6e9c87']:lab?['#608b84','#8db5a3','#a7c7a7']:safe?['#658e85','#8eafa0','#b2c4a6']:['#a5e6cc','#b7ead0','#c4e8cb'];
-    rect(0,0,W,H,colors[0]);rect(0,126,W,88,colors[1]);rect(0,214,W,123,colors[2]);
-    // Distant silhouettes stay quiet so faces, guns and attack poses read immediately.
+  function halo(x,y,w,h,color){
+    g.save();for(let i=3;i>0;i--){g.globalAlpha=.025*(4-i);rect(x-i*5,y-i*4,w+i*10,h+i*8,color);}g.restore();
+  }
+  function lightCone(x,y,width,height,color){
+    g.save();g.globalAlpha=.055;for(let row=0;row<height;row+=8){const w=width*(row+12)/height;rect(x-w/2,y+row,w,8,color);}g.restore();
+  }
+  function neon(x,y,label,color){
+    const width=label.length*6+12;halo(x,y,width,18,color);rect(x,y,width,18,'#090e19');rect(x,y,width,1,color);rect(x,y+17,width,1,color);rect(x,y,1,18,color);text(label,x+6,y+12,color,8);
+  }
+  function rainBox(x,y,w,h,offset=0){
+    g.save();g.beginPath();g.rect(x,y,w,h);g.clip();
+    for(let i=0;i<72;i++){const px=x+((i*67-camera*.35+offset)%w+w)%w,py=y+(i*47+time*(82+i%4*12))%h;rect(px,py,1,6,'#8dbdd64d');rect(px-1,py+5,1,3,'#8dbdd633');}g.restore();
+  }
+  function cityBackdrop(){
+    rect(0,43,W,H-43,'#090f20');rect(0,115,W,95,'#111b32');rect(0,210,W,127,'#1b2940');
+    // A clouded moon and distant chemical haze; all lighting stays on a pixel grid.
+    const moonX=370-camera*.045;rect(moonX-10,62,27,23,'#3b5466');rect(moonX-14,68,35,12,'#3b5466');rect(moonX+4,62,13,6,'#1b2a40');
+    for(let i=0;i<7;i++)rect((i*119-camera*.08)%620-80,76+i%3*17,96+i%2*42,5,'#172039');
     for(let layer=0;layer<3;layer++){
-      const par=[.1,.2,.34][layer],base=[255,273,305][layer],tints=rift?['#49766e','#3e6a63','#31564f']:lab?['#83ad9c','#719988','#567e71']:['#94cbb5','#80b5a1','#669b89'];
-      const offset=camera*par,step=[53,76,101][layer];
+      const par=[.12,.24,.42][layer],base=[253,287,331][layer],step=[51,76,99][layer],tints=['#111b2d','#162638','#203548'];
+      const offset=camera*par;
       for(let i=Math.floor(offset/step)-1;i<Math.ceil((offset+W)/step)+1;i++){
-        const bx=Math.round(i*step-offset),hei=30+Math.floor(hash(i*3+layer*41)*76),bw=step-7;
-        rect(bx,base-hei,bw,H-base+hei,tints[layer]);rect(bx+9,base-hei-5,bw-18,6,tints[layer]);
-        if(i%3===0)rect(bx+18,base-hei-16,2,13,tints[layer]);
-        for(let wy=base-hei+9;wy<base-5;wy+=13)for(let wx=bx+6;wx<bx+bw-4;wx+=11)if(hash(i*31+wx+wy)>.45)rect(wx,wy,4,2,layer===2?'#8cbaa4':'#b7ddbd');
+        const x=Math.round(i*step-offset),height=58+Math.floor(hash(i*9+layer*27)*99),y=base-height;
+        rect(x,y,step-7,H-y,tints[layer]);rect(x+8,y-6,step-23,7,tints[layer]);
+        if(i%3===0){rect(x+18,y-22,2,20,tints[layer]);rect(x+17,y-23,4,2,'#bc536b');}
+        for(let wy=y+12;wy<base;wy+=13)for(let wx=x+7;wx<x+step-12;wx+=11){const h=hash(i*43+wx+wy);if(h>.52)rect(wx,wy,3,5,h>.88?'#87654f':layer===2?'#477a85':'#304452');}
+        if(layer===1&&i%4===1){rect(x+step-12,y+13,2,54,'#ba5288');halo(x+step-12,y+13,2,54,'#ba5288');}
       }
     }
+    const tower=600-camera*.21;rect(tower,64,86,220,'#0e1a29');rect(tower+13,51,60,14,'#192c3c');rect(tower+40,44,5,8,'#456177');
+    for(let i=0;i<8;i++){rect(tower+10+i*9,90,2,177,'#263d4b');rect(tower+12,96+i*20,61,1,'#34545b');}
+    neon(tower+22,73,'AXIOM','#62c7ba');
+    // A surveillance craft, small against the towers, sweeps the rain district.
+    const dx=260-camera*.16+Math.sin(time*.17)*56,dy=91+Math.sin(time*.8)*2;
+    rect(dx-20,dy,39,6,'#304554');rect(dx-10,dy-5,21,12,'#3c5560');rect(dx-27,dy-3,13,2,'#78919a');rect(dx+14,dy-3,13,2,'#78919a');rect(dx-2,dy+7,4,3,'#e47383');
+    lightCone(dx,dy+12,64,116,'#7cc9d5');
+  }
+  function officeBackdrop(){
+    rect(0,43,W,H-43,'#15151e');
+    const x=-camera;
+    rect(x,69,740,204,'#29232b');rect(x,74,740,4,'#504046');rect(x,207,740,65,'#201d28');rect(x,204,740,4,'#604a46');
+    for(let wx=12;wx<740;wx+=24){rect(x+wx,82,1,121,'#393039');rect(x+wx,213,1,56,'#383038');}
+    // Books, old case boxes and a warm lamp make the safehouse feel inhabited.
+    rect(25-camera,112,88,142,'#100f19');rect(29-camera,115,80,132,'#4d3633');
+    for(let shelf=0;shelf<3;shelf++){const sy=126+shelf*38;for(let b=0;b<9;b++){const bx=34-camera+b*8;rect(bx,sy+hash(b+shelf*14)*5,6,25-b%3*3,['#8a6b4f','#40585c','#703f48'][b%3]);rect(bx,sy+18,6,2,'#aa9169');}rect(30-camera,sy+28,77,4,'#271d25');}
+    neon(32-camera,86,'SAFE / 09','#d6b578');
+    // Rain only appears beyond the glass; the room itself is dry and still.
+    const wx=163-camera;rect(wx-6,95,150,112,'#171d2b');rect(wx,100,138,101,'#142b43');
+    for(let i=0;i<5;i++){rect(wx+i*28,138-i%3*13,23,64+i%3*13,'#20394b');for(let j=0;j<5;j++)rect(wx+i*28+8,150+j*10,3,3,'#8d765a');}
+    rainBox(wx,100,138,101,80);rect(wx+66,99,5,104,'#6c665f');
+    for(let i=0;i<9;i++)rect(wx-2,101+i*11,143,3,'#292b32');rect(wx-8,202,154,5,'#847263');
+    // Desk, radio, open notebook, coffee and detective's chair.
+    rect(149-camera,234,179,9,'#765643');rect(152-camera,243,8,29,'#392a2b');rect(307-camera,243,13,29,'#392a2b');rect(278-camera,245,26,19,'#4c3630');rect(289-camera,251,5,2,'#b29469');
+    rect(241-camera,228,27,5,'#cebd95');rect(253-camera,225,2,9,'#8d6953');rect(214-camera,224,8,10,'#b99771');rect(221-camera,227,3,5,'#b99771');
+    rect(277-camera,218,28,16,'#202d30');for(let i=0;i<5;i++)rect(281-camera+i*3,222,1,8,'#5e7470');rect(299-camera,222,3,3,'#d6b578');rect(302-camera,203,1,15,'#708177');
+    rect(180-camera,201,3,33,'#9d8056');rect(169-camera,200,26,5,'#4b6d61');rect(175-camera,196,14,5,'#6e9b76');rect(176-camera,233,18,2,'#bc9a6a');lightCone(181-camera,207,95,63,'#ffcf83');
+    rect(226-camera,245,20,16,'#31212b');rect(231-camera,239,15,9,'#54363a');rect(230-camera,261,3,12,'#161522');rect(242-camera,261,3,12,'#161522');
+    // Evidence board, strings and a faded photograph of the missing partner.
+    const bx=362-camera;rect(bx,108,120,97,'#6c4a35');rect(bx+4,112,112,89,'#352b2c');
+    const papers=[[10,9,29,24],[60,9,42,16],[17,55,39,20],[79,42,22,34]];
+    for(const [px,py,pw,ph] of papers){rect(bx+px,112+py,pw,ph,'#b3a083');rect(bx+px+4,116+py,pw-8,2,'#736d62');rect(bx+px+3,111+py,3,3,'#c65b63');}
+    rect(bx+15,124,19,11,'#47504c');rect(bx+23,125,6,5,'#c1a685');rect(bx+20,131,11,7,'#35404b');
+    for(let i=0;i<48;i++){rect(bx+29+i,141+Math.round(i*.28),1,1,'#a45c60');rect(bx+52+i,181-Math.round(i*.83),1,1,'#a45c60');}
+    text('BLACK RAIN',bx+15,198,'#d4b98e',7);
+    // Exposed cybernetic-arm parts tie the room to Elias's past.
+    rect(510-camera,231,86,9,'#755745');rect(517-camera,239,6,34,'#3d3234');rect(581-camera,239,6,34,'#3d3234');rect(518-camera,225,42,5,'#53696d');rect(521-camera,221,10,6,'#b4c4b6');rect(534-camera,224,17,3,'#7adaCD');
+    rect(563-camera,212,25,20,'#192934');rect(566-camera,215,19,11,'#397469');text('AX-09',522-camera,249,'#b9a983',7);rect(542-camera,259,16,14,'#7d4c44');rect(548-camera,262,4,8,'#e1c9a0');rect(545-camera,265,10,2,'#e1c9a0');
+    rect(617-camera,89,2,41,'#0e1522');rect(601-camera,128,34,6,'#b38b57');rect(606-camera,133,24,3,'#eac18c');lightCone(618-camera,135,160,138,'#ffbb7d');
+    rect(333-camera,245,4,28,'#614640');rect(324-camera,234,22,3,'#775850');rect(325-camera,237,13,23,'#293746');
+  }
+  function laboratoryBackdrop(core=false){
+    rect(0,43,W,H-43,core?'#101322':'#0b1723');rect(0,73,W,193,core?'#171f30':'#172c39');rect(0,266,W,71,'#080f1b');
+    const offset=camera*.72,step=128;
+    for(let i=Math.floor(offset/step)-1;i<Math.ceil((offset+W)/step)+1;i++){
+      const x=i*step-offset;rect(x,83,120,173,core?'#172232':'#1b3540');rect(x+4,89,110,159,core?'#1b293a':'#203c45');
+      rect(x+6,94,107,1,'#33545b');rect(x+6,182,107,2,'#142936');rect(x+19,105,1,129,'#28434c');rect(x+100,105,1,129,'#28434c');
+      rect(x+117,68,11,248,'#0c1a28');rect(x+119,83,4,196,'#36515c');
+      for(let j=0;j<3;j++)rect(x+32+j*12,218,8,18,'#142735');
+      rect(x+34,87,40,3,core?'#4b7981':'#558f92');
+      if(i%2===0){rect(x+90,77,11,5,'#d56b70');halo(x+90,77,11,5,'#cf5e68');lightCone(x+96,83,78,141,'#d56470');}
+    }
+    // Cable trays, ventilation and low pipes identify a sealed underground facility.
+    rect(0,54,W,7,'#2e4551');rect(0,55,W,2,'#526573');rect(0,66,W,3,'#17212e');
+    for(let i=0;i<9;i++){const px=((i*64-camera*.85)%560+560)%560-40;rect(px,51,4,14,'#77828a');rect(px+16,66,24,11,'#080f19');rect(px+19,68,18,1,'#405761');}
+    rect(0,289,W,5,'#263a49');rect(0,296,W,2,'#436073');
+  }
+  function specimenTank(worldX,floor,broken,serial){
+    const x=worldX-camera,y=floor-151;if(x<-100||x>W+100)return;
+    const tint=broken?'#b36677':'#75d3b6';
+    rect(x-31,y,65,7,'#577881');rect(x-37,y+7,77,11,'#233947');rect(x-31,y+17,65,111,'#0a1823');
+    rect(x-25,y+20,53,92,broken?'#192a37':'#164e50');rect(x-30,y+17,5,105,'#567d86');rect(x+28,y+17,5,105,'#567d86');
+    if(!broken){
+      halo(x-22,y+24,48,79,'#3ce3b0');rect(x-22,y+24,47,85,'#205e5b');rect(x-20,y+24,3,83,'#5b9e92');rect(x+19,y+27,2,76,'#5b9e92');
+      const float=Math.round(Math.sin(time*1.3+worldX)*2);
+      g.save();g.translate(x,y+63+float);rect(-13,-9,21,18,'#143e43');rect(-19,-2,10,5,'#143e43');rect(-24,-5,7,3,'#143e43');rect(3,-17,15,13,'#143e43');rect(13,-11,9,5,'#143e43');rect(13,-14,3,2,'#aed38c');rect(-9,7,5,8,'#143e43');rect(3,5,5,9,'#143e43');rect(-4,-7,4,6,'#52968a');g.restore();
+      for(let i=0;i<8;i++){const by=y+102-(time*13+i*13)%76;rect(x-14+i%4*10,by,2,2,'#79c6aa');}
+      rect(x-20,y+37,41,1,'#91e1ba45');rect(x-20,y+79,41,1,'#91e1ba45');
+    }else{
+      for(let i=0;i<5;i++){rect(x-24+i*11,y+20+i%2*7,7,3,'#61969b');rect(x-23+i*10,y+99-i%3*4,4,12+i%3*4,'#61969b');}
+      rect(x-10,y+59,21,3,'#5f3546');rect(x-13,y+67,17,2,'#663848');rect(x-4,y+72,3,14,'#5b3341');
+      for(let i=0;i<3;i++){rect(x-15+i*11,y+49,2,17,'#96bcc0');rect(x-13+i*11,y+65,2,6,'#96bcc0');}
+      for(let i=0;i<7;i++)rect(x-33+i*10,floor-9-i%3*2,5,2,'#84afb3');
+    }
+    rect(x-36,y+114,75,14,'#294451');rect(x-33,y+114,69,2,tint);rect(x-22,y+129,5,15,'#3d5d67');rect(x+19,y+129,5,15,'#3d5d67');
+    rect(x-24,y+117,51,10,'#102631');text(serial,x+2,y+125,tint,7,'center');
+    rect(x+35,y+37,17,28,'#0c1c2a');rect(x+38,y+41,11,12,broken?'#8e465a':'#467e73');rect(x+39,y+58,3,2,tint);
+  }
+  function labDetails(){
+    for(const t of [{x:139,y:265,b:false,id:'RZ-03'},{x:382,y:240,b:true,id:'BREACH'},{x:695,y:263,b:false,id:'RZ-12'},{x:1023,y:243,b:true,id:'CR-01'}])specimenTank(t.x,t.y,t.b,t.id);
+    neon(23-camera,99,'AXIOM / B6','#7bc9c5');neon(542-camera,102,'LAZARUS','#be637e');neon(1210-camera,108,'CORE ACCESS','#d69576');
+    for(const wx of [270,800,1120]){const x=wx-camera;rect(x,102,61,37,'#0c1c2a');rect(x+3,105,55,29,'#254b51');text('GENOME',x+7,116,'#83bda9',7);for(let i=0;i<8;i++)rect(x+6+i*6,122,3,4+i%3*3,'#659b8d');rect(x+9,140,43,3,'#456773');}
+    for(const wx of [500,1087]){const floor=floorAt(wx),x=wx-camera;if(floor!==null){rect(x-13,floor-3,30,3,'#613543');rect(x+5,floor-6,8,3,'#774250');rect(x+9,floor+1,2,11,'#613543');}}
+    // Thin coolant plumes replace outdoor rain.
+    for(let i=0;i<12;i++){const x=((i*83-camera*.9)%560+560)%560-40,y=275-(time*11+i*17)%77;rect(x,y,10+i%3*6,2,'#8dd3c014');}
+  }
+  function fern(x,y,height,color){
+    rect(x,y-height,2,height,color);for(let i=0;i<5;i++){const py=y-height+i*height/6,reach=6+i*3;rect(x-reach,py+4,reach,2,color);rect(x+2,py+2,reach-2,2,color);rect(x-reach,py,3,6,color);rect(x+reach-3,py-2,3,5,color);}
+  }
+  function coreDetails(){
+    const cx=770-camera,cy=158,closed=mode==='win';
+    // A heavy containment ring frames a real prehistoric landscape.
+    rect(cx-124,76,16,181,'#304859');rect(cx+108,76,16,181,'#304859');rect(cx-128,75,256,9,'#385667');rect(cx-113,242,226,13,'#3d5b67');
+    for(const dx of [-118,116]){rect(cx+dx,86,4,146,'#6d8390');for(let i=0;i<5;i++){rect(cx+dx-5,94+i*28,13,10,'#192f3f');rect(cx+dx-2,97+i*28,7,3,closed?'#436b68':'#80c6b0');}}
+    const points=[];for(let i=0;i<40;i++){const a=i*Math.PI/20;points.push([Math.round(Math.cos(a)*96/3)*3,Math.round(Math.sin(a)*83/3)*3]);}
+    g.save();g.translate(cx,cy);g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.fillStyle='#0a1421';g.fill();g.lineWidth=8;g.strokeStyle='#456474';g.stroke();g.lineWidth=3;g.strokeStyle=closed?'#426967':'#79d7b4';g.stroke();g.clip();
+    if(!closed){
+      rect(-92,-78,184,156,'#a78864');rect(-92,-30,184,108,'#7e8664');rect(-92,12,184,68,'#4f6e58');
+      rect(36,-57,20,17,'#dbc28e');rect(32,-53,28,9,'#dbc28e');
+      for(let i=0;i<9;i++){const x=-102+i*26,h=31+(i*13)%43;rect(x,8-h,16,88+h,'#526951');rect(x-7,5-h,31,7,'#526951');rect(x-3,-2-h,22,8,'#526951');}
+      rect(-29,13,39,20,'#334d46');rect(-23,7,25,11,'#334d46');rect(3,-12,8,34,'#334d46');rect(7,-18,15,8,'#334d46');rect(-38,20,14,5,'#334d46');rect(-47,18,12,3,'#334d46');rect(-21,31,5,18,'#334d46');rect(-2,30,5,18,'#334d46');
+      for(let i=0;i<5;i++)fern(-80+i*43,83,34+i%3*14,'#213e39');
+      for(let i=0;i<12;i++){const px=-84+(i*37)%165,py=-69+(time*9+i*17)%145;rect(px,py,2,2,'#cae8b199');}
+    }else{text('BREACH',0,-2,'#81acaa',8,'center');text('SEALED',0,12,'#a4d1b3',8,'center');}
+    g.restore();
+    if(!closed){
+      halo(cx-99,cy-85,198,170,'#78ffb8');
+      for(let i=0;i<20;i++){const a=i*Math.PI/10+time*.18,rx=cx+Math.cos(a)*100,ry=cy+Math.sin(a)*88;rect(rx,ry,2+i%2*2,3,'#b6f5c1');}
+      for(let i=0;i<4;i++){const x=cx-130+i*78,y=196+Math.sin(time*.7+i)*13;rect(x,y,11,5,'#405963');rect(x+2,y-3,6,4,'#6f8280');}
+    }
+    neon(27-camera,103,'REACTOR / B9','#be839d');
+    const rack=157-camera;rect(rack-12,203,27,56,'#243b4b');rect(rack-8,208,19,29,'#326358');for(let i=0;i<3;i++)rect(rack-5,212+i*7,13,2,'#83bb99');rect(rack-8,243,19,4,'#6b7e86');
+    for(const x of [598,888,922])fern(x-camera,266,27+x%17,'#365956');
+    for(let i=0;i<5;i++){rect(840-camera+i*12,260-i%2*4,14,3,'#4c7364');rect(900-camera-i*9,253-i*5,3,8,'#3a5f58');}
+  }
+  function platform(r,i){
+    const x=Math.round(r.x-camera);if(x>W+8||x+r.w<-8)return;
     if(stage===0){
-      // An original Axiom retrieval VTOL, hovering well behind the playable rooftop.
-      const sx=Math.round(293-camera*.29+Math.sin(time*.35)*9),sy=Math.round(143+Math.sin(time*.6)*2);
-      g.save();g.translate(sx,sy);const edge='#467b70',hull='#568e80',lit='#6ca48f';
-      rect(-95,-6,49,11,edge);rect(-103,-17,9,23,edge);rect(-100,-15,11,7,hull);rect(-80,-1,41,4,lit);
-      rect(-52,-24,97,44,edge);rect(-59,-17,13,30,edge);rect(43,-16,16,28,edge);rect(58,-7,7,15,edge);
-      rect(-49,-21,91,38,hull);rect(-46,-19,58,3,lit);rect(-51,7,96,8,hull);rect(-33,14,56,7,edge);
-      rect(15,-19,20,22,edge);rect(37,-14,15,17,edge);rect(18,-16,13,15,'#385f5a');rect(38,-11,10,13,'#385f5a');
-      rect(-34,-13,29,29,edge);rect(-32,-11,24,23,hull);rect(-29,-9,18,12,lit);rect(-12,4,3,2,edge);
-      rect(-39,-30,76,8,edge);rect(-14,-40,6,12,edge);rect(-19,-42,17,4,lit);
-      const rotor=Math.floor(time*24)%2;rect(-79+rotor*12,-41,138-rotor*24,2,edge);rect(-69+rotor*20,-38,118-rotor*40,1,lit);
-      rect(-25,21,4,7,edge);rect(30,19,4,9,edge);rect(-37,27,84,3,edge);rect(45,24,7,4,edge);
-      rect(-20,-2,3,3,'#afd0a4');text('AX',0,11,'#aac2a0',7);g.restore();
+      rect(x,r.y,r.w,H-r.y,'#182230');rect(x+3,r.y+9,r.w-6,H-r.y-9,'#2d2c38');
+      for(let row=0;row<10;row++)for(let col=0;col<Math.ceil(r.w/22);col++){const px=x+col*22+(row%2?11:0);if(px+18>x+r.w-3)continue;rect(px,r.y+13+row*9,18,6,(row+col)%5===0?'#3d3540':'#33303b');rect(px,r.y+19+row*9,18,1,'#1a2431');}
+      for(let wx=x+27;wx<x+r.w-22;wx+=57){rect(wx-2,r.y+34,23,36,'#101b2a');rect(wx,r.y+36,19,31,'#273e50');rect(wx+3,r.y+39,6,23,i%2?'#ae775a':'#548891');rect(wx+11,r.y+39,5,23,i%2?'#67554a':'#365e72');rect(wx-3,r.y+69,25,3,'#65505a');}
+      rect(x-2,r.y-7,r.w+4,8,'#101c2a');rect(x,r.y-7,r.w,2,'#66828e');rect(x+3,r.y-3,r.w-6,2,'#3d6573');
+      for(let n=0;n<5;n++){const px=x+19+n*49;if(px+27<x+r.w)rect(px,r.y-3+n%2,19+n%3*4,1,n%2?'#875d8d':'#70a6ad');}
+      const vent=x+r.w-61;rect(vent,r.y-34,32,27,'#243541');rect(vent+2,r.y-32,28,21,'#405460');for(let j=0;j<5;j++)rect(vent+5,r.y-29+j*3,22,1,'#142631');rect(vent-2,r.y-36,36,3,'#677b83');
+      if(i===0||i===2){const sx=x+84,sy=r.y-72;rect(sx-3,sy-4,123,26,'#283345');neon(sx,sy,i===0?'NIGHTFALL HOTEL':'NO VACANCY',i===0?'#d277a1':'#6ec7c5');rect(sx+8,sy+19,3,46,'#3c4e5a');rect(sx+105,sy+19,3,46,'#3c4e5a');}
+      if(i%2){const ax=x+24;rect(ax,r.y-67,2,60,'#526f7b');rect(ax-12,r.y-52,30,2,'#617e87');rect(ax-7,r.y-60,17,2,'#617e87');}
+      if(i===3){rect(x+r.w-12,r.y+5,5,103,'#58616e');for(let j=0;j<8;j++)rect(x+r.w-23,r.y+12+j*13,28,2,'#4b5866');}
+    }else if(stage===1){
+      rect(x,r.y,r.w,H-r.y,'#312730');for(let row=0;row<8;row++){rect(x,r.y+row*9,r.w,1,'#665047');for(let col=0;col<10;col++)rect(x+col*91+(row%2?40:0),r.y+row*9,1,9,'#191d28');}rect(x,r.y-4,r.w,4,'#9a795b');
+      rect(354-camera,285,254,34,'#5a3640');rect(360-camera,289,242,26,'#71464c');rect(366-camera,293,230,1,'#a47866');rect(366-camera,310,230,1,'#a47866');
+    }else{
+      rect(x,r.y,r.w,H-r.y,'#101d2b');rect(x,r.y-6,r.w,7,'#3b5667');rect(x,r.y-6,r.w,2,'#9aaeb2');rect(x,r.y+1,r.w,9,'#1c2e3d');
+      for(let px=x+5;px<x+r.w-5;px+=13){rect(px,r.y+2,8,3,'#617278');rect(px+2,r.y+4,4,2,'#283c49');}
+      for(let px=x+15;px<x+r.w-19;px+=47){rect(px,r.y+15,31,46,'#1b2f40');rect(px+4,r.y+19,23,1,'#375569');rect(px+12,r.y+23,5,21,'#080f1c');rect(px+7,r.y+51,15,2,stage===3?'#468a78':'#7c4659');}
+      for(const end of [x,x+r.w-23]){rect(end,r.y-5,23,5,'#c4ab6c');for(let j=0;j<4;j++)rect(end+j*6,r.y-5,3,5,'#263243');}
+      if(stage===3){for(let n=0;n<8;n++){const px=620-camera+n*36;rect(px,r.y+24+n%2*10,15,2,'#38615b');rect(px+12,r.y+18+n%2*10,2,8,'#447e6d');}}
     }
-    if(rift){const cx=360-camera*.08;for(let i=6;i>0;i--){g.strokeStyle=i%2?'#99d8b4':'#518c79';g.lineWidth=2;g.beginPath();g.ellipse(cx,137,i*11,i*16,0,0,Math.PI*2);g.stroke();}rect(cx-6,88,12,97,'#92d9b3');rect(cx-2,101,4,65,'#dcf4bd');}
   }
-  function brickRoof(r,i){const x=r.x-camera;if(x>W+10||x+r.w<-10)return;
-    const lab=stage===2,interior=stage===1,core=stage===3;
-    const base=lab?'#5b7268':interior?'#597c70':core?'#42685d':'#71917b',light=lab?'#95ad90':interior?'#9cb59a':core?'#88ab8b':'#a8bc94',dark=lab?'#344d48':interior?'#3b5d51':core?'#2c4d47':'#4c6d59';
-    rect(x,r.y,r.w,H-r.y,dark);rect(x+2,r.y+9,r.w-4,H-r.y-9,base);
-    for(let row=0;row<Math.ceil((H-r.y)/9);row++){
-      let y=r.y+9+row*9,off=row%2?8:0;for(let c=-1;c<Math.ceil(r.w/18);c++){
-        let px=x+c*18+off;if(px<x+3||px>x+r.w-6)continue;rect(px,y,15,6,(c+row)%5===0?light:base);rect(px+1,y+5,3,1,dark);
-      }
+  function accessPoint(){
+    const s=scenes[stage],x=s.exit.x-camera,y=s.exit.y;
+    if(stage===3){
+      rect(x-27,y-43,47,36,'#213849');rect(x-25,y-47,43,9,'#6a7d88');rect(x-23,y-37,36,17,unlocked?'#2d655b':'#57374d');rect(x-19,y-33,28,2,unlocked?'#9be4b6':'#d5848d');rect(x-20,y-16,30,3,'#748889');rect(x-19,y-12,4,10,'#3a5260');rect(x+6,y-12,4,10,'#3a5260');
+      text(unlocked?'SHUTDOWN':'CORE LOCK',x-2,y-54,unlocked?P.acid:'#d2a2af',8,'center');return;
     }
-    for(let wx=x+27;wx<x+r.w-18;wx+=52){rect(wx,r.y+52,18,29,'#422f35');rect(wx+3,r.y+54,12,23,'#263b48');rect(wx+9,r.y+54,2,23,dark);rect(wx-2,r.y+78,23,3,light);}
-    rect(x-2,r.y-4,r.w+4,6,'#233e36');rect(x,r.y-7,r.w,3,light);rect(x+4,r.y-1,r.w-8,3,dark);rect(x+2,r.y+2,r.w-4,8,'#739a7f');
-    for(let px=x+13;px<x+r.w-12;px+=20){rect(px,r.y+9,9,2,light);rect(px+2,r.y+14,4,1,dark);}
-    if(!interior&&i%2===0){
-      const vx=x+r.w-65;rect(vx,r.y-41,39,33,'#435b4d');rect(vx+2,r.y-39,35,29,'#7f9577');rect(vx-2,r.y-43,43,4,'#b1bf96');
-      rect(vx+6,r.y-34,25,14,'#4f6756');for(let n=0;n<4;n++)rect(vx+8,r.y-32+n*3,21,1,'#a0ac83');
-      rect(vx+5,r.y-15,27,2,'#506e5b');rect(vx+32,r.y-18,2,3,'#bd6a53');
-    }else if(!interior){rect(x+r.w-42,r.y-27,23,20,'#4c6958');rect(x+r.w-40,r.y-26,19,18,'#8aa382');rect(x+r.w-35,r.y-39,10,13,'#5c7c66');rect(x+r.w-38,r.y-41,16,3,'#b2be91');}
+    const label=s.exitLabel,width=stage===1?57:49;
+    rect(x-width/2-4,y-85,width+8,85,'#142433');rect(x-width/2,y-81,width,77,stage===1?'#4b4345':'#354351');
+    rect(x-width/2+5,y-76,width-10,72,'#172b39');rect(x-1,y-73,2,67,'#5b6f76');
+    if(stage===0){for(let j=0;j<6;j++)rect(x-17,y-67+j*10,35,2,'#334955');}
+    if(stage===1){rect(x-23,y-72,46,7,'#85715b');rect(x-22,y-55,17,41,'#4b4b4b');rect(x+5,y-55,17,41,'#4b4b4b');}
+    rect(x+width/2+3,y-39,8,16,'#263b49');rect(x+width/2+5,y-36,4,5,unlocked?'#96dcba':'#d0657e');
+    neon(x-label.length*3-6,y-104,label,stage===1?'#dfb986':unlocked?'#85cabc':'#ab86b7');
   }
-  function scenery(){const s=scenes[stage];sky();
-    for(let i=0;i<s.roofs.length;i++)brickRoof(s.roofs[i],i);
-    if(stage===1){rect(80-camera,230,56,43,'#435b67');rect(84-camera,235,48,20,'#365149');text('SAFE',90-camera,251,P.acid,9);rect(344-camera,238,35,35,'#45636a');rect(352-camera,244,21,24,'#a9c9bb');}
-    if(stage===2){rect(370-camera,182,47,58,'#253d48');rect(375-camera,190,37,30,'#3b8c8d');text('AX',384-camera,208,P.acid,11);}
-    if(s.clue){const x=s.clue.x-camera,y=s.clue.y;rect(x-7,y-26,15,18,'#4b4544');rect(x-5,y-24,11,13,'#f5d99d');rect(x-3,y-21,7,1,'#825d4b');rect(x-3,y-17,7,1,'#825d4b');}
-    if(s.terminal){const x=s.terminal.x-camera,y=s.terminal.y;rect(x-10,y-37,20,30,'#1a2d38');rect(x-7,y-34,14,14,unlocked?P.acid:P.red);rect(x-5,y-15,10,3,'#a8cbc6');}
-    const gate=s.exit,x=gate.x-camera,y=gate.y;rect(x-17,y-63,37,67,'#223a48');rect(x-12,y-57,27,54,unlocked?'#2a807b':'#693e4a');rect(x-9,y-52,4,44,unlocked?P.acid:P.red);rect(x+1,y-52,9,3,'#173743');
-    if(stage===3&&!unlocked){rect(x-3,y-54,6,39,P.red);}
-    if(stage!==1)for(let i=0;i<56;i++){const px=(i*83-camera*.43)%560,py=(i*71+time*(38+i%5*13))%340;if(px>=0&&px<W)rect(px,py,1,5,stage===0?'#e3f8db69':'#c9e9cf66');}
+  function scenery(){
+    const s=scenes[stage];
+    if(stage===0)cityBackdrop();else if(stage===1)officeBackdrop();else laboratoryBackdrop(stage===3);
+    if(stage===2)labDetails();else if(stage===3)coreDetails();
+    for(let i=0;i<s.roofs.length;i++)platform(s.roofs[i],i);
+    if(s.clue){const x=s.clue.x-camera,y=s.clue.y;rect(x-9,y-30,18,23,'#273744');rect(x-6,y-27,13,15,'#e2c9a0');for(let i=0;i<3;i++)rect(x-4,y-24+i*4,8,1,'#805e58');rect(x-2,y-31,5,2,'#e38c82');}
+    for(const f of s.files||[]){const x=f.x-camera;rect(x-3,f.y-42,7,5,'#d1b27c');rect(x-1,f.y-41,3,3,'#f2d8a2');}
+    if(s.terminal){const x=s.terminal.x-camera,y=s.terminal.y;rect(x-12,y-40,23,34,'#152a39');rect(x-9,y-36,17,17,unlocked?'#3c8572':'#623b56');rect(x-7,y-33,13,2,unlocked?'#a7ecc0':'#d995a3');rect(x-7,y-27,8,2,unlocked?'#a7ecc0':'#d995a3');rect(x-8,y-14,16,3,'#8babae');rect(x-7,y-6,4,6,'#4b6776');}
+    accessPoint();
+    if(stage===0){
+      rainBox(0,44,W,293);
+      for(const roof of s.roofs){const x=roof.x+roof.w-40-camera;for(let j=0;j<3;j++){const rise=(time*13+j*13)%44;rect(x-3-rise*.13,roof.y-35-rise,8+rise*.28,3,'#a6c6d018');}}
+    }
   }
   function enemySprite(e){
     if(e.hp<=0)return;
@@ -398,10 +557,10 @@
     for(const e of enemies)enemySprite(e);
     for(const b of bullets)drawBullet(b);
     detective();for(const v of particles)rect(v.x-camera,v.y,2,2,v.c);
-    let target=null,label='';if(s.clue&&Math.abs(player.x-s.clue.x)<31&&Math.abs(player.y-s.clue.y)<45){target=s.clue;label='[E] READ NOTE';}
+    let target=null,label='';const file=nearbyFile();if(file){target=file;label='[E] READ FILE';}
     else if(s.terminal&&!unlocked&&Math.abs(player.x-s.terminal.x)<34&&Math.abs(player.y-s.terminal.y)<45){target=s.terminal;label='[E] TERMINAL';}
-    else if(Math.abs(player.x-s.exit.x)<40&&Math.abs(player.y-s.exit.y)<48){target=s.exit;label='[E] '+(stage===3?'SEAL THE BREACH':'ENTER');}
-    if(target){rect(target.x-camera-2,target.y-47,5,5,P.acid);rect(clamp(target.x-camera-55,5,W-120),target.y-64,116,13,'#142a38');text(label,clamp(target.x-camera-51,8,W-116),target.y-55,P.cream,8);}
+    else if(Math.abs(player.x-s.exit.x)<40&&Math.abs(player.y-s.exit.y)<48){target=s.exit;label='[E] '+(stage===3?'SEAL RIFT':stage===1?'DESCEND':'ENTER');}
+    if(target){const width=label.length*6+12,bx=clamp(target.x-camera-width/2,5,W-width-5);rect(target.x-camera-2,target.y-47,5,5,P.acid);rect(bx,target.y-64,width,13,'#102534');text(label,bx+6,target.y-55,P.cream,8);}
   }
   function hud(){
     rect(0,0,W,43,'#132631');rect(0,41,W,3,'#6a9d96');
@@ -419,19 +578,21 @@
     rect(415,16,2,3,P.white);rect(403,21,3,4,'#26464d');rect(395,21,3,4,'#26464d');
     text('× '+String(enemies.filter(e=>e.hp>0).length).padStart(2,'0'),430,26,P.white,12);
     rect(0,H-23,W,23,'#0e222e');rect(0,H-23,W,2,'#477b7d');
-    text(noticeTime>0?notice.toUpperCase().slice(0,62):'VESPER CITY  //  FOLLOW THE EVIDENCE',9,H-8,noticeTime>0?P.cream:'#a2c7c0',8);
+    const objective=unlocked&&stage!==1?(stage===0?'STAIRWELL OPEN / ENTER SAFEHOUSE 09':stage===2?'CORE ACCESS GRANTED / REACH THE REACTOR':'CORE EXPOSED / USE THE SHUTDOWN CONSOLE'):scenes[stage].objective;
+    text(noticeTime>0?notice.toUpperCase().slice(0,62):objective,9,H-8,noticeTime>0?P.cream:'#a2c7c0',8);
     text(`0${stage+1}/04`,W-10,H-8,P.acid,8,'right');
     if(player.reload>0)text('RELOADING',W/2,58,P.cream,8,'center');
     if(slowAmount>.1){rect(0,43,W,4,'#172d28');rect(0,H-27,W,4,'#172d28');rect(W/2-57,49,114,14,'#243f35');text('BULLET TIME / 20%',W/2,59,'#d5e8b9',8,'center');}
-    if(banner>0){rect(84,84,312,45,'#142d3bdc');rect(84,84,312,2,P.acid);text(`SECTOR 0${stage+1}`,W/2,101,P.cyan,8,'center');text(scenes[stage].name,W/2,119,P.cream,15,'center');}
+    if(banner>0){const s=scenes[stage];rect(42,76,396,72,'#0c172be8');rect(42,76,396,2,stage===1?'#d8b282':P.cyan);text(s.location,W/2,93,P.cyan,8,'center');text(s.name,W/2,116,P.cream,15,'center');text(s.quote,W/2,137,'#b5c3ca',8,'center');}
   }
   function draw(){g.save();if(shake)g.translate(Math.round(rand(-shake,shake)),Math.round(rand(-shake,shake)));scenery();foreground();hud();g.restore();}
   let previous=0;function loop(t){const dt=Math.min(.04,(t-previous)/1000||0);previous=t;update(dt);draw();requestAnimationFrame(loop);}
   startButton.addEventListener('click',()=>begin(mode==='dead'&&!!checkpoint));
   const grid=document.querySelector('.num-grid');for(const n of [1,2,3,4]){const b=document.createElement('button');b.textContent=n;b.type='button';b.addEventListener('click',()=>digit(String(n)));grid.appendChild(b);}
   document.getElementById('cancel-puzzle').addEventListener('click',()=>{mode='play';puzzle.classList.add('hidden');});
+  document.getElementById('close-dossier').addEventListener('click',closeDossier);
   const prevent=new Set(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight']);
-  document.addEventListener('keydown',e=>{if(prevent.has(e.code))e.preventDefault();if(mode==='puzzle'){if(e.code==='Escape'){mode='play';puzzle.classList.add('hidden');}else if(e.key>='1'&&e.key<='4')digit(e.key);return;}keys.add(e.code);});
+  document.addEventListener('keydown',e=>{if(prevent.has(e.code))e.preventDefault();if(mode==='dossier'){if(!e.repeat&&['Escape','Enter','KeyE'].includes(e.code)){e.preventDefault();closeDossier();}return;}if(mode==='puzzle'){if(e.code==='Escape'){mode='play';puzzle.classList.add('hidden');}else if(e.key>='1'&&e.key<='4')digit(e.key);return;}keys.add(e.code);});
   document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();edge.clear();touch.shoot=false;touch.slow=false;});
   canvas.addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;const r=canvas.getBoundingClientRect();aim={x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};});
   canvas.addEventListener('pointerleave',()=>aim=null);canvas.addEventListener('pointerdown',e=>{if(mode==='play'){e.preventDefault();shoot();}});

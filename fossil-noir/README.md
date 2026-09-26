@@ -19,3 +19,15 @@ Open `index.html` locally, or visit `https://pta19059.github.io/fossil-noir/` on
 | Reload | R | RELOAD |
 
 Four side-scrolling scenes, roof gaps, two code locks, a safehouse checkpoint, limited ammunition and a final bio-weapon encounter. Compact characters, six-pose footwork, distinct backbend and shoot-dive poses, telegraphed dinosaur attacks, a parallax city and pixel bullet-time rings are drawn directly on the Canvas. Gun rendering and projectile spawning share one shoulder/barrel transform, including during dodges. Sprites use original designs: Elias, Razor raptors, Ironback armored quadrupeds, skull sentries and the Crown Rex. Progress is kept in memory for the current session.
+
+
+## The setting
+
+Vesper, 2091. A distress call on a lost partner's radio frequency draws Elias back to the Black Rain case. Five years ago, an Axiom raid cost him an eye, an arm and his partner. Now the corporation's cloned, genetically modified prehistoric weapons are loose.
+
+1. **Rain over Vesper** — Midnight rooftops, neon hotels, surveillance drones, wet masonry and the witness's stairwell code.
+2. **Safehouse 09** — A dry, amber-lit office inside the abandoned precinct. The evidence board and mechanical-arm workbench explain Elias's past. The service lift descends into Axiom's utility tunnels.
+3. **Axiom Research Wing** — Sublevel B6: living specimens, broken containment tanks, claw marks, coolant vapor and steel catwalks over service shafts. The Lazarus file identifies the cloning program and emergency reactor code.
+4. **The Fracture** — Sublevel B9: a containment ring opens onto a living prehistoric forest. Spores, roots and floating debris surround Crown Rex. Defeat it and use the shutdown console to seal the breach.
+
+Five optional case files can be inspected with E / USE. Reading pauses gameplay; close a file with E, Enter, Escape or the on-screen button. Outdoor rain is confined to Vesper and the safehouse windows. Chapters have distinct materials, lighting, architecture, objectives and entry narration. The case files are original fictional lore for this game.
