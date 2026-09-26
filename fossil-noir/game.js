@@ -24,7 +24,7 @@
   function text(s,x,y,color=P.white,size=8,align='left'){g.font=`bold ${size}px monospace`;g.fillStyle=color;g.textAlign=align;g.fillText(s,Math.round(x),Math.round(y));g.textAlign='left';}
   function note(s,seconds=3){notice=s;noticeTime=seconds;}
   function burst(x,y,c,n=8){for(let i=0;i<n;i++)particles.push({x,y,vx:rand(-95,95),vy:rand(-130,20),life:rand(.2,.6),c});}
-  function freshPlayer(){return{x:65,y:263,vy:0,face:1,ground:true,moving:false,step:0,hp:5,ammo:12,reserve:28,focus:100,inv:0,fire:0,reload:0,melee:0,dash:0,dashDir:1,wall:0,wallRun:0};}
+  function freshPlayer(){return{x:65,y:263,vy:0,face:1,aimAngle:0,ground:true,moving:false,step:0,hp:5,ammo:12,reserve:28,focus:100,inv:0,fire:0,reload:0,melee:0,dash:0,dashDir:1,wall:0,wallRun:0};}
   function roofAt(x,scene=scenes[stage]){return scene.roofs.find(r=>x>=r.x+3&&x<=r.x+r.w-3);}
   function floorAt(x,scene=scenes[stage]){const r=roofAt(x,scene);return r?r.y:null;}
   function setup(index,restore=false){
@@ -51,16 +51,34 @@
   function dodge(){if(mode!=='play'||player.dash>0||player.focus<15)return;player.focus-=15;player.dash=.27;player.dashDir=player.face;player.inv=Math.max(player.inv,.3);player.wallRun=0;burst(player.x,player.y-12,P.cyan,9);}
   function reload(){if(mode!=='play'||player.reload>0||player.ammo===12||player.reserve<=0)return;player.reload=1;note('RELOADING',1);}
   function nearest(){let pick=null,best=275;for(const e of enemies){if(e.hp<=0)continue;const dx=e.x-player.x,dy=e.y-player.y;if(Math.abs(dy)<80&&Math.hypot(dx,dy)<best){pick=e;best=Math.hypot(dx,dy);}}return pick;}
+  function aimTarget(){if(aim)return{x:aim.x+camera,y:aim.y};const e=nearest();return e?{x:e.x,y:e.y-(e.type==='boss'?32:29)}:null;}
+  function sight(p,target){
+    if(!target)return{face:p.face,angle:0};
+    const face=target.x>=p.x?1:-1;
+    const fromX=p.x+face*11.25,fromY=p.y-28.75;
+    const angle=clamp(Math.atan2(target.y-fromY,Math.max(8,(target.x-fromX)*face)),-1.05,1.05);
+    return{face,angle};
+  }
+  function muzzle(p){
+    // The arm rotates around (9,-23); the barrel tip is (21,-2) from that joint.
+    const a=p.aimAngle,scale=1.25;
+    return{x:p.x+p.face*scale*(9+21*Math.cos(a)+2*Math.sin(a)),y:p.y+scale*(-23+21*Math.sin(a)-2*Math.cos(a))};
+  }
   function shoot(){if(mode!=='play'||player.fire>0||player.reload>0)return;
     if(player.ammo===0){reload();if(player.reserve===0)note('NO AMMO // USE MELEE',2);return;}
-    let dx=player.face,dy=0;
-    if(aim){dx=aim.x+camera-player.x;dy=aim.y-(player.y-17);}
-    else{const e=nearest();if(e){dx=e.x-player.x;dy=e.y-11-(player.y-17);}}
-    const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;player.face=dx>=0?1:-1;
-    player.ammo--;player.fire=.23;bullets.push({x:player.x+dx*12,y:player.y-17+dy*10,vx:dx*298,vy:dy*298,life:2,good:true});burst(player.x+dx*12,player.y-17+dy*8,P.cream,4);shake=1.3;
+    const {face,angle}=sight(player,aimTarget());player.face=face;player.aimAngle=angle;
+    const tip=muzzle(player),dx=face*Math.cos(angle),dy=Math.sin(angle);
+    player.ammo--;player.fire=.23;
+    bullets.push({x:tip.x+dx*2,y:tip.y+dy*2,vx:dx*298,vy:dy*298,life:2,good:true});
+    burst(tip.x,tip.y,P.cream,5);shake=1.3;
   }
   function hitEnemy(e,n){if(e.hp<=0)return;e.hp-=n;e.flash=.14;burst(e.x,e.y-14,P.red,8);
     if(e.hp<=0){player.focus=clamp(player.focus+12,0,100);shake=e.type==='boss'?5:2;if(e.type==='boss'){unlocked=true;note('THE WEAPON IS DOWN // REACH THE GATE',5);}else if(Math.random()<.22)drops.push({x:e.x,y:e.y-13,type:'ammo',taken:false});}
+  }
+  function bulletHitsEnemy(b,e){
+    const bounds=e.type==='boss'?{left:-75,right:70,top:-62}:e.type==='brute'?{left:-51,right:51,top:-54}:e.type==='turret'?{left:-19,right:27,top:-38}:{left:-41,right:41,top:-44};
+    const left=e.dir<0?-bounds.right:bounds.left,right=e.dir<0?-bounds.left:bounds.right;
+    return b.x>=e.x+left-2&&b.x<=e.x+right+2&&b.y>=e.y+bounds.top-2&&b.y<=e.y+4;
   }
   function melee(){if(mode!=='play'||player.melee>0)return;player.melee=.44;let landed=false;
     for(const e of enemies){if(e.hp>0&&Math.abs(e.x-player.x)<e.r+24&&Math.abs(e.y-player.y)<39&&(e.x-player.x)*player.face>-8){hitEnemy(e,1);e.x+=player.face*11;landed=true;}}
@@ -84,6 +102,7 @@
     const direction=clamp(x,-1,1);
     if(Math.abs(direction)>.2)p.face=direction>0?1:-1;
     p.moving=Math.abs(direction)>.2&&p.ground;p.step+=Math.abs(direction)*dt*10;
+    if(p.fire<=0.14){const line=sight(p,aimTarget());if(aim)p.face=line.face;p.aimAngle=line.angle;}
     const jumping=k('KeyW')||k('ArrowUp')||k('Space');if(jumping&&!edge.has('JUMP')){jump();edge.add('JUMP');}if(!jumping)edge.delete('JUMP');
     const dashing=k('ShiftLeft')||k('ShiftRight');if(dashing&&!edge.has('DASH')){dodge();edge.add('DASH');}if(!dashing)edge.delete('DASH');
     if(k('KeyF')&&!edge.has('MELEE')){melee();edge.add('MELEE');}if(!k('KeyF'))edge.delete('MELEE');
@@ -108,7 +127,13 @@
     for(const e of enemies){if(e.hp<=0)continue;e.flash=Math.max(0,e.flash-dt);e.attack-=dt*speed;e.shoot-=dt*speed;
       const distance=Math.abs(e.x-p.x),vertical=Math.abs(e.y-p.y);
       if(e.type==='turret'||e.type==='boss'){
-        if(e.shoot<=0&&distance<295&&vertical<100){const a=Math.atan2(p.y-17-(e.y-16),p.x-e.x);const spread=e.type==='boss'?[-.2,0,.2]:[0];for(const off of spread)bullets.push({x:e.x,y:e.y-17,vx:Math.cos(a+off)*104,vy:Math.sin(a+off)*104,life:3,good:false});e.shoot=e.type==='boss'?2.3:1.9;burst(e.x,e.y-18,P.coral,3);}
+        e.dir=Math.sign(p.x-e.x)||e.dir;
+        if(e.shoot<=0&&distance<295&&vertical<100){
+          const mouth={x:e.x+e.dir*(e.type==='boss'?67:26),y:e.y-(e.type==='boss'?39:25)};
+          const a=Math.atan2(p.y-25-mouth.y,p.x-mouth.x),spread=e.type==='boss'?[-.2,0,.2]:[0];
+          for(const off of spread)bullets.push({x:mouth.x,y:mouth.y,vx:Math.cos(a+off)*104,vy:Math.sin(a+off)*104,life:3,good:false});
+          e.shoot=e.type==='boss'?2.3:1.9;burst(mouth.x,mouth.y,P.coral,3);
+        }
       }
       if(e.type!=='turret'){
         if(distance<225&&vertical<65){const sign=Math.sign(p.x-e.x)||1,step=sign*e.speed*speed*dt,floor=floorAt(e.x+step*2);if(floor!==null&&Math.abs(floor-e.y)<6)e.x+=step;e.dir=sign;}
@@ -117,7 +142,7 @@
     }
     for(const b of bullets){if(b.life<=0)continue;const rate=b.good?1:speed;b.x+=b.vx*dt*rate;b.y+=b.vy*dt*rate;b.life-=dt*rate;
       if(b.x<0||b.x>s.width||b.y<37||b.y>H){b.life=0;continue;}
-      if(b.good){for(const e of enemies){if(e.hp>0&&Math.abs(b.x-e.x)<e.r+3&&Math.abs(b.y-(e.y-(e.type==='boss'?23:13)))<(e.type==='boss'?24:15)){hitEnemy(e,1);b.life=0;break;}}}
+      if(b.good){for(const e of enemies){if(e.hp>0&&bulletHitsEnemy(b,e)){hitEnemy(e,1);b.life=0;break;}}}
       else if(Math.abs(b.x-p.x)<10&&Math.abs(b.y-(p.y-17))<17){if(p.inv>0)p.focus=clamp(p.focus+4,0,100);else hurt(1);b.life=0;}
     }
     bullets=bullets.filter(b=>b.life>0);
@@ -175,25 +200,34 @@
       // A sentry built from a cloned skull and a fixed mechanical rib cage.
       rect(-17,-17,34,17,shade);rect(-13,-19,26,17,steel);rect(-9,-28,20,15,armor);
       rect(-6,-25,13,6,scale);rect(-3,-19,3,13,joint);rect(-13,-7,26,4,'#668b8b');
+      rect(-13,-17,4,7,'#9eb8aa');rect(-6,-15,3,7,'#9eb8aa');rect(5,-14,3,7,'#9eb8aa');
+      rect(-10,-23,3,2,P.cyan);rect(-6,-21,2,2,steel);
       rect(3,-34,14,10,shade);rect(5,-32,13,8,armor);rect(14,-29,12,5,scale);
       rect(16,-26,10,3,shade);rect(17,-23,3,3,P.white);rect(22,-23,3,3,P.white);
-      rect(14,-31,3,3,P.red);rect(10,-36,4,5,steel);
+      rect(14,-31,3,3,P.red);rect(10,-36,4,5,steel);rect(23,-28,2,2,steel);
       rect(-15,-15,3,12,'#5b8384');rect(12,-15,3,12,'#5b8384');
     }else if(e.type==='boss'){
       // The final creature has a separate jaw, plated torso, spines and hydraulic legs.
       const stride=Math.round(Math.sin(time*6)*2);
       rect(-74,-21,19,4,shade);rect(-64,-26,19,8,steel);rect(-53,-34,20,12,armor);
+      rect(-62,-25,4,4,scale);rect(-49,-31,5,4,scale);rect(-55,-27,3,3,P.cyan);
       rect(-37,-43,60,34,shade);rect(-34,-41,55,29,armor);rect(-30,-37,48,18,'#648f7d');
+      rect(-34,-18,52,7,steel);rect(-28,-21,42,3,'#a0bc9f');
+      for(let i=0;i<4;i++){rect(-26+i*12,-39,8,4,'#385f60');rect(-23+i*12,-37,3,2,P.cream);}
       for(let i=0;i<4;i++){rect(-27+i*11,-47-(i%2)*4,6,11,steel);rect(-25+i*11,-50-(i%2)*4,3,8,scale);}
       rect(-19,-32,26,8,'#2b5054');rect(-12,-30,7,4,joint);rect(1,-30,7,4,joint);
+      rect(-13,-27,22,2,P.cyan);rect(-9,-25,3,3,P.red);rect(17,-38,6,5,joint);
       rect(12,-47,13,16,steel);rect(21,-57,29,29,shade);rect(24,-55,27,23,armor);
       rect(38,-49,15,6,scale);rect(48,-43,17,9,steel);rect(52,-42,17,5,armor);
       const jaw=Math.sin(time*4+e.x*.01)>0?3:0;
       rect(46,-35+jaw,23,8,shade);rect(49,-34+jaw,18,3,'#a5bba2');
       for(let i=0;i<4;i++)rect(51+i*4,-31+jaw,2,4,P.white);
       rect(44,-47,5,4,Math.sin(time*7)>0?P.red:P.coral);rect(46,-46,2,2,P.cream);rect(32,-55,5,4,'#aec6ad');
+      rect(61,-43,3,2,shade);rect(28,-52,3,3,scale);rect(34,-51,3,3,scale);
       rect(-21,-14,15,14,shade);rect(-17,-15,8,12,steel);rect(-15,-7+stride,10,8,'#5b7e7d');
       rect(8,-14,18,14,shade);rect(12,-15,9,13,steel);rect(13,-7-stride,12,8,'#5b7e7d');
+      rect(-17,-4+stride,4,4,scale);rect(-8,-4+stride,4,4,scale);
+      rect(12,-4-stride,4,4,scale);rect(22,-4-stride,4,4,scale);
       rect(25,-28,11,4,steel);rect(33,-24,5,8,shade);rect(36,-23,5,4,scale);
       rect(-56,-34,7,5,joint);rect(-37,-36,6,6,joint);
     }else{
@@ -201,16 +235,19 @@
       if(large)g.scale(1.23,1.23);
       // Long counterbalancing tail, bent hind legs, pointed snout and visible teeth.
       rect(-40,-18,11,4,shade);rect(-34,-22,14,7,steel);rect(-26,-27,12,10,armor);
+      rect(-36,-20,5,2,scale);rect(-25,-24,4,3,scale);rect(-22,-21,3,2,P.cyan);
       rect(-17,-31,31,22,shade);rect(-14,-30,27,18,armor);rect(-11,-27,22,10,large?'#ab9070':'#69a18e');
       rect(-14,-16,9,5,shade);rect(7,-15,10,5,shade);
+      rect(-13,-19,24,2,'#abc4a8');rect(-9,-29,6,3,'#294d56');rect(1,-28,6,3,'#294d56');
       rect(-12,-34,6,6,scale);rect(-3,-36,5,7,steel);rect(5,-34,5,6,scale);
       rect(-5,-39,4,5,scale);rect(4,-38,4,5,scale);
       rect(10,-35,9,14,steel);rect(14,-42,16,14,shade);rect(16,-40,16,11,armor);
       const jaw=Math.sin(time*7+e.x*.04)>0?2:0;
       rect(26,-35,12,5,scale);rect(32,-32,9,5,shade);rect(31,-28+jaw,10,3,'#a6bda6');
       rect(31,-25+jaw,2,4,P.white);rect(36,-25+jaw,2,4,P.white);
-      rect(26,-38,4,4,P.red);rect(27,-37,2,2,P.cream);
+      rect(26,-38,4,4,P.red);rect(27,-37,2,2,P.cream);rect(37,-34,2,2,shade);
       rect(-7,-22,8,4,steel);rect(-6,-19,4,7,shade);rect(-3,-17,4,3,joint);
+      rect(-6,-23,3,3,P.cyan);rect(12,-32,4,5,'#3d686c');
       rect(-12,-11,9,10,shade);rect(-11,-11,4,8,steel);rect(-12+stride,-4,11,4,'#447071');
       rect(6,-12,9,10,shade);rect(7,-11,4,8,steel);rect(5-stride,-4,11,4,'#447071');
       rect(-11+stride,0,4,2,scale);rect(-5+stride,0,3,2,scale);
@@ -228,25 +265,37 @@
     const flying=!p.ground,step=p.moving?Math.round(Math.sin(p.step)*3):0;
     const coat=p.dash>0?'#68bcb9':'#284b62',light=p.dash>0?'#c2eee0':'#5a8e98',ink='#132533';
     if(p.dash>0||p.wallRun>0){rect(-24,-32,15,22,'#5ed4d1');rect(-34,-29,7,15,'#a6eee1');}
-    // Shoes and separate legs make running and airborne poses readable.
+    // Boot soles, knee plates and coat tails move separately when he leaps.
     if(flying){rect(-12,-12,7,8,ink);rect(-15,-7,10,5,'#203b4d');rect(3,-11,8,7,ink);rect(7,-8,9,5,'#203b4d');}
     else{rect(-9,-12,7,10,ink);rect(-9+step,-4,10,4,'#162635');rect(3,-12,7,10,ink);rect(3-step,-4,11,4,'#162635');rect(-7,-14,5,4,'#527b81');rect(4,-14,5,4,'#527b81');}
-    // Split coat tails, belt, lapels and a small detective badge.
+    rect(-13+step,-4,6,2,'#697d7e');rect(5-step,-4,7,2,'#697d7e');
+    // Leather coat, split tails, belt, holster, lapels and brass detective badge.
     rect(-13,-30,25,22,ink);rect(-11,-28,21,19,coat);
     rect(-11,-14,9,12,ink);rect(-9,-15,7,11,coat);rect(3,-14,10,12,ink);rect(4,-15,8,10,coat);
     if(flying){rect(-14,-13,5,7,light);rect(10,-16,5,7,light);}
     rect(-4,-27,6,15,light);rect(-8,-27,4,11,'#365e73');rect(3,-27,4,11,'#365e73');
-    rect(-10,-17,19,3,'#132b3b');rect(1,-17,3,3,'#d3b662');rect(-8,-24,3,3,P.cream);
-    // Warm face and nose under a dark fedora; red scarf separates head from coat.
-    rect(-7,-39,15,13,ink);rect(-5,-37,12,12,'#cfa27f');rect(-4,-33,11,7,'#e3bd94');
-    rect(5,-33,4,3,'#b38065');rect(2,-34,3,2,P.white);rect(4,-34,1,1,ink);rect(1,-30,6,2,'#875a50');
-    rect(-7,-42,16,6,ink);rect(-5,-43,13,3,'#314c5d');rect(-10,-38,23,4,'#0c1e2c');rect(1,-40,7,2,P.coral);
-    rect(-6,-27,14,4,P.coral);rect(5,-24,7,4,'#a54e52');
-    // Foreground arm, glove and distinct pistol silhouette.
-    rect(7,-28,7,11,ink);rect(9,-26,6,9,coat);rect(12,-23,6,5,'#1d2f3d');
-    rect(15,-25,10,5,ink);rect(23,-24,5,2,'#94b8b1');rect(17,-20,4,6,'#101d2b');
-    rect(-12,-26,5,12,ink);rect(-11,-24,4,9,light);
-    if(p.fire>.14){rect(28,-25,4,4,P.cream);rect(32,-24,4,2,P.coral);}
+    rect(-10,-17,20,3,'#132b3b');rect(0,-17,4,3,'#d3b662');rect(-8,-24,4,4,P.cream);
+    rect(-10,-12,3,7,'#362e31');rect(-11,-13,5,2,'#ae785a');
+    // Scarred face, one visible eye and a fabric patch with a diagonal strap.
+    rect(-8,-41,17,15,ink);rect(-6,-39,14,12,'#c99c78');rect(-5,-34,13,7,'#e2b893');
+    rect(7,-34,4,3,'#ad775c');rect(-4,-36,3,2,P.white);rect(-2,-36,1,2,ink);
+    rect(-8,-38,11,2,'#633b43');rect(2,-38,6,7,ink);rect(3,-37,5,5,'#a14750');rect(4,-36,3,3,'#26333b');
+    rect(-2,-29,9,2,'#805f50');rect(-6,-27,15,4,P.coral);rect(5,-24,8,4,'#a54e52');
+    // Wide brim, pinched crown and a hat band: an unmistakable cowboy hat.
+    rect(-11,-52,22,13,ink);rect(-8,-55,16,4,'#533d36');rect(-10,-51,20,10,'#665042');
+    rect(-7,-52,7,2,'#94745a');rect(3,-52,5,2,'#94745a');
+    rect(-11,-44,22,4,'#2a3439');rect(-9,-43,18,2,P.coral);
+    rect(-18,-42,36,5,ink);rect(-15,-41,31,2,'#a17b5b');rect(12,-40,6,2,'#503b36');
+    // The other arm stays under the coat; the gun arm is exposed titanium.
+    rect(-14,-28,7,15,ink);rect(-12,-26,5,11,light);rect(-14,-15,7,3,'#101e2c');
+    g.save();g.translate(9,-23);g.rotate(p.aimAngle);
+    rect(-4,-8,11,13,ink);rect(-2,-7,8,10,'#687f86');rect(-2,-6,4,3,'#c1d0c7');
+    rect(2,-4,8,8,ink);rect(3,-3,6,6,'#a2b7b7');rect(4,-1,4,3,P.red);
+    rect(8,-4,9,7,ink);rect(9,-3,7,5,'#7c9b9c');rect(10,-2,5,2,P.cyan);
+    rect(15,-5,7,7,ink);rect(16,-4,5,4,'#536e7a');rect(18,-3,4,2,'#a7c5be');
+    rect(17,1,3,5,ink);rect(17,4,3,2,'#708b8e');
+    if(p.fire>.14){rect(22,-5,5,6,P.cream);rect(27,-3,5,2,P.coral);}
+    g.restore();
     if(p.melee>.24){rect(22,-42,4,9,P.cyan);rect(28,-32,5,7,P.cyan);rect(30,-22,5,6,P.cream);}
     g.restore();
   }
@@ -262,9 +311,11 @@
   function hud(){
     rect(0,0,W,43,'#132631');rect(0,41,W,3,'#6a9d96');
     rect(10,5,31,31,'#071620');rect(12,7,27,27,'#224a57');
-    rect(16,27,20,7,'#1c394b');rect(20,23,12,5,P.coral);
-    rect(18,14,15,11,'#d6ab88');rect(19,19,13,6,'#e8c19b');rect(27,17,5,2,'#fff2d9');rect(30,17,1,2,'#0c1d2c');
-    rect(17,11,18,5,'#152839');rect(20,9,14,3,'#354d5e');rect(14,15,23,3,'#0b1827');rect(28,12,6,2,P.coral);
+    rect(16,28,21,6,'#1c394b');rect(20,25,13,4,P.coral);rect(34,26,4,7,'#8fa7aa');
+    rect(19,16,16,10,'#d6ab88');rect(20,20,14,6,'#e8c19b');
+    rect(21,19,3,2,P.white);rect(29,18,5,5,'#29343c');rect(30,19,3,3,'#a14750');
+    rect(17,17,12,2,'#74454a');rect(19,10,17,7,'#594536');rect(22,8,12,3,'#82634b');
+    rect(17,14,19,2,P.coral);rect(13,16,26,3,'#10202b');rect(16,17,20,1,'#b18b68');
     rect(49,8,118,8,'#663f43');rect(49,8,118*player.hp/5,8,player.hp<=2?P.red:'#f8c751');rect(49,8,118*player.hp/5,2,P.cream);
     text('ELIAS VANE',49,31,P.cream,14);text('INSTINCT',182,12,P.cream,7);rect(182,18,88,9,'#325057');rect(182,18,88*player.focus/100,9,P.acid);
     text('AMMO',288,12,P.cream,7);text(String(player.ammo).padStart(2,'0')+' / '+String(player.reserve).padStart(2,'0'),286,29,P.white,13);
