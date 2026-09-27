@@ -47,3 +47,18 @@ All three weapons are available from the start, with separate magazines and rese
 The friendly cyan-armored R-09 Strider appears in chapters 1, 3 and 4. G / RIDE links Elias's arm to its control saddle. Mounted movement is faster, jumps are higher, and every firearm works from the saddle. F / BITE delivers a close-range bite; Shift / CHARGE spends instinct to ram each enemy once per charge. Six armor points absorb incoming damage. A disabled mount ejects Elias with brief protection. Dismounting requires solid ground and finds a safe spot on the current platform. Mounts stay in their own chapter.
 
 New threats: Venom Spitters launch arcing acid that leaves temporary damaging pools; Wirewings telegraph aerial dives; Rift Stalkers telegraph short teleports to a valid platform before resuming their attack. All new enemy actions and acid pools respond to bullet time.
+
+
+## Difficulty
+
+Choose a difficulty in the start menu. Normal preserves the original balance. All weapons, mounts, chapters and case files are available in every mode.
+
+| Setting | Easy / Rookie | Normal / Detective | Hard / Nightmare |
+| --- | --- | --- | --- |
+| Incoming damage, including Strider armor | 60% | 100% | 140% |
+| Starting reserve ammunition and ammo caches | 150% | 100% | 70% |
+| Enemy simulation speed (movement, attack timers, enemy projectiles) | 85% | 100% | 115% |
+| Instinct drain per second in bullet time | 20 | 27 | 34 |
+| Passive Instinct recovery per second | 8 | 5 | 3 |
+
+Ammunition is rounded to whole rounds and capped per weapon. Starting magazines, player health and mount armor are unchanged. Falling into a shaft is fatal on every difficulty. A safehouse checkpoint retains its difficulty and full inventory; use NEW CASE on the retry screen to choose a different difficulty and restart from Chapter 1. Checkpoints exist only during the current page session.

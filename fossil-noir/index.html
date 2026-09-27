@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#09111b">
   <meta name="description" content="Fossil Noir: a side-scrolling pixel-art action survival game. Play free in your browser.">
   <title>Fossil Noir — A Pixel Noir Game</title>
-  <link rel="stylesheet" href="./style.css?v=20260926-strider">
+  <link rel="stylesheet" href="./style.css?v=20260927-difficulty">
 </head>
 <body>
   <main class="shell">
@@ -16,7 +16,7 @@
       <div class="machine-bar"><span><i></i> AXIOM SECURITY FEED</span><span id="status">SECTOR 01 / STANDBY</span></div>
       <div class="screen-wrap">
         <canvas id="game" width="480" height="360" aria-label="Fossil Noir game screen"></canvas>
-        <div id="overlay" class="overlay"><div class="panel"><span class="panel-id">// INCOMING TRANSMISSION</span><h2 id="overlay-title">THE CITY<br>REMEMBERS.</h2><p id="overlay-text">Vesper, 2091. A distress call from a lost partner leads Elias Vane from rain-soaked rooftops to the cloning labs beneath the city. Axiom opened the past. Something came through.</p><button id="start" type="button">START THE CASE <span>↗</span></button><small id="overlay-foot">4 CHAPTERS · 5 CASE FILES · ONE OPEN WOUND</small></div></div>
+        <div id="overlay" class="overlay"><div class="panel"><span class="panel-id">// INCOMING TRANSMISSION</span><h2 id="overlay-title">THE CITY<br>REMEMBERS.</h2><p id="overlay-text">Vesper, 2091. A distress call from a lost partner leads Elias Vane from rain-soaked rooftops to the cloning labs beneath the city. Axiom opened the past. Something came through.</p><div class="difficulty-row"><label for="difficulty">DIFFICULTY</label><select id="difficulty" aria-describedby="difficulty-hint"><option value="easy">EASY — Rookie</option><option value="normal" selected>NORMAL — Detective</option><option value="hard">HARD — Nightmare</option></select></div><p id="difficulty-hint" class="difficulty-hint" aria-live="polite">Balanced combat, standard supplies and Instinct recovery.</p><button id="start" type="button">START THE CASE <span>↗</span></button><button id="new-case" type="button" class="secondary hidden">NEW CASE</button><small id="overlay-foot">4 CHAPTERS · 5 CASE FILES · ONE OPEN WOUND</small></div></div>
         <div id="puzzle" class="overlay hidden"><div class="panel puzzle-panel"><span class="panel-id">AXIOM // ACCESS CONTROL</span><h2>ENTER CODE</h2><p id="puzzle-clue"></p><div id="code-display" class="code-display">_ _ _</div><div class="num-grid"></div><button id="cancel-puzzle" type="button" class="secondary">CLOSE [ESC]</button></div></div>
         <div id="dossier" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dossier-title"><div class="panel dossier-panel"><span id="dossier-source" class="panel-id">CASE ARCHIVE</span><h2 id="dossier-title">CASE FILE</h2><p id="dossier-body" class="dossier-copy"></p><button id="close-dossier" type="button">BACK TO THE CASE <span>↗</span></button><small>GAME PAUSED / E, ENTER OR ESC TO CLOSE</small></div></div>
       </div>
@@ -28,6 +28,6 @@
     <section class="field-guide" aria-label="New threats"><h3>AXIOM FIELD NOTES</h3><div><p><strong>VENOM SPITTER</strong><br>A violet frill warns of acid shots. Jump over the corrosive pools.</p><p><strong>WIREWING</strong><br>Armored wings circle overhead. Its warning signal comes before the dive.</p><p><strong>RIFT STALKER</strong><br>A six-legged mutation that slips through time. Watch the violet landing marks.</p></div><p class="ride-note">R-09 STRIDERS / Cyan saddles identify linked mounts. Shoot from the saddle, bite or charge. Their armor can break; Elias is ejected safely when it fails. Striders wait in the rooftops, laboratory and reactor chapters.</p></section>
     <footer><span>FOSSIL NOIR © 2091 VESPER</span><span>BUILT FOR THE DARK <b>✦</b></span></footer>
   </main>
-  <script src="./game.js?v=20260926-strider"></script>
+  <script src="./game.js?v=20260927-difficulty"></script>
 </body>
 </html>

@@ -8,6 +8,24 @@
   const overlay=document.getElementById('overlay'),puzzle=document.getElementById('puzzle');
   const dossier=document.getElementById('dossier');
   const startButton=document.getElementById('start'),status=document.getElementById('status');
+  const difficultySelect=document.getElementById('difficulty'),difficultyHint=document.getElementById('difficulty-hint');
+  const difficulties={
+    easy:{name:'EASY',damage:.6,ammo:1.5,enemySpeed:.85,drain:20,regen:8,description:'Reduced damage, extra ammo, slower enemies and faster Instinct recovery.'},
+    normal:{name:'NORMAL',damage:1,ammo:1,enemySpeed:1,drain:27,regen:5,description:'Balanced combat, standard supplies and Instinct recovery.'},
+    hard:{name:'HARD',damage:1.4,ammo:.7,enemySpeed:1.15,drain:34,regen:3,description:'Higher damage, scarce ammo, faster enemies and slower Instinct recovery.'}
+  };
+  let difficulty='normal';
+  const rules=()=>difficulties[difficulty];
+  function selectedDifficulty(){return Object.hasOwn(difficulties,difficultySelect.value)?difficultySelect.value:'normal';}
+  function difficultyMenu(){
+    const locked=mode==='dead'&&!!checkpoint;difficultySelect.disabled=locked;
+    if(locked)difficultySelect.value=checkpoint.difficulty;
+    difficultyHint.textContent=locked?'Checkpoint keeps '+difficulties[checkpoint.difficulty].name+'. Choose NEW CASE to change difficulty.':difficulties[selectedDifficulty()].description;
+    document.getElementById('new-case').classList[locked?'remove':'add']('hidden');
+  }
+  function newCaseMenu(){checkpoint=null;mode='menu';difficultySelect.disabled=false;difficultyMenu();
+    document.getElementById('overlay-title').innerHTML='A NEW<br>CASE.';document.getElementById('overlay-text').textContent='Choose your difficulty, then return to the rooftops of Vesper. A new case starts from Chapter 1.';
+    startButton.innerHTML='START THE CASE <span>↗</span>';document.getElementById('overlay-foot').textContent='4 CHAPTERS / 3 DIFFICULTIES';}
   const W=480,H=360;
   g.imageSmoothingEnabled=false;
   const P={ink:'#101d2a',black:'#10121c',cream:'#ffefb3',acid:'#d1ec63',coral:'#ec605b',red:'#ed454e',cyan:'#83ebdc',white:'#f7f6dc',shadow:'#226174'};
@@ -65,10 +83,10 @@
   }
   function note(s,seconds=3){notice=s;noticeTime=seconds;}
   function burst(x,y,c,n=8){for(let i=0;i<n;i++)particles.push({x,y,vx:rand(-95,95),vy:rand(-130,20),life:rand(.2,.6),c});}
-  function freshPlayer(){return{x:65,y:263,vx:0,vy:0,face:1,aimAngle:0,ground:true,moving:false,step:0,hp:5,weapon:0,inventory:weapons.map(w=>({ammo:w.mag,reserve:w.reserve})),get ammo(){return this.inventory[this.weapon].ammo;},set ammo(v){this.inventory[this.weapon].ammo=v;},get reserve(){return this.inventory[this.weapon].reserve;},set reserve(v){this.inventory[this.weapon].reserve=v;},focus:100,inv:0,fire:0,flash:0,reload:0,melee:0,dash:0,dashDir:1,dodgeKind:'dive',dodgeCooldown:0,land:0,wall:0,wallRun:0,riding:false};}
+  function freshPlayer(){return{x:65,y:263,vx:0,vy:0,face:1,aimAngle:0,ground:true,moving:false,step:0,hp:5,weapon:0,inventory:weapons.map(w=>({ammo:w.mag,reserve:Math.min(w.max,Math.round(w.reserve*rules().ammo))})),get ammo(){return this.inventory[this.weapon].ammo;},set ammo(v){this.inventory[this.weapon].ammo=v;},get reserve(){return this.inventory[this.weapon].reserve;},set reserve(v){this.inventory[this.weapon].reserve=v;},focus:100,inv:0,fire:0,flash:0,reload:0,melee:0,dash:0,dashDir:1,dodgeKind:'dive',dodgeCooldown:0,land:0,wall:0,wallRun:0,riding:false};}
   function makeEnemy(e,i,s=scenes[stage]){const y=floorAt(e.x,s)-(e.type==='wirewing'?86:0);return{...e,y,homeY:y,...stats[e.type],max:stats[e.type].hp,dir:i%2?1:-1,shoot:1.1+i*.2,attack:.8+i*.13,flash:0,anim:i,wind:0,lunge:0,blink:2.5,phaseWind:0};}
   function makeMount(s){return s.mountX==null?null:{x:s.mountX,y:floorAt(s.mountX,s),dir:1,type:'strider',hp:6,max:6,r:26,anim:0,flash:0,wind:0,lunge:0,bite:0,hits:new Set()};}
-  function restock(){player.inventory.forEach((slot,i)=>slot.reserve=Math.min(weapons[i].max,slot.reserve+weapons[i].cache));}
+  function restock(){player.inventory.forEach((slot,i)=>slot.reserve=Math.min(weapons[i].max,slot.reserve+Math.max(1,Math.round(weapons[i].cache*rules().ammo))));}
   function roofAt(x,scene=scenes[stage]){return scene.roofs.find(r=>x>=r.x+3&&x<=r.x+r.w-3);}
   function floorAt(x,scene=scenes[stage]){const r=roofAt(x,scene);return r?r.y:null;}
   function setup(index,restore=false){
@@ -77,17 +95,17 @@
     if(!restore){player.x=65;player.y=s.roofs[0].y;player.vy=0;player.ground=true;player.inv=.7;}
     enemies=s.enemies.map((e,i)=>makeEnemy(e,i,s));
     drops=s.pickups.map(p=>({...p,y:floorAt(p.x,s)-13,taken:false}));banner=4;
-    status.textContent=`SECTOR 0${index+1} / ${s.name}`;
-    if(s.safe&&!restore){player.hp=Math.min(5,player.hp+2);restock();player.focus=100;checkpoint={hp:player.hp,weapon:player.weapon,inventory:player.inventory.map(slot=>({...slot}))};note('SAFEHOUSE // ARSENAL RESUPPLIED / CHECKPOINT',4);}
+    status.textContent=`${rules().name} / SECTOR 0${index+1} / ${s.name}`;
+    if(s.safe&&!restore){player.hp=Math.min(5,player.hp+2);restock();player.focus=100;checkpoint={difficulty,hp:player.hp,weapon:player.weapon,inventory:player.inventory.map(slot=>({...slot}))};note('SAFEHOUSE // ARSENAL RESUPPLIED / CHECKPOINT',4);}
     else note(s.safe?'CHECKPOINT RESTORED':s.objective,3.4);
   }
-  function begin(fromSave=false){player=freshPlayer();keys.clear();edge.clear();touch.x=0;touch.shoot=false;touch.slow=false;if(fromSave&&checkpoint){player.hp=checkpoint.hp;player.weapon=checkpoint.weapon;player.inventory=checkpoint.inventory.map(slot=>({...slot}));setup(1,true);unlocked=true;}else{checkpoint=null;setup(0);}
+  function begin(fromSave=false){difficulty=fromSave&&checkpoint?checkpoint.difficulty:selectedDifficulty();difficultySelect.value=difficulty;player=freshPlayer();keys.clear();edge.clear();touch.x=0;touch.shoot=false;touch.slow=false;if(fromSave&&checkpoint){player.hp=checkpoint.hp;player.weapon=checkpoint.weapon;player.inventory=checkpoint.inventory.map(slot=>({...slot}));setup(1,true);unlocked=true;}else{checkpoint=null;setup(0);}
     mode='play';overlay.classList.add('hidden');puzzle.classList.add('hidden');dossier.classList.add('hidden');startButton.blur();}
   function finish(won){mode=won?'win':'dead';overlay.classList.remove('hidden');
     document.getElementById('overlay-title').innerHTML=won?'THE FUTURE<br>IS YOURS.':'CASE FILE<br>INTERRUPTED.';
     document.getElementById('overlay-text').textContent=won?'The reactor falls silent. The breach is sealed, and the Lazarus files are out of Axiom\'s hands. Above the tunnels, Vesper is still raining. The Black Rain case is open again.':'Vesper still needs a detective. Try again from your last safehouse.';
     startButton.innerHTML=won?'PLAY AGAIN <span>↗</span>':checkpoint?'RESUME FROM SAFEHOUSE <span>↗</span>':'TRY AGAIN <span>↗</span>';
-    document.getElementById('overlay-foot').textContent=won?'CASE 001 / CLOSED':'CASE 001 / STILL OPEN';
+    document.getElementById('overlay-foot').textContent=(won?'CASE 001 / CLOSED / ':'CASE 001 / STILL OPEN / ')+rules().name;difficultyMenu();
   }
   function jump(){if(mode!=='play')return;
     if(player.ground){player.vy=player.riding?-285:-247;player.ground=false;burst(player.x,player.y,P.cream,5);return;}
@@ -168,10 +186,10 @@
     for(const e of enemies){if(e.hp>0&&Math.abs(e.x-player.x)<e.r+24&&Math.abs(e.y-player.y)<39&&(e.x-player.x)*player.face>-8){hitEnemy(e,1);e.x+=player.face*11;landed=true;}}
     if(landed)player.focus=clamp(player.focus+10,0,100);burst(player.x+player.face*19,player.y-17,P.cyan,6);
   }
-  function hurt(n){if(player.inv>0||mode!=='play')return;
-    if(player.riding&&mount){mount.hp=Math.max(0,mount.hp-n);mount.flash=.18;player.inv=.85;shake=3;burst(player.x,player.y-24,P.cyan,10);
+  function hurt(n){if(player.inv>0||mode!=='play')return;n*=rules().damage;
+    if(player.riding&&mount){mount.hp=Math.max(0,Math.round((mount.hp-n)*100)/100);mount.flash=.18;player.inv=.85;shake=3;burst(player.x,player.y-24,P.cyan,10);
       if(mount.hp===0){player.riding=false;player.dash=0;player.ground=false;player.vy=-90;player.inv=1.2;note('R-09 DISABLED // EJECTING',3);}else note('STRIDER ARMOR HIT',1.2);return;}
-    player.hp=Math.max(0,player.hp-n);player.inv=1.1;shake=5;burst(player.x,player.y-18,P.red,14);note('HIT // FIND COVER',1.8);if(player.hp===0)finish(false);}
+    player.hp=Math.max(0,Math.round((player.hp-n)*100)/100);player.inv=1.1;shake=5;burst(player.x,player.y-18,P.red,14);note('HIT // FIND COVER',1.8);if(player.hp===0)finish(false);}
   function nearbyFile(){const s=scenes[stage];return [...(s.clue?[s.clue]:[]),...(s.files||[])].find(f=>Math.abs(player.x-f.x)<31&&Math.abs(player.y-f.y)<45);}
   function openDossier(id){const file=caseFiles[id];if(!file)return;mode='dossier';keys.clear();edge.clear();touch.shoot=false;touch.slow=false;player.vx=0;
     document.getElementById('dossier-source').textContent=file.source;document.getElementById('dossier-title').textContent=file.title;document.getElementById('dossier-body').textContent=file.body;dossier.classList.remove('hidden');document.getElementById('close-dossier').focus();}
@@ -244,7 +262,7 @@
     if(k('KeyR'))reload();if(k('KeyJ')||touch.shoot)shoot();
     const slow=(k('KeyQ')||touch.slow)&&p.focus>0;
     slowAmount=clamp(slowAmount+(slow?dt*7:-dt*5),0,1);
-    p.focus=clamp(p.focus+(slow?-27:5)*dt,0,100);const speed=1-slowAmount*.8;
+    p.focus=clamp(p.focus+(slow?-rules().drain:rules().regen)*dt,0,100);const speed=(1-slowAmount*.8)*rules().enemySpeed;
     const oldY=p.y,wasGround=p.ground;
     if(p.dash>0){
       p.dash=Math.max(0,p.dash-dt);p.vx=p.dodgeKind==='bend'?0:p.dashDir*(p.riding?282:228);p.x+=p.vx*dt;
@@ -683,15 +701,19 @@
     const objective=unlocked&&stage!==1?(stage===0?'STAIRWELL OPEN / ENTER SAFEHOUSE 09':stage===2?'CORE ACCESS GRANTED / REACH THE REACTOR':'CORE EXPOSED / USE THE SHUTDOWN CONSOLE'):scenes[stage].objective;
     text(noticeTime>0?notice.toUpperCase().slice(0,62):objective,9,H-8,noticeTime>0?P.cream:'#a2c7c0',8);
     text(`0${stage+1}/04`,W-10,H-8,P.acid,8,'right');
+    rect(8,48,52,12,'#102636d9');text(rules().name,13,57,P.cream,7);
     if(player.reload>0)text('RELOADING',W/2,58,P.cream,8,'center');
     if(slowAmount>.1){rect(0,43,W,4,'#172d28');rect(0,H-27,W,4,'#172d28');rect(W/2-57,49,114,14,'#243f35');text('BULLET TIME / 20%',W/2,59,'#d5e8b9',8,'center');}
-    if(player.riding&&mount){rect(326,306,146,27,'#102636e8');text('R-09 / G TO DISMOUNT',332,317,'#a8e3d9',7);for(let i=0;i<6;i++)rect(332+i*22,322,18,5,i<mount.hp?'#81dbca':'#36505c');}
+    if(player.riding&&mount){rect(326,306,146,27,'#102636e8');text('R-09 / G TO DISMOUNT',332,317,'#a8e3d9',7);for(let i=0;i<6;i++){rect(332+i*22,322,18,5,'#36505c');rect(332+i*22,322,18*clamp(mount.hp-i,0,1),5,'#81dbca');}}
     const rideButton=document.querySelector('[data-action="ride"]'),dodgeButton=document.querySelector('[data-action="dodge"]'),meleeButton=document.querySelector('[data-action="melee"]');
     if(rideButton&&rideButton.textContent!==(player.riding?'GET OFF':'RIDE')){rideButton.textContent=player.riding?'GET OFF':'RIDE';dodgeButton.textContent=player.riding?'CHARGE':'DODGE';meleeButton.textContent=player.riding?'BITE':'MELEE';}
     if(banner>0){const s=scenes[stage];rect(42,76,396,72,'#0c172be8');rect(42,76,396,2,stage===1?'#d8b282':P.cyan);text(s.location,W/2,93,P.cyan,8,'center');text(s.name,W/2,116,P.cream,15,'center');text(s.quote,W/2,137,'#b5c3ca',8,'center');}
   }
   function draw(){g.save();if(shake)g.translate(Math.round(rand(-shake,shake)),Math.round(rand(-shake,shake)));scenery();foreground();hud();g.restore();}
   let previous=0;function loop(t){const dt=Math.min(.04,(t-previous)/1000||0);previous=t;update(dt);draw();requestAnimationFrame(loop);}
+  difficultySelect.addEventListener('change',difficultyMenu);
+  document.getElementById('new-case').addEventListener('click',newCaseMenu);
+  difficultyMenu();
   startButton.addEventListener('click',()=>begin(mode==='dead'&&!!checkpoint));
   const grid=document.querySelector('.num-grid');for(const n of [1,2,3,4]){const b=document.createElement('button');b.textContent=n;b.type='button';b.addEventListener('click',()=>digit(String(n)));grid.appendChild(b);}
   document.getElementById('cancel-puzzle').addEventListener('click',()=>{mode='play';puzzle.classList.add('hidden');});
