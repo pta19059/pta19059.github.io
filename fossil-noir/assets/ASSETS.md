@@ -1,5 +1,9 @@
 ﻿# Artwork
 
+## Original music
+
+`music.js` contains the original score **Vesper After Dark**, composed for Fossil Noir. Melody, harmony, bass and percussion are synthesized with the browser's Web Audio API. The score includes mission, safehouse and boss arrangements, with no sampled music or external audio files.
+
 ## Environment atlas
 
 - File: `assets/environment-atlas.png`

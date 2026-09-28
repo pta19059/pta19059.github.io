@@ -5,7 +5,7 @@ All game text, menus, case files, controls and documentation are in English.
 
 ## Play
 
-Open `index.html` in a modern browser. Keep `chapters.js`, `game.js`, `rendering.js`, `style.css` and the `assets` folder alongside it.
+Open `index.html` in a modern browser. Keep `chapters.js`, `game.js`, `rendering.js`, `music.js`, `style.css` and the `assets` folder alongside it.
 For a local server and a stable save location, use Node.js 18 or later:
 
 ```sh
@@ -61,7 +61,13 @@ Both modes include grenades, a temporary heavy machine gun, destructible crates,
 | G | Mount or dismount |
 | P / Esc | Pause |
 
-Touch controls support movement and firing at the same time. Landscape fullscreen places the joystick and action buttons beside the game. Sound can be switched off.
+Touch controls support movement and firing at the same time. Landscape fullscreen places the joystick and action buttons beside the game.
+
+## Music
+
+The original chiptune score, **Vesper After Dark**, starts when you begin a mission. It combines melody, bass, arpeggios and drums, with chapter variations, a softer safehouse arrangement and a faster boss arrangement. The browser synthesizes the score locally; no audio downloads are needed.
+
+Use **MUSIC ON / OFF** and **SFX ON / OFF** below the game to control music and sound effects separately. Your choices are saved. Music pauses with the game and when you leave the tab.
 
 ## Checks
 
@@ -80,6 +86,7 @@ Upload these together to the folder served by GitHub Pages:
 - `style.css`
 - `chapters.js`
 - `rendering.js`
+- `music.js`
 - `game.js`
 - `assets/`
 

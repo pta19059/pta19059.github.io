@@ -81,7 +81,8 @@
   const stats={raptor:{hp:3,speed:34,r:19,hit:1},brute:{hp:7,speed:18,r:26,hit:2},turret:{hp:4,speed:0,r:17,hit:1},boss:{hp:25,speed:18,r:43,hit:2},spitter:{hp:4,speed:22,r:22,hit:1},wirewing:{hp:3,speed:52,r:19,hit:1},stalker:{hp:5,speed:56,r:21,hit:1}};
   const keys=new Set(),edge=new Set(),touch={x:0,y:0,shoot:false,slow:false,jump:false};
   let grenades=[],explosions=[],crates=[],rescues=[],waves=[],score=0,combo=0,comboTime=0,kills=0,rescued=0,mouseFire=false;
-  let audioContext=null,soundOn=true,savedRun=null,bestScore=0;
+  let audioContext=null,soundOn=true,musicOn=true,music=null,savedRun=null,bestScore=0;
+  const AUDIO_KEY='fossil-noir-audio-v1';
   const SAVE_KEY='fossil-noir-v2';
   let mode='menu',stage=0,player,enemies=[],bullets=[],drops=[],particles=[],unlocked=false,checkpoint=null,camera=0,aim=null;
   let time=0,shake=0,banner=0,notice='',noticeTime=0,enteredCode='',slowAmount=0,echoes=[],echoClock=0,mount=null,hazards=[];
@@ -93,8 +94,12 @@
   function loadProgress(){try{const data=JSON.parse(localStorage.getItem(SAVE_KEY));if(data?.version===2){if(validSave(data.run))savedRun=data.run;if(Number.isSafeInteger(data.best)&&data.best>=0)bestScore=data.best;}}catch{/* Storage can be disabled; a run remains playable. */}}
   function saveProgress(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({version:2,run:savedRun,best:Math.max(bestScore,score)}));}catch{/* Checkpoint remains in memory. */}}
   function refreshContinue(){document.getElementById('continue').classList.toggle('hidden',!savedRun||mode==='dead');}
-  function pauseGame(){if(mode==='play'){mode='pause';resetInput();document.getElementById('pause').classList.remove('hidden');document.getElementById('resume').focus();}else if(mode==='pause'){mode='play';resetInput();document.getElementById('pause').classList.add('hidden');canvas.focus({preventScroll:true});}}
-  function initAudio(){if(!soundOn)return;try{if(!audioContext)audioContext=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().catch(()=>{});}catch{}}
+  function pauseGame(){if(mode==='play'){mode='pause';resetInput();document.getElementById('pause').classList.remove('hidden');document.getElementById('resume').focus();}else if(mode==='pause'){mode='play';resetInput();document.getElementById('pause').classList.add('hidden');canvas.focus({preventScroll:true});initAudio();}syncMusic();}
+  function syncMusic(){music?.update({enabled:musicOn,active:mode==='play'&&!document.hidden,stage,safe:!!scenes[stage].safe,boss:enemies.some(e=>e.type==='boss'&&e.hp>0&&Math.abs(e.x-player.x)<380)});}
+  function audioButtons(){for(const [id,on,label] of [['sound-button',soundOn,'SFX'],['music-button',musicOn,'MUSIC']]){const button=document.getElementById(id);button.textContent=label+(on?' ON':' OFF');button.setAttribute('aria-pressed',String(on));}}
+  function loadAudio(){try{const settings=JSON.parse(localStorage.getItem(AUDIO_KEY));if(typeof settings?.sound==='boolean')soundOn=settings.sound;if(typeof settings?.music==='boolean')musicOn=settings.music;}catch{}audioButtons();}
+  function saveAudio(){try{localStorage.setItem(AUDIO_KEY,JSON.stringify({sound:soundOn,music:musicOn}));}catch{}audioButtons();}
+  function initAudio(){if(!soundOn&&!musicOn)return;try{if(!audioContext){audioContext=new (window.AudioContext||window.webkitAudioContext)();music=window.FossilMusic?.create(audioContext);}audioContext.resume().then(syncMusic).catch(()=>{});}catch{/* Audio is optional; the game works without Web Audio. */}}
   function sfx(kind){if(!soundOn||!audioContext||audioContext.state!=='running')return;const presets={shot:[220,65,.055,.025],heavy:[140,42,.075,.035],jump:[180,500,.12,.04],blast:[85,24,.35,.09],pickup:[480,980,.14,.045],hurt:[130,40,.19,.04]};const [from,to,duration,volume]=presets[kind]||presets.shot;const o=audioContext.createOscillator(),v=audioContext.createGain(),t=audioContext.currentTime;o.type=kind==='pickup'?'sine':'square';o.frequency.setValueAtTime(from,t);o.frequency.exponentialRampToValueAtTime(to,t+duration);v.gain.setValueAtTime(volume,t);v.gain.exponentialRampToValueAtTime(.001,t+duration);o.connect(v);v.connect(audioContext.destination);o.start(t);o.stop(t+duration);o.onended=()=>{o.disconnect();v.disconnect();};}
   function addScore(points,chain=false){if(chain){combo=comboTime>0?Math.min(combo+1,5):1;comboTime=4;}score+=points*Math.max(1,chain?combo:1);bestScore=Math.max(bestScore,score);}
   function throwGrenade(){if(mode!=='play'||player.grenadeCooldown>0)return;if(player.grenades<=0){note('OUT OF GRENADES / FIND SUPPLY CRATES',1.5);return;}player.grenades--;player.grenadeCooldown=.45;grenades.push({x:player.x+player.face*18,y:targetHeight(),vx:player.face*205+player.vx*.3,vy:-205,life:1.05});sfx('jump');}
@@ -811,9 +816,9 @@
     if(banner>0){const s=scenes[stage];rect(42,76,396,72,'#0c172be8');rect(42,76,396,2,stage===1?'#d8b282':P.cyan);text(s.location,W/2,93,P.cyan,8,'center');text(s.name,W/2,116,P.cream,15,'center');text(s.quote,W/2,137,'#b5c3ca',8,'center');}
   }
   function draw(){g.save();if(shake)g.translate(Math.round(rand(-shake,shake)),Math.round(rand(-shake,shake)));scenery();foreground();hud();g.restore();}
-  let previous=0;function loop(t){const dt=Math.min(.04,(t-previous)/1000||0);previous=t;update(dt);draw();requestAnimationFrame(loop);}
+  let previous=0;function loop(t){const dt=Math.min(.04,(t-previous)/1000||0);previous=t;update(dt);syncMusic();draw();requestAnimationFrame(loop);}
   scenes.forEach((s,i)=>{const option=document.createElement('option');option.value=String(i);option.textContent=String(i+1).padStart(2,'0')+' — '+s.name;chapterSelect.appendChild(option);});
-  chapterSelect.value='0';loadProgress();refreshContinue();
+  chapterSelect.value='0';loadProgress();loadAudio();refreshContinue();
   difficultySelect.addEventListener('change',difficultyMenu);
   styleSelect.addEventListener('change',()=>{document.getElementById('style-hint').textContent=styleSelect.value==='arcade'?'Unlimited pistol ammo, quick reloads, open terminals. Hold fire to keep shooting.':'Limited ammo, hidden access codes and lethal falls. Every chapter has a checkpoint.';});
   chapterSelect.addEventListener('change',()=>{const s=scenes[Number(chapterSelect.value)];document.getElementById('overlay-text').textContent=s.briefing||s.quote;});
@@ -821,7 +826,8 @@
   document.getElementById('pause-button').addEventListener('click',pauseGame);
   document.getElementById('resume').addEventListener('click',pauseGame);
   document.getElementById('back-menu').addEventListener('click',newCaseMenu);
-  document.getElementById('sound-button').addEventListener('click',e=>{soundOn=!soundOn;e.currentTarget.textContent=soundOn?'AUDIO ON':'AUDIO OFF';e.currentTarget.setAttribute('aria-pressed',String(soundOn));if(soundOn)initAudio();});
+  document.getElementById('sound-button').addEventListener('click',()=>{soundOn=!soundOn;saveAudio();if(soundOn)initAudio();});
+  document.getElementById('music-button').addEventListener('click',()=>{musicOn=!musicOn;saveAudio();if(musicOn)initAudio();syncMusic();});
   document.getElementById('fullscreen-button').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.machine').requestFullscreen();}catch{note('FULLSCREEN IS NOT AVAILABLE',2);}});
   for(const b of document.querySelectorAll('[data-chapter]'))b.addEventListener('click',()=>{newCaseMenu();chapterSelect.value=b.dataset.chapter;document.getElementById('overlay-text').textContent=scenes[Number(b.dataset.chapter)].briefing;document.querySelector('.machine').scrollIntoView({behavior:'smooth',block:'start'});startButton.focus({preventScroll:true});});
   document.getElementById('new-case').addEventListener('click',newCaseMenu);
@@ -832,7 +838,7 @@
   document.getElementById('close-dossier').addEventListener('click',closeDossier);
   const prevent=new Set(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight']);
   document.addEventListener('keydown',e=>{if(['SELECT','INPUT','TEXTAREA'].includes(e.target.tagName))return;if(mode==='dossier'){if(!e.repeat&&['Escape','Enter','KeyE'].includes(e.code)){e.preventDefault();closeDossier();}return;}if(mode==='puzzle'){if(e.code==='Escape'){mode='play';resetInput();puzzle.classList.add('hidden');}else if(e.key>='1'&&e.key<='4'&&!e.repeat)digit(e.key);return;}if((e.code==='Escape'||e.code==='KeyP')&&!e.repeat&&(mode==='play'||mode==='pause')){e.preventDefault();pauseGame();return;}if(mode!=='play')return;if(prevent.has(e.code))e.preventDefault();keys.add(e.code);if(!e.repeat){if(['Digit1','Digit2','Digit3'].includes(e.code))switchWeapon(Number(e.code.slice(-1))-1);else if(e.code==='KeyC')switchWeapon();else if(e.code==='KeyG')toggleMount();}});
-  document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{resetInput();if(mode==='play')pauseGame();});document.addEventListener('visibilitychange',()=>{if(document.hidden){resetInput();if(mode==='play')pauseGame();}});
+  document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{resetInput();if(mode==='play')pauseGame();music?.stop();});document.addEventListener('visibilitychange',()=>{if(document.hidden){resetInput();if(mode==='play')pauseGame();music?.stop();}});
   canvas.addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;const r=canvas.getBoundingClientRect();aim={x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};});
   canvas.addEventListener('pointerleave',()=>{aim=null;mouseFire=false;});canvas.addEventListener('pointerdown',e=>{if(mode==='play'&&e.button===0&&e.pointerType!=='touch'){e.preventDefault();canvas.focus({preventScroll:true});canvas.setPointerCapture(e.pointerId);mouseFire=true;shoot();}});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>mouseFire=false);

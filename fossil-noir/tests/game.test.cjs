@@ -30,6 +30,7 @@ function boot(storage = new Map()) {
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(root,'chapters.js'),'utf8'),sandbox);
   vm.runInContext(fs.readFileSync(path.join(root,'rendering.js'),'utf8'),sandbox);
+  vm.runInContext(fs.readFileSync(path.join(root,'music.js'),'utf8'),sandbox);
   let source=fs.readFileSync(path.join(root,'game.js'),'utf8');
   source=source.replace(/\}\)\(\);\s*$/,`globalThis.game = {begin,setup,update,draw,jump,shoot,reload,throwGrenade,explode,hitEnemy,hurt,collect,interact,digit,pauseGame,openDossier,closeDossier,newCaseMenu,validSave,aimTarget,sight,shoulder,muzzle,weaponAngle,detectivePose,resetInput,makeEnemy,bulletHitsEnemy,saveProgress,keys,touch,scenes,weapons,caseFiles,
     state:()=>({player,enemies,bullets,drops,grenades,crates,rescues,hazards,mode,stage,score,kills,rescued,checkpoint,savedRun,combo,unlocked}),
@@ -128,6 +129,26 @@ test('chapter checkpoint survives page reload and preserves settings',()=>{
 });
 test('invalid or corrupt saves are ignored safely',()=>{
   for(const data of ['{bad',JSON.stringify({version:2,run:{stage:900},best:-1})]){const {g}=boot(new Map([['fossil-noir-v2',data]]));assert.equal(g.state().savedRun,null);g.start();assert.equal(g.state().mode,'play');}
+});
+test('music and sound effects can be toggled independently and remembered without changing the checkpoint',()=>{
+  const storage=new Map(),first=boot(storage);first.g.start(4);
+  const checkpoint=storage.get('fossil-noir-v2');
+  assert.equal(first.element('music-button').textContent,'MUSIC ON');
+  first.element('music-button').fire('click');
+  assert.equal(first.element('music-button').textContent,'MUSIC OFF');
+  assert.equal(first.element('sound-button').textContent,'SFX ON');
+  const second=boot(storage);assert.equal(second.element('music-button').textContent,'MUSIC OFF');
+  second.element('sound-button').fire('click');second.element('music-button').fire('click');
+  const third=boot(storage);assert.equal(third.element('music-button').textContent,'MUSIC ON');
+  assert.equal(third.element('sound-button').textContent,'SFX OFF');
+  assert.equal(storage.get('fossil-noir-v2'),checkpoint);
+  third.g.start();third.g.pauseGame();third.g.pauseGame();assert.equal(third.g.state().mode,'play','audio support is optional');
+});
+test('invalid audio preferences keep usable defaults',()=>{
+  for(const data of ['{bad','null',JSON.stringify({sound:'off',music:0})]){
+    const {element}=boot(new Map([['fossil-noir-audio-v1',data]]));
+    assert.equal(element('music-button').textContent,'MUSIC ON');assert.equal(element('sound-button').textContent,'SFX ON');
+  }
 });
 test('pause freezes physics and clears held fire; blur pauses automatically',()=>{
   const {g,element}=boot();g.start();g.keys.add('KeyD');g.setMouseFire(true);g.pauseGame();const x=g.state().player.x;g.tick(2);assert.equal(g.state().player.x,x);assert.equal(g.state().bullets.length,0);g.pauseGame();g.tick(.1);assert.equal(g.state().player.x,x);element('window').fire('blur');assert.equal(g.state().mode,'pause');
