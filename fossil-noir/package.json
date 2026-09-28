@@ -1,0 +1,11 @@
+{
+  "name": "fossil-noir",
+  "version": "3.0.2",
+  "private": true,
+  "description": "Fossil Noir — eight-chapter pixel noir run and gun",
+  "scripts": {
+    "start": "node scripts/serve.cjs",
+    "test": "node tests/game.test.cjs",
+    "check": "node --check game.js && node --check chapters.js && node --check rendering.js"
+  }
+}

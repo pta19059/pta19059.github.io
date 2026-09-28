@@ -1,33 +1,53 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#09111b">
-  <meta name="description" content="Fossil Noir: a side-scrolling pixel-art action survival game. Play free in your browser.">
-  <title>Fossil Noir — A Pixel Noir Game</title>
-  <link rel="stylesheet" href="./style.css?v=20260927-difficulty">
+  <meta name="description" content="Fossil Noir: an eight-chapter pixel noir run and gun. Grenades, rideable dinosaurs and a city to save.">
+  <title>Fossil Noir — Run. Gun. Uncover.</title>
+  <link rel="stylesheet" href="./style.css?v=3.0">
 </head>
 <body>
   <main class="shell">
-    <header class="topline"><span><b class="signal"></b> VESPER CITY / 2091</span><span>AN ORIGINAL PIXEL NOIR GAME</span></header>
-    <div class="intro"><div><div class="overline">CASE FILE 001 <span>✦</span> THE PAST IS LOOSE</div><h1>FOSSIL <em>NOIR</em><span class="title-dot">.</span></h1><p>A city drowning in rain. A past that refuses to stay buried.</p></div><div class="side-mark">01 / 04<br>SECTORS</div></div>
+    <header class="topline"><span><b class="signal"></b> VESPER CITY / 2091</span><span>PIXEL NOIR · RUN & GUN</span></header>
+    <div class="intro"><div><div class="overline">THE BLACK RAIN CASE <span>✦</span> ARCADE EXPANSION</div><h1>FOSSIL <em>NOIR</em><span class="title-dot">.</span></h1><p>Run. Gun. Uncover the truth.</p></div><div class="side-mark">08 CHAPTERS<br>A CITY TO SAVE</div></div>
     <section class="machine" aria-label="Fossil Noir browser game">
-      <div class="machine-bar"><span><i></i> AXIOM SECURITY FEED</span><span id="status">SECTOR 01 / STANDBY</span></div>
+      <div class="machine-bar"><span><i></i> AXIOM SECURITY FEED</span><span id="status" aria-live="polite">STANDBY</span></div>
       <div class="screen-wrap">
-        <canvas id="game" width="480" height="360" aria-label="Fossil Noir game screen"></canvas>
-        <div id="overlay" class="overlay"><div class="panel"><span class="panel-id">// INCOMING TRANSMISSION</span><h2 id="overlay-title">THE CITY<br>REMEMBERS.</h2><p id="overlay-text">Vesper, 2091. A distress call from a lost partner leads Elias Vane from rain-soaked rooftops to the cloning labs beneath the city. Axiom opened the past. Something came through.</p><div class="difficulty-row"><label for="difficulty">DIFFICULTY</label><select id="difficulty" aria-describedby="difficulty-hint"><option value="easy">EASY — Rookie</option><option value="normal" selected>NORMAL — Detective</option><option value="hard">HARD — Nightmare</option></select></div><p id="difficulty-hint" class="difficulty-hint" aria-live="polite">Balanced combat, standard supplies and Instinct recovery.</p><button id="start" type="button">START THE CASE <span>↗</span></button><button id="new-case" type="button" class="secondary hidden">NEW CASE</button><small id="overlay-foot">4 CHAPTERS · 5 CASE FILES · ONE OPEN WOUND</small></div></div>
-        <div id="puzzle" class="overlay hidden"><div class="panel puzzle-panel"><span class="panel-id">AXIOM // ACCESS CONTROL</span><h2>ENTER CODE</h2><p id="puzzle-clue"></p><div id="code-display" class="code-display">_ _ _</div><div class="num-grid"></div><button id="cancel-puzzle" type="button" class="secondary">CLOSE [ESC]</button></div></div>
-        <div id="dossier" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dossier-title"><div class="panel dossier-panel"><span id="dossier-source" class="panel-id">CASE ARCHIVE</span><h2 id="dossier-title">CASE FILE</h2><p id="dossier-body" class="dossier-copy"></p><button id="close-dossier" type="button">BACK TO THE CASE <span>↗</span></button><small>GAME PAUSED / E, ENTER OR ESC TO CLOSE</small></div></div>
+        <canvas id="game" width="480" height="360" tabindex="0" aria-label="Fossil Noir. A and D to move, Space to jump, J to fire, K to throw a grenade, P to pause."></canvas>
+        <div id="overlay" class="overlay"><div class="panel">
+          <span class="panel-id">// INCOMING TRANSMISSION</span><h2 id="overlay-title">THE CITY<br>REMEMBERS.</h2>
+          <p id="overlay-text">Vesper, 2091. Your missing partner is transmitting again. Break through Axiom lines and follow the evidence beyond time.</p>
+          <div class="difficulty-row"><label for="play-style">MODE</label><select id="play-style"><option value="arcade">ARCADE — Run & gun</option><option value="story">STORY — Original survival</option></select></div>
+          <p id="style-hint" class="difficulty-hint">Unlimited pistol ammo, quick reloads, open terminals. Hold fire to keep shooting.</p>
+          <div class="difficulty-row"><label for="difficulty">DIFFICULTY</label><select id="difficulty" aria-describedby="difficulty-hint"><option value="easy">EASY — Rookie</option><option value="normal" selected>NORMAL — Detective</option><option value="hard">HARD — Nightmare</option></select></div>
+          <p id="difficulty-hint" class="difficulty-hint" aria-live="polite"></p>
+          <div class="difficulty-row"><label for="chapter-select">CHAPTER</label><select id="chapter-select" aria-label="Starting chapter"></select></div>
+          <button id="start" type="button">START MISSION <span>↗</span></button>
+          <button id="continue" type="button" class="secondary hidden">CONTINUE</button>
+          <button id="new-case" type="button" class="secondary hidden">NEW CASE</button>
+          <small id="overlay-foot">8 CHAPTERS · 4 BOSSES · LOCAL SAVE</small>
+        </div></div>
+        <div id="pause" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pause-title"><div class="panel pause-panel"><span class="panel-id">// SIGNAL PAUSED</span><h2 id="pause-title">PAUSED.</h2><p>Take a breath. Your chapter checkpoint is saved automatically.</p><button id="resume" type="button">RESUME ↗</button><button id="back-menu" class="secondary" type="button">MENU</button><small>P / ESC TO RESUME</small></div></div>
+        <div id="puzzle" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Access terminal"><div class="panel puzzle-panel"><span class="panel-id">AXIOM // ACCESS CONTROL</span><h2>ENTER ACCESS CODE</h2><p id="puzzle-clue"></p><div id="code-display" class="code-display">_ _ _</div><div class="num-grid"></div><button id="cancel-puzzle" type="button" class="secondary">CLOSE [ESC]</button></div></div>
+        <div id="dossier" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dossier-title"><div class="panel dossier-panel"><span id="dossier-source" class="panel-id">CASE ARCHIVE</span><h2 id="dossier-title">CASE FILE</h2><p id="dossier-body" class="dossier-copy"></p><button id="close-dossier" type="button">BACK TO THE MISSION <span>↗</span></button><small>E, ENTER OR ESC TO CLOSE</small></div></div>
       </div>
-      <div class="machine-foot"><span>◈ SIDE-SCROLLING / PIXEL ART / SURVIVAL</span><span>NO SAVE DATA LEAVES YOUR DEVICE</span></div>
+      <div class="machine-foot"><span>◈ RUN & GUN / PIXEL ART</span><div class="machine-actions"><button id="pause-button" type="button" aria-label="Pause">PAUSE <kbd>P</kbd></button><button id="sound-button" type="button" aria-pressed="true">AUDIO ON</button><button id="fullscreen-button" type="button">FULLSCREEN ⛶</button></div></div>
+      <div class="mobile-controls" aria-label="Touch controls"><div class="joystick" id="joystick" aria-label="Movement and aiming joystick"><div class="stick" id="stick"></div></div><div class="action-buttons"><button data-action="shoot" class="primary-action">FIRE</button><button data-action="jump" class="primary-action">JUMP</button><button data-action="grenade" class="grenade-action">GRENADE</button><button data-action="dodge">DODGE</button><button data-action="interact">USE</button><button data-action="weapon">WEAPON</button><button data-action="ride">RIDE</button><button data-action="slow">TIME</button><button data-action="melee">MELEE</button><button data-action="reload">RELOAD</button></div></div>
     </section>
-    <div class="mobile-controls" aria-label="Touch game controls"><div class="joystick" id="joystick"><div class="stick" id="stick"></div></div><div class="action-buttons"><button data-action="jump">JUMP</button><button data-action="shoot">FIRE</button><button data-action="dodge">DODGE</button><button data-action="slow">TIME</button><button data-action="melee">MELEE</button><button data-action="interact">USE</button><button data-action="reload">RELOAD</button><button data-action="weapon">WEAPON</button><button data-action="ride">RIDE</button></div></div>
-    <div class="under"><section><h3>THE CASE</h3><p><strong>Vesper, 2091. The Black Rain case.</strong> Five years ago, Elias lost an eye, an arm and his partner in an Axiom raid. Tonight, her old radio frequency is alive again. Follow the evidence through neon rooftops, an abandoned precinct, the Lazarus cloning wing and a reactor torn open to prehistory. Read the files. Every room holds part of the truth.</p></section><section><h3>DESKTOP CONTROLS</h3><div class="keys"><span><kbd>A D</kbd> MOVE</span><span><kbd>W / SPACE</kbd> JUMP</span><span><kbd>J / CLICK</kbd> FIRE</span><span><kbd>SHIFT</kbd> DODGE</span><span><kbd>Q</kbd> SLOW TIME</span><span><kbd>F</kbd> MELEE</span><span><kbd>E</kbd> USE</span><span><kbd>R</kbd> RELOAD</span><span><kbd>1 2 3 / C</kbd> WEAPON</span><span><kbd>G</kbd> RIDE / DISMOUNT</span></div><p class="combat-tip">Choose pistol, shotgun or carbine with 1–3, or cycle with C. Approach a cyan saddle and press G to ride. On a Strider: F bites, SHIFT charges, and SPACE jumps. Land before dismounting.</p></section></div>
-
-    <section class="field-guide" aria-label="New threats"><h3>AXIOM FIELD NOTES</h3><div><p><strong>VENOM SPITTER</strong><br>A violet frill warns of acid shots. Jump over the corrosive pools.</p><p><strong>WIREWING</strong><br>Armored wings circle overhead. Its warning signal comes before the dive.</p><p><strong>RIFT STALKER</strong><br>A six-legged mutation that slips through time. Watch the violet landing marks.</p></div><p class="ride-note">R-09 STRIDERS / Cyan saddles identify linked mounts. Shoot from the saddle, bite or charge. Their armor can break; Elias is ejected safely when it fails. Striders wait in the rooftops, laboratory and reactor chapters.</p></section>
+    <div class="quick-tip"><span>HOLD <kbd>J</kbd> TO FIRE</span><span><kbd>SPACE</kbd> JUMP</span><span><kbd>K</kbd> GRENADE</span><span class="tip-accent">EVERY CHAPTER SAVES YOUR PROGRESS</span></div>
+    <section class="campaign" aria-labelledby="campaign-title"><div class="section-heading"><div><span class="overline">THE CASE GETS BIGGER</span><h2 id="campaign-title">Beyond the fracture.</h2></div><span class="new-badge">4 NEW CHAPTERS</span></div><div class="chapter-grid">
+      <article class="chapter-card docks"><span class="chapter-number">05 / HARBOUR</span><div class="chapter-art" aria-hidden="true"><i></i><i></i><i></i></div><h3>Blackwater Docks</h3><p>Smuggled cargo. Armed patrols. One last train to catch.</p><button type="button" data-chapter="4">PLAY CHAPTER ↗</button></article>
+      <article class="chapter-card train"><span class="chapter-number">06 / CONVOY</span><div class="chapter-art" aria-hidden="true"><i></i><i></i><i></i></div><h3>Iron Express</h3><p>Storm the carriages. Iron Jaw guards the engine.</p><button type="button" data-chapter="5">PLAY CHAPTER ↗</button></article>
+      <article class="chapter-card jungle"><span class="chapter-number">07 / LOST TEMPLE</span><div class="chapter-art" aria-hidden="true"><i></i><i></i><i></i></div><h3>The Lost Canopy</h3><p>Follow Mara through sandstone ruins swallowed by the jungle.</p><button type="button" data-chapter="6">PLAY CHAPTER ↗</button></article>
+      <article class="chapter-card tower"><span class="chapter-number">08 / FINALE</span><div class="chapter-art" aria-hidden="true"><i></i><i></i><i></i></div><h3>Axiom Zero</h3><p>Reach the tower. Destroy Omega. Broadcast the truth.</p><button type="button" data-chapter="7">PLAY CHAPTER ↗</button></article>
+    </div></section>
+    <div class="under"><section><h3>ONE DETECTIVE. AN ARSENAL.</h3><p><strong>The investigation continues. The pace changes.</strong> Arcade puts action first: unlimited pistol ammo, heavy machine-gun pickups, explosive grenades and combos up to ×5. Rescue hostages, break supply crates and ride cyan-saddled Striders. Prefer finding clues and managing ammunition? Choose Story.</p><p>Every chapter is available from the start. Continue restores the beginning of your last saved chapter. Your save stays in this browser.</p></section><section><h3>CONTROLS</h3><div class="keys"><span><kbd>A D / ← →</kbd> MOVE</span><span><kbd>SPACE / W</kbd> JUMP</span><span><kbd>J / CLICK</kbd> CONTINUOUS FIRE</span><span><kbd>↑ / ↓</kbd> AIM</span><span><kbd>K / X</kbd> GRENADE</span><span><kbd>SHIFT</kbd> DODGE</span><span><kbd>Q</kbd> SLOW TIME</span><span><kbd>F</kbd> MELEE</span><span><kbd>E</kbd> USE</span><span><kbd>R</kbd> RELOAD</span><span><kbd>1 2 3 / C</kbd> WEAPON</span><span><kbd>G</kbd> RIDE</span><span><kbd>P / ESC</kbd> PAUSE</span></div><p class="combat-tip">Hold jump to go higher. Aim assist follows enemies ahead; ↑ fires upward. On touch, use the joystick and the three main action buttons. While mounted: F bites, SHIFT charges.</p></section></div>
     <footer><span>FOSSIL NOIR © 2091 VESPER</span><span>BUILT FOR THE DARK <b>✦</b></span></footer>
   </main>
-  <script src="./game.js?v=20260927-difficulty"></script>
+  <script src="./chapters.js?v=3.0"></script>
+  <script src="./rendering.js?v=3.0.2"></script>
+  <script src="./game.js?v=3.0.2"></script>
 </body>
 </html>
