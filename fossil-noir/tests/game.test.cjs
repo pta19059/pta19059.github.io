@@ -6,7 +6,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 
 // The real game runs in a small DOM/canvas host. Instrumentation stays in tests.
-function boot(storage = new Map()) {
+function boot(storage = new Map(), options = {}) {
   const nodes = new Map();
   const context2d = new Proxy({ getImageData: () => ({ data: new Uint8ClampedArray(128*128*4) }) }, { get: (o,k) => k in o ? o[k] : () => {} });
   function element(id) {
@@ -24,9 +24,11 @@ function boot(storage = new Map()) {
   }
   element('difficulty').value='normal'; element('play-style').value='arcade';
   const document=element('document');
-  Object.assign(document,{getElementById:element,createElement:t=>element(Symbol(t)),querySelector:element,querySelectorAll:()=>[],hidden:false});
+  const chapterCards=[4,5,6,7].map(stage=>{const button=element('chapter-card-'+stage);button.dataset.chapter=String(stage);return button;});
+  Object.assign(document,{getElementById:id=>options.missingMusicButton&&id==='music-button'?null:element(id),createElement:t=>element(Symbol(t)),querySelector:element,querySelectorAll:selector=>selector==='[data-chapter]'?chapterCards:[],hidden:false});
   const window=element('window');
-  const sandbox={document,window,console,Uint8ClampedArray,requestAnimationFrame(){},setTimeout(){},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)}};
+  const frames=[];
+  const sandbox={document,window,console:{...console,warn(){}},Uint8ClampedArray,requestAnimationFrame:f=>frames.push(f),setTimeout(){},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)}};
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(root,'chapters.js'),'utf8'),sandbox);
   vm.runInContext(fs.readFileSync(path.join(root,'rendering.js'),'utf8'),sandbox);
@@ -34,13 +36,13 @@ function boot(storage = new Map()) {
   let source=fs.readFileSync(path.join(root,'game.js'),'utf8');
   source=source.replace(/\}\)\(\);\s*$/,`globalThis.game = {begin,setup,update,draw,jump,shoot,reload,throwGrenade,explode,hitEnemy,hurt,collect,interact,digit,pauseGame,openDossier,closeDossier,newCaseMenu,validSave,aimTarget,sight,shoulder,muzzle,weaponAngle,detectivePose,resetInput,makeEnemy,bulletHitsEnemy,saveProgress,keys,touch,scenes,weapons,caseFiles,
     state:()=>({player,enemies,bullets,drops,grenades,crates,rescues,hazards,mode,stage,score,kills,rescued,checkpoint,savedRun,combo,unlocked}),
-    clearEnemies:()=>enemies=[],setCheckpoint:s=>checkpoint=s,setMouseFire:v=>mouseFire=v
+    clearEnemies:()=>enemies=[],setCheckpoint:s=>checkpoint=s,setMouseFire:v=>mouseFire=v,setMusic:engine=>music=engine
   };})();`);
   vm.runInContext(source,sandbox);
   const g=sandbox.game;
   g.start=(stage=0,style='arcade')=>{element('chapter-select').value=String(stage);element('play-style').value=style;g.begin();};
   g.tick=(seconds)=>{for(let t=0;t<seconds;t+=1/60)g.update(1/60);};
-  return {g,nodes,element,storage};
+  return {g,nodes,element,storage,frames};
 }
 
 test('all eight chapters have grounded exits, spawns and reachable gaps',()=>{
@@ -129,6 +131,25 @@ test('chapter checkpoint survives page reload and preserves settings',()=>{
 });
 test('invalid or corrupt saves are ignored safely',()=>{
   for(const data of ['{bad',JSON.stringify({version:2,run:{stage:900},best:-1})]){const {g}=boot(new Map([['fossil-noir-v2',data]]));assert.equal(g.state().savedRun,null);g.start();assert.equal(g.state().mode,'play');}
+});
+test('PLAY CHAPTER immediately starts the selected mission from menu, play, pause or death',()=>{
+  const {g,element}=boot();
+  element('chapter-card-4').fire('click');assert.equal(g.state().mode,'play');assert.equal(g.state().stage,4);
+  element('chapter-card-5').fire('click');assert.equal(g.state().stage,5);
+  g.pauseGame();element('chapter-card-6').fire('click');assert.equal(g.state().mode,'play');assert.equal(g.state().stage,6);
+  const p=g.state().player;p.inv=0;g.hurt(100);assert.equal(g.state().mode,'dead');
+  element('chapter-card-7').fire('click');assert.equal(g.state().mode,'play');assert.equal(g.state().stage,7);
+});
+test('music failures cannot stop movement or the animation loop',()=>{
+  const {g,element,frames}=boot();g.start();g.clearEnemies();const startX=g.state().player.x;
+  g.setMusic({update(){throw new Error('Audio scheduling failed');},stop(){throw new Error('Audio device interrupted');}});
+  g.keys.add('KeyD');for(let i=1;i<=8;i++)assert.doesNotThrow(()=>frames.shift()(i*16));
+  assert.ok(g.state().player.x>startX);assert.equal(frames.length,1);assert.equal(g.state().mode,'play');
+  assert.equal(element('music-button').textContent,'MUSIC OFF');g.pauseGame();g.pauseGame();assert.equal(g.state().mode,'play');
+});
+test('older page markup without the music toggle still initializes and starts missions',()=>{
+  const {g,element}=boot(new Map(),{missingMusicButton:true});
+  element('start').fire('click');assert.equal(g.state().mode,'play');assert.equal(g.state().stage,0);
 });
 test('music and sound effects can be toggled independently and remembered without changing the checkpoint',()=>{
   const storage=new Map(),first=boot(storage);first.g.start(4);
