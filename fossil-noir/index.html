@@ -1,16 +1,16 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#09111b">
-  <meta name="description" content="Fossil Noir: an eight-chapter pixel noir run and gun. Grenades, rideable dinosaurs and a city to save.">
+  <meta name="description" content="Fossil Noir: an eight-chapter 2.5D pixel noir run and gun. Grenades, rideable dinosaurs and a city to save.">
   <title>Fossil Noir — Run. Gun. Uncover.</title>
-  <link rel="stylesheet" href="./style.css?v=3.0">
+  <link rel="stylesheet" href="./style.css?v=3.2.0">
 </head>
 <body>
   <main class="shell">
-    <header class="topline"><span><b class="signal"></b> VESPER CITY / 2091</span><span>PIXEL NOIR · RUN & GUN</span></header>
+    <header class="topline"><span><b class="signal"></b> VESPER CITY / 2091</span><span>2.5D NOIR · RUN & GUN</span></header>
     <div class="intro"><div><div class="overline">THE BLACK RAIN CASE <span>✦</span> ARCADE EXPANSION</div><h1>FOSSIL <em>NOIR</em><span class="title-dot">.</span></h1><p>Run. Gun. Uncover the truth.</p></div><div class="side-mark">08 CHAPTERS<br>A CITY TO SAVE</div></div>
     <section class="machine" aria-label="Fossil Noir browser game">
       <div class="machine-bar"><span><i></i> AXIOM SECURITY FEED</span><span id="status" aria-live="polite">STANDBY</span></div>
@@ -33,7 +33,7 @@
         <div id="puzzle" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Access terminal"><div class="panel puzzle-panel"><span class="panel-id">AXIOM // ACCESS CONTROL</span><h2>ENTER ACCESS CODE</h2><p id="puzzle-clue"></p><div id="code-display" class="code-display">_ _ _</div><div class="num-grid"></div><button id="cancel-puzzle" type="button" class="secondary">CLOSE [ESC]</button></div></div>
         <div id="dossier" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dossier-title"><div class="panel dossier-panel"><span id="dossier-source" class="panel-id">CASE ARCHIVE</span><h2 id="dossier-title">CASE FILE</h2><p id="dossier-body" class="dossier-copy"></p><button id="close-dossier" type="button">BACK TO THE MISSION <span>↗</span></button><small>E, ENTER OR ESC TO CLOSE</small></div></div>
       </div>
-      <div class="machine-foot"><span>◈ RUN & GUN / PIXEL ART</span><div class="machine-actions"><button id="pause-button" type="button" aria-label="Pause">PAUSE <kbd>P</kbd></button><button id="sound-button" type="button" aria-label="Sound effects" aria-pressed="true">SFX ON</button><button id="music-button" type="button" aria-label="Background music" aria-pressed="true">MUSIC ON</button><button id="fullscreen-button" type="button">FULLSCREEN ⛶</button></div></div>
+      <div class="machine-foot"><span>◈ THREE.JS / PIXEL NOIR</span><div class="machine-actions"><button id="graphics-button" type="button" aria-label="2.5D graphics" aria-pressed="false">2.5D LOADING</button><button id="pause-button" type="button" aria-label="Pause">PAUSE <kbd>P</kbd></button><button id="sound-button" type="button" aria-label="Sound effects" aria-pressed="true">SFX ON</button><button id="music-button" type="button" aria-label="Background music" aria-pressed="true">MUSIC ON</button><button id="fullscreen-button" type="button">FULLSCREEN ⛶</button></div></div>
       <div class="mobile-controls" aria-label="Touch controls"><div class="joystick" id="joystick" aria-label="Movement and aiming joystick"><div class="stick" id="stick"></div></div><div class="action-buttons"><button data-action="shoot" class="primary-action">FIRE</button><button data-action="jump" class="primary-action">JUMP</button><button data-action="grenade" class="grenade-action">GRENADE</button><button data-action="dodge">DODGE</button><button data-action="interact">USE</button><button data-action="weapon">WEAPON</button><button data-action="ride">RIDE</button><button data-action="slow">TIME</button><button data-action="melee">MELEE</button><button data-action="reload">RELOAD</button></div></div>
     </section>
     <div class="quick-tip"><span>HOLD <kbd>J</kbd> TO FIRE</span><span><kbd>SPACE</kbd> JUMP</span><span><kbd>K</kbd> GRENADE</span><span class="tip-accent">EVERY CHAPTER SAVES YOUR PROGRESS</span></div>
@@ -49,6 +49,7 @@
   <script src="./chapters.js?v=3.0"></script>
   <script src="./rendering.js?v=3.0.2"></script>
   <script src="./music.js?v=3.1.0"></script>
-  <script src="./game.js?v=3.1.1"></script>
+  <script src="./graphics.js?v=3.2.0"></script>
+  <script src="./game.js?v=3.2.0"></script>
 </body>
 </html>

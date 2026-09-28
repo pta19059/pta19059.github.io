@@ -1,12 +1,11 @@
-﻿# Fossil Noir — Illustrated Arcade Edition
+# Fossil Noir — Three.js 2.5D Edition
 
-An eight-chapter pixel noir run and gun, based on the game at <https://pta19059.github.io/fossil-noir/>.
+An eight-chapter 2.5D pixel noir run and gun, playable at <https://pta19059.github.io/fossil-noir/>.
 All game text, menus, case files, controls and documentation are in English.
 
 ## Play
 
-Open `index.html` in a modern browser. Keep `chapters.js`, `game.js`, `rendering.js`, `music.js`, `style.css` and the `assets` folder alongside it.
-For a local server and a stable save location, use Node.js 18 or later:
+Serve the complete folder over HTTP or HTTPS. The Three.js modules require a web server; opening `index.html` directly uses classic graphics. With Node.js 18 or later:
 
 ```sh
 npm start
@@ -15,7 +14,17 @@ npm start
 Visit <http://127.0.0.1:4173/>. No package installation or build step is needed.
 Continue restores the beginning of your last saved chapter on the same browser and address.
 
-## Visual update
+## Three.js 2.5D graphics
+
+The side view, pixel characters, collision geometry and controls are preserved. Three.js r186 renders solid platforms with visible tops and sides, chapter scenery at different depths, and lighting that reacts to gunfire and explosions. The illustrated backgrounds sit behind the geometry, and the animated pixel characters are composited into the scene.
+
+Each chapter has its own scenery: rooftop vents and neon signs, safehouse shelves, laboratory tanks, a reactor ring, harbour containers and cranes, train carriages, jungle ruins, and tower machinery. Architecture is batched by material to reduce draw calls. The fixed 480 × 360 render size keeps the pixel art crisp and avoids high-resolution GPU work on phones.
+
+Use **2.5D ON / CLASSIC** below the game to switch graphics during a mission. The choice is saved separately from your checkpoint. If WebGL2 is unavailable, a module fails to load or the graphics context is lost, classic rendering takes over and the mission continues. Click **CLASSIC** to retry 2.5D graphics.
+
+Three.js is bundled in `vendor/three/`; gameplay makes no requests to a graphics CDN. See `vendor/three/README.md` and `vendor/three/LICENSE` for version, provenance and licensing.
+
+## Original artwork
 
 - Eight original illustrated backgrounds, with textured architecture, weathered stone, warm material shading and distant scenery.
 - A slimmer detective sprite, shaded creature silhouettes, articulated walking and wing animation, muzzle flashes and defeat animations.
@@ -76,7 +85,9 @@ npm test
 npm run check
 ```
 
-The tests run the real game code in a small DOM/canvas host. They cover movement across every gap, ammunition, grenades, supplies, jumping, checkpoints, access codes, boss attacks, progression, English text and the artwork package. Browser checks cover all chapters, image loading, keyboard and touch input, pause, reload/continue, small screens and fullscreen.
+The 34 tests run the real game code in a small DOM/canvas host. They cover movement across every gap, ammunition, grenades, supplies, jumping, checkpoints, access codes, boss attacks, progression, English text and the artwork package. They also verify that the renderer receives the real chapter and muzzle positions and that a failed 2.5D frame cannot stop gameplay.
+
+Browser checks cover all eight chapters using WebGL2, graphics switching and saved preferences, real context loss and recovery, blocked renderer imports, keyboard and touch input, pause, reload/continue, small screens and fullscreen. Headless checks use software WebGL; frame rates on physical mobile devices still depend on the device.
 
 ## Publish
 
@@ -87,9 +98,16 @@ Upload these together to the folder served by GitHub Pages:
 - `chapters.js`
 - `rendering.js`
 - `music.js`
+- `graphics.js`
+- `three-scene.js`
 - `game.js`
 - `assets/`
+- `vendor/`
 
 Relative paths also work under `/fossil-noir/`. The game falls back to its procedural backgrounds if the illustrated atlas fails to load. Google Fonts are optional; local font fallbacks are included.
 
 The source lives in the [`fossil-noir` folder of pta19059.github.io](https://github.com/pta19059/pta19059.github.io/tree/main/fossil-noir). GitHub Pages publishes the `main` branch at <https://pta19059.github.io/fossil-noir/>. Local `.work/` references, backups and QA artifacts are excluded from publication.
+
+## Three.js showcase
+
+The game uses Three.js and is hosted on GitHub Pages. The [official showcase](https://discourse.threejs.org/t/about-the-showcase-category/25) accepts projects built with Three.js; submissions require moderator approval and may be considered for the threejs.org homepage. No showcase submission has been made for this update.

@@ -1,9 +1,9 @@
-/* Fossil Noir — original side-scrolling pixel-art game, no dependencies. */
+/* Fossil Noir — side-scrolling arcade game with optional Three.js 2.5D scenery. */
 (() => {
   'use strict';
   const canvas=document.getElementById('game');
   const art=window.FossilArt;
-  let g=canvas.getContext('2d',{alpha:false});
+  let g=canvas.getContext('2d');
   const spriteCanvas=document.createElement('canvas');spriteCanvas.width=128;spriteCanvas.height=128;
   const spriteContext=spriteCanvas.getContext('2d',{willReadFrequently:true});
   const overlay=document.getElementById('overlay'),puzzle=document.getElementById('puzzle');
@@ -31,6 +31,10 @@
     document.getElementById('overlay-title').innerHTML='THE CASE<br>CONTINUES.';document.getElementById('overlay-text').textContent='Choose any chapter for a new mission, or continue from your last checkpoint.';
     startButton.innerHTML='START MISSION <span>↗</span>';document.getElementById('overlay-foot').textContent='8 CHAPTERS / 3 DIFFICULTIES';refreshContinue();}
   const W=480,H=360;
+  const backgroundCanvas=document.createElement('canvas'),actorCanvas=document.createElement('canvas');
+  backgroundCanvas.width=actorCanvas.width=W;backgroundCanvas.height=actorCanvas.height=H;
+  const backgroundContext=backgroundCanvas.getContext('2d'),actorContext=actorCanvas.getContext('2d');
+  backgroundContext.imageSmoothingEnabled=actorContext.imageSmoothingEnabled=false;
   g.imageSmoothingEnabled=false;
   const P={ink:'#101d2a',black:'#10121c',cream:'#ffefb3',acid:'#d1ec63',coral:'#ec605b',red:'#ed454e',cyan:'#83ebdc',white:'#f7f6dc',shadow:'#226174'};
   const scenes=[
@@ -576,11 +580,19 @@
     rect(x+width/2+3,y-39,8,16,'#263b49');rect(x+width/2+5,y-36,4,5,unlocked?'#96dcba':'#d0657e');
     neon(x-label.length*3-6,y-104,label,stage===1?'#dfb986':unlocked?'#85cabc':'#ab86b7');
   }
-  function scenery(){
+  function backdrop(){
     const s=scenes[stage];
+    rect(0,0,W,H,'#18231f');
     const painted=art?.scene(g,stage,camera,time,s.width);
     if(!painted){if(s.theme)expansionBackdrop(s.theme);else if(stage===0)cityBackdrop();else if(stage===1)officeBackdrop();else laboratoryBackdrop(stage===3);if(stage===2)labDetails();else if(stage===3)coreDetails();}
+  }
+  function scenery(){
+    const s=scenes[stage];backdrop();
     for(let i=0;i<s.roofs.length;i++)platform(s.roofs[i],i);
+    worldDetails();
+  }
+  function worldDetails(){
+    const s=scenes[stage];
     if(s.clue){const x=s.clue.x-camera,y=s.clue.y;rect(x-9,y-30,18,23,'#273744');rect(x-6,y-27,13,15,'#e2c9a0');for(let i=0;i<3;i++)rect(x-4,y-24+i*4,8,1,'#805e58');rect(x-2,y-31,5,2,'#e38c82');}
     for(const f of s.files||[]){const x=f.x-camera;rect(x-3,f.y-42,7,5,'#d1b27c');rect(x-1,f.y-41,3,3,'#f2d8a2');}
     if(s.terminal){const x=s.terminal.x-camera,y=s.terminal.y;rect(x-12,y-40,23,34,'#152a39');rect(x-9,y-36,17,17,unlocked?'#3c8572':'#623b56');rect(x-7,y-33,13,2,unlocked?'#a7ecc0':'#d995a3');rect(x-7,y-27,8,2,unlocked?'#a7ecc0':'#d995a3');rect(x-8,y-14,16,3,'#8babae');rect(x-7,y-6,4,6,'#4b6776');}
@@ -817,7 +829,23 @@
     if(rideButton&&rideButton.textContent!==(player.riding?'DISMOUNT':'RIDE')){rideButton.textContent=player.riding?'DISMOUNT':'RIDE';dodgeButton.textContent=player.riding?'CHARGE':'DODGE';meleeButton.textContent=player.riding?'BITE':'MELEE';}
     if(banner>0){const s=scenes[stage];rect(42,76,396,72,'#0c172be8');rect(42,76,396,2,stage===1?'#d8b282':P.cyan);text(s.location,W/2,93,P.cyan,8,'center');text(s.name,W/2,116,P.cream,15,'center');text(s.quote,W/2,137,'#b5c3ca',8,'center');}
   }
-  function draw(){g.save();if(shake)g.translate(Math.round(rand(-shake,shake)),Math.round(rand(-shake,shake)));scenery();foreground();hud();g.restore();}
+  function draw(){
+    const shakeX=shake?Math.round(rand(-shake,shake)):0,shakeY=shake?Math.round(rand(-shake,shake)):0;
+    g.clearRect(0,0,W,H);g.save();g.translate(shakeX,shakeY);
+    let painted=false;
+    const depth=window.FossilDepth,output=g;
+    if(depth?.available){
+      try{
+        g=backgroundContext;backdrop();
+        g=actorContext;g.clearRect(0,0,W,H);worldDetails();foreground();
+        g=output;
+        depth.render({stage,scene:scenes[stage],camera,time,player,muzzle:muzzle(player),explosions,art,background:backgroundCanvas,actors:actorCanvas,shakeX,shakeY});
+        painted=true;
+      }catch(error){g=output;depth.disable(error);}
+    }
+    if(!painted){scenery();foreground();}
+    hud();g.restore();
+  }
   let previous=0;function loop(t){const dt=Math.min(.04,(t-previous)/1000||0);previous=t;update(dt);syncMusic();draw();requestAnimationFrame(loop);}
   scenes.forEach((s,i)=>{const option=document.createElement('option');option.value=String(i);option.textContent=String(i+1).padStart(2,'0')+' — '+s.name;chapterSelect.appendChild(option);});
   chapterSelect.value='0';loadProgress();loadAudio();refreshContinue();

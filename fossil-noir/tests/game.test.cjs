@@ -42,7 +42,7 @@ function boot(storage = new Map(), options = {}) {
   const g=sandbox.game;
   g.start=(stage=0,style='arcade')=>{element('chapter-select').value=String(stage);element('play-style').value=style;g.begin();};
   g.tick=(seconds)=>{for(let t=0;t<seconds;t+=1/60)g.update(1/60);};
-  return {g,nodes,element,storage,frames};
+  return {g,nodes,element,storage,frames,window};
 }
 
 test('all eight chapters have grounded exits, spawns and reachable gaps',()=>{
@@ -150,6 +150,26 @@ test('music failures cannot stop movement or the animation loop',()=>{
 test('older page markup without the music toggle still initializes and starts missions',()=>{
   const {g,element}=boot(new Map(),{missingMusicButton:true});
   element('start').fire('click');assert.equal(g.state().mode,'play');assert.equal(g.state().stage,0);
+});
+
+test('a failed 2.5D frame falls back without stopping movement, saving or the animation loop',()=>{
+  const {g,window,frames,storage}=boot();g.start(4);g.clearEnemies();
+  const x=g.state().player.x,save=storage.get('fossil-noir-v2');let attempts=0,failures=0;
+  window.FossilDepth={available:true,render(){attempts++;throw new Error('WebGL context lost');},disable(){failures++;this.available=false;}};
+  g.keys.add('KeyD');for(let i=1;i<=12;i++)assert.doesNotThrow(()=>frames.shift()(i*16));
+  assert.equal(attempts,1);assert.equal(failures,1);assert.ok(g.state().player.x>x);
+  assert.equal(frames.length,1);assert.equal(g.state().mode,'play');assert.equal(storage.get('fossil-noir-v2'),save);
+});
+
+test('2.5D drawing shares each chapter, actor position and muzzle with the gameplay simulation',()=>{
+  const {g,window}=boot();const rendered=[];
+  window.FossilDepth={available:true,render(frame){rendered.push(frame);return frame.actors;},disable(){assert.fail('renderer should not fail');}};
+  for(let stage=0;stage<8;stage++){
+    g.start(stage);g.tick(.1);g.draw();const frame=rendered.at(-1),p=g.state().player;
+    assert.equal(frame.stage,stage);assert.equal(frame.scene,g.scenes[stage]);assert.equal(frame.player,p);
+    assert.deepEqual(frame.muzzle,g.muzzle(p));assert.equal(frame.background.width,480);assert.equal(frame.actors.height,360);
+    assert.notEqual(frame.background,frame.actors);
+  }
 });
 test('music and sound effects can be toggled independently and remembered without changing the checkpoint',()=>{
   const storage=new Map(),first=boot(storage);first.g.start(4);

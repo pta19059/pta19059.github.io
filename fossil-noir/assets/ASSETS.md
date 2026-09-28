@@ -20,3 +20,7 @@ Create an original pixel-art environment atlas for the playable browser game Fos
 ## Animated artwork
 
 `rendering.js` draws the detective, creatures, terrain, supply crates and explosions as original canvas pixel art. Character and enemy movement is driven by the game state. The original procedural scenery remains available as a fallback.
+
+## 2.5D scenery
+
+`three-scene.js` builds original platform meshes, architecture, machinery and vegetation with Three.js primitives. Surface grain and sign textures are drawn locally with Canvas. The illustrated atlas remains the distant backdrop, and `rendering.js` supplies the animated actor layer and platform textures. Three.js itself is distributed under its MIT license in `vendor/three/LICENSE`.
