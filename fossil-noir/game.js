@@ -70,6 +70,10 @@
   scenes[3].bossName='CROWN REX / THE FRACTURE';scenes[3].pickups.push({x:290,type:'heavy'},{x:630,type:'grenade'});
   scenes[3].exitLabel='TO THE DOCKS';
   scenes.push(...window.FOSSIL_CHAPTERS);
+  // Extra encounters stay on existing platforms and away from chapter starts.
+  scenes[0].enemies.push({x:495,type:'raptor'},{x:1275,type:'stalker'});
+  scenes[2].enemies.push({x:466,type:'raptor'},{x:1310,type:'brute'});
+  scenes[3].enemies.push({x:350,type:'spitter'},{x:845,type:'raptor'});
   Object.assign(caseFiles,{
     manifest:{title:'THE LAST CARGO',source:'BLACKWATER / MANIFEST 09',body:'The reactor is silent, but Axiom has already moved the project onto freight trains. Line 09 ends at a second breach.\n\nThere is a signature on the manifest: M. Vale. Mara is alive. And someone is forcing her to work.'},
     signal:{title:'A SIGNAL IN THE NOISE',source:'IRON EXPRESS / SERVICE RADIO',body:'Elias, if you receive this, cross the breach. I sabotaged the station collars, but the guardian is still linked to the network.\n\nI am not shipping the creatures. I am trying to send them home. — Mara'},
@@ -141,7 +145,8 @@
   function note(s,seconds=3){notice=s;noticeTime=seconds;}
   function burst(x,y,c,n=8){for(let i=0;i<n;i++){const life=rand(.2,.6);particles.push({x,y,vx:rand(-95,95),vy:rand(-130,20),life,maxLife:life,gravity:170,size:i%3===0?2:1,c});}}
   function freshPlayer(){return{x:65,y:263,vx:0,vy:0,face:1,aimAngle:0,ground:true,moving:false,step:0,hp:5,weapon:0,grenades:5,grenadeCooldown:0,heavy:0,coyote:.12,jumpBuffer:0,safeX:65,safeY:263,inventory:weapons.map(w=>({ammo:w.mag,reserve:Math.min(w.max,Math.round(w.reserve*rules().ammo))})),get ammo(){return this.inventory[this.weapon].ammo;},set ammo(v){this.inventory[this.weapon].ammo=v;},get reserve(){return this.inventory[this.weapon].reserve;},set reserve(v){this.inventory[this.weapon].reserve=v;},focus:100,inv:0,fire:0,flash:0,reload:0,melee:0,dash:0,dashDir:1,dodgeKind:'dive',dodgeCooldown:0,land:0,wall:0,wallRun:0,riding:false};}
-  function makeEnemy(e,i,s=scenes[stage]){const y=floorAt(e.x,s)-(e.type==='wirewing'?86:0);return{...stats[e.type],...e,y,homeY:y,max:e.hp||stats[e.type].hp,dir:i%2?1:-1,shoot:1.1+i*.2,attack:.8+i*.13,flash:0,anim:i,wind:0,lunge:0,blink:2.5,phaseWind:0,special:3.5};}
+  function makeEnemy(e,i,s=scenes[stage]){const y=floorAt(e.x,s)-(e.type==='wirewing'?86:0);return{...stats[e.type],...e,y,homeY:y,max:e.hp||stats[e.type].hp,dir:i%2?1:-1,shoot:1.1+i*.2,attack:.8+i*.13,flash:0,anim:i,wind:0,lunge:0,blink:2.5,phaseWind:0,special:3.5,
+    brain:{think:.2+(i%4)*.07,target:null,pressure:0,still:0,evade:0,escape:0}};}
   function makeMount(s){return s.mountX==null?null:{x:s.mountX,y:floorAt(s.mountX,s),dir:1,type:'strider',hp:6,max:6,r:26,anim:0,flash:0,wind:0,lunge:0,bite:0,hits:new Set()};}
   function restock(){player.inventory.forEach((slot,i)=>slot.reserve=Math.min(weapons[i].max,slot.reserve+Math.max(1,Math.round(weapons[i].cache*rules().ammo))));}
   function roofAt(x,scene=scenes[stage]){return scene.roofs.find(r=>x>=r.x+3&&x<=r.x+r.w-3);}
@@ -193,7 +198,7 @@
   const riderOffset=p=>p.riding?-25:0;
   const targetHeight=()=>player.y-(player.riding?55:25);
   function enemyAimY(e){return e.y-(e.type==='wirewing'?0:e.type==='stalker'?19:e.type==='boss'?37:29);}
-  function nearest(){let pick=null,best=340;for(const e of enemies){if(e.hp<=0)continue;const dx=e.x-player.x,dy=enemyAimY(e)-targetHeight();if(dx*player.face>=-12&&Math.abs(dy)<125&&Math.hypot(dx,dy)<best){pick=e;best=Math.hypot(dx,dy);}}return pick;}
+  function nearest(){let pick=null,best=340;for(const e of enemies){if(e.hp<=0)continue;const dx=e.x-player.x,dy=enemyAimY(e)-targetHeight();if(dx*player.face>=0&&Math.abs(dy)<125&&Math.hypot(dx,dy)<best){pick=e;best=Math.hypot(dx,dy);}}return pick;}
   function aimTarget(){const up=keys.has('ArrowUp')||touch.y<-.55,down=keys.has('ArrowDown')||touch.y>.55;if(up||down)return{x:player.x+player.face*(Math.abs(moveInput())>.25?180:1),y:targetHeight()+(up?-200:200)};if(aim)return{x:aim.x+camera,y:aim.y};const e=nearest();return e?{x:e.x,y:enemyAimY(e)}:null;}
   function detectivePose(p){
     if(p.riding)return{tilt:p.dash>0?.14:.04,bob:p.moving?Math.floor(p.step)%2:0,shift:0};
@@ -267,15 +272,46 @@
   }
   function showCode(){document.getElementById('code-display').textContent=(enteredCode+'___').slice(0,3).split('').join(' ');}
   function digit(d){if(mode!=='puzzle')return;enteredCode+=d;showCode();if(enteredCode.length===3){if(enteredCode===scenes[stage].code){unlocked=true;mode='play';puzzle.classList.add('hidden');note('ACCESS GRANTED // '+scenes[stage].exitLabel,4);burst(scenes[stage].terminal.x,scenes[stage].terminal.y-28,P.acid,22);}else{note('ACCESS DENIED',2);setTimeout(()=>{enteredCode='';showCode();},400);}}}
-  function stepEnemy(e,step){const next=e.x+step,floor=floorAt(next);if(floor!==null&&Math.abs(floor-e.y)<6){e.x=next;e.walk=(e.walk||0)+Math.abs(step)*.14;}}
+  function stepEnemy(e,step){
+    // Check the whole path, including a lunge: a large frame cannot cross a gap.
+    const parts=Math.max(1,Math.ceil(Math.abs(step)/4)),start=e.x;
+    for(let i=0;i<parts;i++){const next=e.x+step/parts,floor=floorAt(next);if(floor===null||Math.abs(floor-e.y)>=6)break;e.x=next;}
+    e.walk=(e.walk||0)+Math.abs(e.x-start)*.14;
+  }
+  function sensePlayer(e,dt){
+    const b=e.brain;b.think-=dt;b.evade=Math.max(0,b.evade-dt);
+    if(b.think>0)return;
+    const interval=difficulty==='easy'?.45:difficulty==='hard'?.24:.32;
+    b.think=interval;
+    const previous=b.target,p=player;
+    // Short, fading memory of visible actions. No input reads or saved profile.
+    b.pressure+=(Number(p.fire>0&&p.reload<=0)-b.pressure)*Math.min(1,interval*.9);
+    b.still=previous&&Math.abs(p.x-previous.x)<12&&p.ground?Math.min(4,b.still+interval):Math.max(0,b.still-interval*2);
+    b.target={x:p.x,y:targetHeight(),vx:p.vx,face:p.face,ground:p.ground,reloading:p.reload>0,shotgun:p.weapon===1};
+    const bomb=grenades.find(bomb=>bomb.life>.16&&Math.hypot(bomb.x-e.x,bomb.y-enemyAimY(e))<105);
+    if(bomb){b.escape=Math.sign(e.x-bomb.x)||-e.dir;b.evade=.5;}
+  }
+  function predictedTarget(e,lead=.18){
+    const target=e.brain.target;
+    return target?{x:clamp(target.x+clamp(target.vx*lead,-24,24),12,scenes[stage].width-10),y:target.y}:null;
+  }
+  function packCanAttack(e){
+    const attackers=enemies.filter(other=>other!==e&&other.hp>0&&(other.wind>0||other.lunge>0||other.phaseWind>0)&&Math.abs(other.x-e.x)<180);
+    return attackers.length<(difficulty==='hard'?2:1);
+  }
   function updateWirewing(e,dt){
     const p=player,distance=Math.abs(e.x-p.x);e.dir=Math.sign(p.x-e.x)||e.dir;
-    if(e.wind>0){e.wind-=dt;if(e.wind<=0){const dx=p.x-e.x,dy=targetHeight()-e.y,length=Math.max(1,Math.hypot(dx,dy));e.diveX=dx/length*205;e.diveY=dy/length*205;e.lunge=.68;e.attack=2.6;}}
+    if(e.wind>0){e.wind-=dt;if(e.wind<=0){e.lunge=.68;e.attack=2.6;}}
     else if(e.lunge>0){e.lunge-=dt;e.x+=e.diveX*dt;e.y+=e.diveY*dt;if(Math.abs(e.x-p.x)<27&&e.y>p.y-(p.riding?84:49)&&e.y<p.y+4)hurt(1);}
     else{
       const homeX=distance<340?p.x+Math.sin(e.anim*.9)*105:e.x;
       e.x+=clamp(homeX-e.x,-e.speed,e.speed)*dt;e.y+=(e.homeY+Math.sin(e.anim*2)*12-e.y)*Math.min(1,dt*2.8);
-      if(distance<265&&Math.abs(e.y-targetHeight())<155&&e.attack<=0)e.wind=.48;
+      const target=predictedTarget(e);
+      if(target&&distance<265&&Math.abs(e.y-target.y)<155&&e.attack<=0&&packCanAttack(e)){
+        // Commit before the warning, so changing direction can evade the dive.
+        const dx=target.x-e.x,dy=target.y-e.y,length=Math.max(1,Math.hypot(dx,dy));
+        e.diveX=dx/length*205;e.diveY=dy/length*205;e.wind=.48;
+      }
     }
     e.x=clamp(e.x,28,scenes[stage].width-28);e.y=clamp(e.y,76,300);
   }
@@ -283,7 +319,9 @@
     const p=player,tick=dt*speed;
     for(const e of enemies){if(e.hp<=0){e.death=Math.max(0,(e.death||0)-dt);continue;}e.flash=Math.max(0,e.flash-dt);e.attack-=tick;e.shoot-=tick;e.anim+=tick;
       const distance=Math.abs(e.x-p.x),vertical=Math.abs(e.y-p.y);
-      if(distance>W+120)continue;
+      if(distance>W+120){e.brain.target=null;e.brain.pressure=0;e.brain.still=0;continue;}
+      sensePlayer(e,tick);
+      const target=predictedTarget(e),observed=e.brain.target;
       if(e.variant&&distance<330){e.special-=tick;if(e.special<=0){e.special=e.hp<e.max*.5?3:4.5;
         if(e.variant==='iron'){for(let i=0;i<3;i++)bullets.push({x:e.x,y:e.y-50,vx:e.dir*(85+i*22),vy:-180-i*25,gravity:300,life:3,good:false,kind:'acid'});}
         else if(e.variant==='root'){for(const offset of [-85,0,85]){const x=clamp(p.x+offset,15,scenes[stage].width-15),y=floorAt(x);if(y!==null)hazards.push({x,y,life:3.5,warn:.85});}}
@@ -294,16 +332,21 @@
       if(e.type==='stalker'){
         e.blink-=tick;
         if(e.phaseWind>0){e.phaseWind-=tick;if(e.phaseWind<=0){const floor=floorAt(e.shiftTo);if(floor!==null){burst(e.x,e.y-18,'#b98adf',9);e.x=e.shiftTo;e.y=floor;burst(e.x,e.y-18,'#b98adf',9);}e.blink=3.8;e.attack=.7;e.wind=0;e.lunge=0;}continue;}
-        if(e.blink<=0&&distance>90&&distance<240&&p.ground){const candidate=clamp(p.x-p.face*65,25,scenes[stage].width-25),floor=floorAt(candidate);if(floor!==null&&Math.abs(floor-p.y)<6){e.shiftTo=candidate;e.phaseWind=.48;continue;}e.blink=1;}
+        if(e.blink<=0&&distance>90&&distance<240&&observed?.ground&&packCanAttack(e)){
+          const candidate=clamp(observed.x-observed.face*(e.brain.still>1?90:75),25,scenes[stage].width-25),floor=floorAt(candidate);
+          const crowded=enemies.some(other=>other!==e&&other.hp>0&&Math.abs(other.x-candidate)<45&&Math.abs(other.y-p.y)<45);
+          if(floor!==null&&Math.abs(floor-p.y)<6&&!crowded){e.shiftTo=candidate;e.phaseWind=.55;continue;}e.blink=1;
+        }
       }
+      if(e.brain.evade>0&&e.type!=='turret'&&e.type!=='boss'&&e.wind<=0&&e.lunge<=0){stepEnemy(e,e.brain.escape*e.speed*1.65*tick);continue;}
       if(e.type==='spitter'){
         e.dir=Math.sign(p.x-e.x)||e.dir;
         if(distance>320)e.shoot=Math.max(.65,e.shoot);
-        if(e.shoot<=0&&distance<320&&vertical<105){const mouth={x:e.x+e.dir*36,y:e.y-32},flight=clamp(distance/138,.35,1.8);bullets.push({x:mouth.x,y:mouth.y,vx:e.dir*138,vy:(targetHeight()-mouth.y)/flight-60*flight,gravity:120,life:3,good:false,kind:'acid'});e.shoot=2.45;burst(mouth.x,mouth.y,'#cee78a',5);}
+        if(target&&e.shoot<=0&&distance<320&&vertical<105){const mouth={x:e.x+e.dir*36,y:e.y-32},flight=clamp(Math.abs(target.x-mouth.x)/138,.35,1.8);bullets.push({x:mouth.x,y:mouth.y,vx:(target.x-mouth.x)/flight,vy:(target.y-mouth.y)/flight-60*flight,gravity:120,life:3,good:false,kind:'acid'});e.shoot=2.45;burst(mouth.x,mouth.y,'#cee78a',5);}
       }
       if(e.type==='turret'||e.type==='boss'){
         e.dir=Math.sign(p.x-e.x)||e.dir;
-        if(e.shoot<=0&&distance<295&&vertical<125){const mouth={x:e.x+e.dir*(e.type==='boss'?67:26),y:e.y-(e.type==='boss'?42:26)},a=Math.atan2(targetHeight()-mouth.y,p.x-mouth.x),spread=e.type==='boss'?[-.2,0,.2]:[0];
+        if(target&&e.shoot<=0&&distance<295&&vertical<125){const mouth={x:e.x+e.dir*(e.type==='boss'?67:26),y:e.y-(e.type==='boss'?42:26)},a=Math.atan2(target.y-mouth.y,target.x-mouth.x),spread=e.type==='boss'?[-.2,0,.2]:[0];
           for(const off of spread)bullets.push({x:mouth.x,y:mouth.y,vx:Math.cos(a+off)*104,vy:Math.sin(a+off)*104,life:3,good:false});
           e.shoot=e.type==='boss'?2.3:1.9;burst(mouth.x,mouth.y,P.coral,3);
         }
@@ -312,8 +355,17 @@
       if(e.wind>0){e.wind-=tick;if(e.wind<=0){e.lunge=e.type==='stalker'?.3:.2;e.attack=e.type==='stalker'?1.3:1.05;}}
       else if(e.lunge>0){e.lunge-=tick;stepEnemy(e,e.dir*(e.type==='boss'?70:e.type==='stalker'?185:130)*tick);if(Math.abs(e.x-p.x)<e.r+13&&vertical<33)hurt(e.hit);}
       else{
-        if(distance<e.r+37&&vertical<42&&e.attack<=0){e.wind=.3;e.dir=Math.sign(p.x-e.x)||e.dir;}
-        else if(distance<250&&vertical<65){let sign=Math.sign(p.x-e.x)||1;if(e.type==='spitter'){if(distance>120&&distance<205)sign=0;else if(distance<=120)sign=-sign;}stepEnemy(e,sign*e.speed*tick);if(e.type!=='spitter'&&sign)e.dir=sign;}
+        if(observed&&distance<e.r+37&&vertical<42&&e.attack<=0&&packCanAttack(e)){e.wind=difficulty==='easy'?.42:.3;e.dir=Math.sign(p.x-e.x)||e.dir;}
+        else if(observed&&distance<280&&vertical<65){
+          let sign=Math.sign(observed.x-e.x)||1;
+          if(e.type==='spitter'){
+            const keep=observed.shotgun||e.brain.pressure>.4?185:120;
+            if(distance>keep&&distance<keep+65)sign=0;else if(distance<=keep)sign=-sign;
+          }else if(distance<e.r+38&&!packCanAttack(e))sign=0;
+          // A visible reload offers a brief opening; health and damage stay fixed.
+          const pace=observed.reloading&&e.type!=='boss'?1.25:1;
+          stepEnemy(e,sign*e.speed*pace*tick);if(e.type!=='spitter'&&sign)e.dir=sign;
+        }
       }
     }
   }
@@ -605,10 +657,10 @@
   function enemySprite(e){
     const x=Math.round(e.x-camera),y=Math.round(e.y),clock=e.anim||0,flash=e.flash>0;
     if(e.hp<=0){if(art&&e.death>0){const age=1-e.death/.55;g.save();g.globalAlpha=Math.min(1,e.death*3);g.translate(x,y-12*Math.sin(age*Math.PI));g.rotate(age*.8*(e.dir<0?-1:1));g.scale(1,1-age*.45);art.creature(g,{...e,flash:0,wind:0},0,0,time);g.restore();}return;}
+    if(e.phaseWind>0){const tx=e.shiftTo-camera,ty=floorAt(e.shiftTo);if(ty!==null){rect(tx-22,ty-2,44,2,'#cb93da');text('!',tx,ty-14,'#fff0b6',10,'center');}}
     if(art){art.creature(g,e,x,y,time);return;}
     if(x<-110||x>W+110)return;
     if(e.type!=='wirewing')rect(x-e.r,y-1,e.r*2,3,'#182f324c');
-    if(e.phaseWind>0){const tx=e.shiftTo-camera,ty=floorAt(e.shiftTo);for(let i=0;i<3;i++)rect(tx-20+i*17,ty-5-i%2*4,10,2,'#cb93da');}
     g.save();g.translate(x,y);g.scale(e.dir<0?-1:1,1);if(e.type==='stalker'&&!flash&&(e.phaseWind>0||(e.anim%4<1.6&&Math.abs(e.x-player.x)>80)))g.globalAlpha=.5;
     const ink='#102328',dark='#31504e',metal='#526c68',chrome='#bad0b5',bone='#efe8bc';
     const skin=flash?P.white:e.variant==='iron'?'#aa8466':e.variant==='root'?'#718c4e':e.variant==='omega'?'#90749f':e.type==='strider'?'#729bb5':'#68988a',light=flash?P.white:e.variant==='iron'?'#e2c4a1':e.variant==='root'?'#c6d795':e.variant==='omega'?'#d6b4e4':e.type==='strider'?'#b6d1d7':'#a2c4a0',eye=e.type==='strider'?'#9cf2db':e.wind>0?'#fff0a8':'#ef6256';

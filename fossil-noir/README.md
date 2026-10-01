@@ -41,6 +41,19 @@ The visual reference was the [Metal Slug Egypt GIF supplied by the user](https:/
 
 Both modes include grenades, a temporary heavy machine gun, destructible crates, hostage rescues, combos up to ×5, rideable Striders and a checkpoint at every chapter. All eight chapters can be selected from the menu.
 
+### Smarter creatures (3.3)
+
+Eighteen additional creatures bring the opening encounters to 65 enemies across the seven combat chapters, plus the existing reinforcements. Safehouse 09 remains a rest stop.
+
+- Nearby predators stagger their melee attacks and close faster when they observe a reload.
+- Spitters remember recent gunfire, back away from sustained fire or a shotgun, and relax when the pressure stops.
+- Mobile ground creatures try to escape nearby grenades while staying on their platform. They remain vulnerable to the blast.
+- Ranged attackers use delayed observations with a small amount of movement prediction.
+- Wirewings commit to a dive before the warning ends, allowing a change of direction to evade them.
+- Stalkers avoid occupied ambush positions and mark their destination before teleporting.
+
+This lightweight, rule-based AI runs entirely in the browser, including on GitHub Pages. It needs no AI service, API key or backend. Observation slows with Instinct; Easy gives more reaction time. Creature health and damage are unchanged. Short combat memories reset at each chapter or retry, and existing checkpoints remain compatible.
+
 | Chapter | Mission |
 | --- | --- |
 | 01 — Rain over Vesper | Cross the rooftops and reach Safehouse 09. |
@@ -85,7 +98,7 @@ npm test
 npm run check
 ```
 
-The 34 tests run the real game code in a small DOM/canvas host. They cover movement across every gap, ammunition, grenades, supplies, jumping, checkpoints, access codes, boss attacks, progression, English text and the artwork package. They also verify that the renderer receives the real chapter and muzzle positions and that a failed 2.5D frame cannot stop gameplay.
+The tests run the real game code in a small DOM/canvas host. They cover movement across every gap, ammunition, grenades, supplies, jumping, checkpoints, access codes, boss attacks, progression, English text and the artwork package. Combat checks cover delayed perception, fading memory, grenade evasion, pack attacks, reload openings, committed dives, ambush warnings and safe movement near gaps. They also verify that the renderer receives the real chapter and muzzle positions and that a failed 2.5D frame cannot stop gameplay.
 
 Browser checks cover all eight chapters using WebGL2, graphics switching and saved preferences, real context loss and recovery, blocked renderer imports, keyboard and touch input, pause, reload/continue, small screens and fullscreen. Headless checks use software WebGL; frame rates on physical mobile devices still depend on the device.
 

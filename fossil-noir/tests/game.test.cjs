@@ -36,6 +36,7 @@ function boot(storage = new Map(), options = {}) {
   let source=fs.readFileSync(path.join(root,'game.js'),'utf8');
   source=source.replace(/\}\)\(\);\s*$/,`globalThis.game = {begin,setup,update,draw,jump,shoot,reload,throwGrenade,explode,hitEnemy,hurt,collect,interact,digit,pauseGame,openDossier,closeDossier,newCaseMenu,validSave,aimTarget,sight,shoulder,muzzle,weaponAngle,detectivePose,resetInput,makeEnemy,bulletHitsEnemy,saveProgress,keys,touch,scenes,weapons,caseFiles,
     state:()=>({player,enemies,bullets,drops,grenades,crates,rescues,hazards,mode,stage,score,kills,rescued,checkpoint,savedRun,combo,unlocked}),
+    updateEnemies,stepEnemy,predictedTarget,
     clearEnemies:()=>enemies=[],setCheckpoint:s=>checkpoint=s,setMouseFire:v=>mouseFire=v,setMusic:engine=>music=engine
   };})();`);
   vm.runInContext(source,sandbox);
@@ -66,6 +67,104 @@ test('survival retains limited ammunition and automatic empty-mag reload',()=>{
 });
 test('aim assistance only selects enemies ahead; up aims vertically',()=>{
   const {g}=boot();g.start();const p=g.state().player;p.x=500;p.face=1;assert.ok(g.aimTarget().x>p.x);g.keys.add('ArrowUp');const aim=g.aimTarget();assert.ok(aim.y<p.y-150);assert.equal(aim.x,p.x+1);
+});
+
+test('crowded encounters never turn aim assistance toward a monster just behind the player',()=>{
+  const {g}=boot();g.start();g.clearEnemies();const p=g.state().player;p.x=180;
+  for(const face of [-1,1]){
+    g.clearEnemies();p.face=face;
+    g.state().enemies.push(g.makeEnemy({x:p.x-face*5,type:'raptor'},0),g.makeEnemy({x:p.x+face*60,type:'raptor'},1));
+    assert.equal(g.aimTarget().x,p.x+face*60);
+  }
+});
+
+test('eighteen additional monsters populate combat chapters while the safehouse stays empty',()=>{
+  const {g}=boot();assert.deepEqual(Array.from(g.scenes,s=>s.enemies.length),[6,0,8,6,11,11,11,12]);
+  for(let chapter=0;chapter<8;chapter++){
+    g.start(chapter);
+    for(const e of g.state().enemies){assert.ok(Number.isFinite(e.y));assert.ok(e.x>240);assert.equal(e.brain.target,null);}
+  }
+});
+
+// Small combat fixtures exercise the real AI without player input or randomness.
+function encounter(type='raptor',x=550,style='arcade'){
+  const {g,element}=boot();g.start(3,style);g.clearEnemies();
+  Object.assign(g.state().player,{x:400,y:268,vx:0,vy:0,ground:true,inv:100});
+  const e=g.makeEnemy({type,x},0);g.state().enemies.push(e);
+  const advance=seconds=>{for(let i=0;i<Math.ceil(seconds*60);i++)g.updateEnemies(1/60,1);};
+  return{g,element,e,p:g.state().player,advance};
+}
+
+test('spitters learn sustained gunfire, keep more distance, and forget after firing stops',()=>{
+  const {e,p,advance}=encounter('spitter');e.shoot=100;p.fire=.1;
+  advance(.15);assert.equal(e.brain.target,null,'reaction delay prevents an immediate response');
+  advance(1.4);assert.ok(e.brain.pressure>.4);assert.ok(e.x>550,'spitter retreats under sustained fire');
+  p.fire=0;advance(4);assert.ok(e.brain.pressure<.15);
+  const relaxed=e.x;advance(1);assert.equal(e.x,relaxed,'calm spitter stops retreating');
+});
+
+test('a shotgun makes spitters back off and a visible reload offers predators an opening',()=>{
+  const ranged=encounter('spitter');ranged.p.weapon=1;ranged.e.shoot=100;ranged.advance(.6);
+  assert.ok(ranged.e.x>550);
+  const normal=encounter(),reload=encounter('raptor',550,'story');reload.p.reload=1;
+  normal.advance(.7);reload.advance(.7);
+  assert.ok(reload.e.x<normal.e.x-2,'predator closes faster while the player reloads');
+  assert.equal(reload.e.hp,normal.e.hp);assert.equal(reload.e.hit,normal.e.hit);
+});
+
+test('ground monsters evade nearby grenades after a delay and remain vulnerable',()=>{
+  const {g,e,advance}=encounter();g.state().grenades.push({x:535,y:244,vx:0,vy:0,life:1});
+  advance(.1);assert.equal(e.brain.evade,0);assert.equal(e.x,550);
+  advance(.4);assert.ok(e.brain.evade>0);assert.ok(e.x>550);
+  g.explode(e.x,e.y-20);assert.equal(e.hp,0,'evasion grants no immunity');
+});
+
+test('pack members stagger melee attacks and respect warning time',()=>{
+  const {g,e,advance}=encounter('raptor',450);e.attack=0;
+  const other=g.makeEnemy({type:'raptor',x:350},0);other.attack=0;g.state().enemies.push(other);
+  advance(.23);
+  assert.equal(g.state().enemies.filter(v=>v.wind>0).length,1);
+  assert.equal(g.state().enemies.filter(v=>v.lunge>0).length,0);
+  advance(.15);assert.equal(g.state().enemies.filter(v=>v.lunge>0).length,0);
+  advance(.2);assert.equal(g.state().enemies.filter(v=>v.lunge>0).length,1);
+});
+
+test('wirewing dives lock their direction before the warning and can be dodged',()=>{
+  const {g,e,p,advance}=encounter('wirewing',560);e.attack=0;
+  advance(.22);assert.ok(e.wind>0);const dx=e.diveX,dy=e.diveY;assert.ok(dx<0);
+  p.x=740;advance(.5);assert.ok(e.lunge>0);
+  assert.equal(e.diveX,dx);assert.equal(e.diveY,dy,'dive does not track a dodge during its warning');
+  assert.equal(g.state().mode,'play');
+});
+
+test('ranged aim uses a delayed observation with bounded prediction, including slow time',()=>{
+  const {g,e,p,advance}=encounter('turret',560);p.vx=200;advance(.22);
+  const target=g.predictedTarget(e);assert.equal(target.x,424);
+  p.x=470;p.vx=-200;g.updateEnemies(.1,.2);
+  assert.equal(g.predictedTarget(e).x,424,'slow time delays the next observation');
+  advance(.35);assert.equal(g.predictedTarget(e).x,446);
+});
+
+test('stalkers reject occupied ambush positions and show a warning before shifting',()=>{
+  const {g,e,p,advance}=encounter('stalker',580);e.blink=0;p.face=1;
+  const guard=g.makeEnemy({type:'turret',x:325},0);g.state().enemies.push(guard);
+  advance(.25);assert.equal(e.phaseWind,0,'occupied destination is rejected');
+  guard.hp=0;e.blink=0;advance(.02);assert.ok(e.phaseWind>0);
+  const before=e.x,destination=e.shiftTo;advance(.2);assert.equal(e.x,before);
+  for(let i=0;i<40&&e.phaseWind>0;i++)advance(1/60);
+  assert.equal(e.x,destination);assert.ok(e.attack>0,'recovery leaves time to react');
+});
+
+test('ground movement cannot cross a platform gap, even with a large lunge step',()=>{
+  const {g}=boot();g.start(0);const e=g.makeEnemy({type:'raptor',x:270},0);
+  g.stepEnemy(e,100);assert.ok(e.x<=287);assert.equal(e.y,263);
+});
+
+test('AI memory pauses with play and resets on checkpoint retry',()=>{
+  const {g,e,p,advance}=encounter('spitter');p.fire=.1;advance(1.5);assert.ok(e.brain.pressure>.4);
+  g.pauseGame();const memory=JSON.stringify(e.brain);g.tick(2);assert.equal(JSON.stringify(e.brain),memory);
+  g.begin(true);for(const enemy of g.state().enemies){assert.equal(enemy.brain.pressure,0);assert.equal(enemy.brain.target,null);}
+  assert.ok(g.validSave(g.state().checkpoint));
 });
 test('keyboard, touch, mouse and aim assist keep downward pistol shots shallow',()=>{
   for(const input of ['keyboard','touch','mouse','assist'])for(const face of [-1,1]){
