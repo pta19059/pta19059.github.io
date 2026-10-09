@@ -1,31 +1,13 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {LEVEL} from './level';
+import {createRetroTexture,createDecal,type DecalKind} from './retro-textures';
 import type {EnemyKind,GameState,Settings,Wall,PickupKind} from './types';
 
 type MobVisual={root:THREE.Group;legs:THREE.Group[];arms:THREE.Group[];head:THREE.Group;tail?:THREE.Group;kind:EnemyKind;dead:boolean};
 const TAU=Math.PI*2;
 const rnd=(n:number)=>{const x=Math.sin(n*127.1+91.7)*43758.5453;return x-Math.floor(x)};
 
-/** Original, procedurally painted 64px textures; no network or borrowed game art. */
-function texture(kind:string):THREE.CanvasTexture {
- const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d')!;
- const palettes:Record<string,string[]>={brick:['#34313b','#48424d','#22242b'],metal:['#293d3c','#41564f','#102325'],concrete:['#3b4242','#4e5550','#293233'],crate:['#55503d','#777053','#242b27'],floor:['#242d2e','#353d39','#172323'],labfloor:['#334343','#455552','#1d3332'],road:['#21232c','#32343e','#14191f'],ceiling:['#20292b','#33443f','#111d1d'],door:['#33413e','#617266','#122622']};
- const p=palettes[kind]??palettes.metal;g.fillStyle=p[0];g.fillRect(0,0,64,64);
- for(let i=0;i<480;i++){g.fillStyle=i%3===0?p[1]:p[2];g.globalAlpha=.18+rnd(i)*.28;g.fillRect(Math.floor(rnd(i+1)*64),Math.floor(rnd(i+2)*64),1+(i%3),1)}g.globalAlpha=1;
- if(kind==='brick'){
-  for(let row=0;row<4;row++){const y=row*16;g.fillStyle='#121e23';g.fillRect(0,y,64,2);for(let x=(row%2)*16;x<64;x+=32){g.fillRect(x,y,2,16);g.fillStyle='#64555a';g.fillRect(x+3,y+3,27,1);g.fillStyle='#121e23'}}
- }else if(kind==='metal'||kind==='ceiling'||kind==='door'){
-  g.fillStyle=p[2];g.fillRect(0,0,64,3);g.fillRect(0,0,3,64);g.fillRect(0,31,64,2);g.fillRect(31,0,2,64);
-  g.fillStyle='#9ba89d';for(const x of [5,27,37,59])for(const y of [5,27,37,59])g.fillRect(x,y,2,2);
-  if(kind==='door'){g.fillStyle='#141e22';g.fillRect(7,7,50,50);g.fillStyle='#516d61';for(let y=9;y<54;y+=5)g.fillRect(9,y,46,2);g.fillStyle='#b99939';g.fillRect(0,54,64,7);g.fillStyle='#25261e';for(let x=-8;x<70;x+=12){g.beginPath();g.moveTo(x,61);g.lineTo(x+6,54);g.lineTo(x+12,54);g.lineTo(x+6,61);g.fill()}}
- }else if(kind==='crate'){
-  g.fillStyle='#262d26';g.fillRect(0,0,64,5);g.fillRect(0,59,64,5);g.fillRect(0,0,5,64);g.fillRect(59,0,5,64);g.fillRect(28,0,7,64);g.fillRect(0,28,64,7);g.fillStyle='#ab9160';g.fillRect(7,7,50,2);
- }else if(kind==='floor'||kind==='labfloor'){
-  g.fillStyle=p[2];g.fillRect(0,0,64,2);g.fillRect(0,0,2,64);g.fillRect(0,32,64,1);g.fillRect(32,0,1,64);
- }else if(kind==='concrete'){g.fillStyle='#253031';g.fillRect(0,0,64,2);for(let i=0;i<4;i++){g.fillRect(14+i*13,4,1,9+rnd(i)*19)}}
- const t=new THREE.CanvasTexture(c);t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.colorSpace=THREE.SRGBColorSpace;t.generateMipmaps=false;return t;
-}
 function signTexture(text:string,fg='#86ffb8',bg='#101b20',w=256,h=64){
  const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d')!;g.fillStyle=bg;g.fillRect(0,0,w,h);g.fillStyle=fg;g.fillRect(2,2,w-4,2);g.fillRect(2,h-4,w-4,2);g.fillRect(2,2,2,h-4);g.fillRect(w-4,2,2,h-4);
  const lines=text.split('/').map(x=>x.trim());g.textAlign='center';g.textBaseline='middle';let size=lines.length>1?19:22;size=Math.min(size,Math.floor((w-18)/(Math.max(...lines.map(l=>l.length))*.61)));g.font=`bold ${Math.max(8,size)}px monospace`;
@@ -65,7 +47,7 @@ export class Renderer {
   const hemisphere=new THREE.HemisphereLight(0x99c3c8,0x203b29,1.45);this.scene.add(hemisphere);
   const moon=new THREE.DirectionalLight(0xa9bbd6,1.05);moon.position.set(-10,25,12);this.scene.add(moon);
   const green=new THREE.DirectionalLight(0x73efba,.65);green.position.set(7,9,-25);this.scene.add(green);
-  for(const kind of ['brick','metal','concrete','crate','floor','labfloor','road','ceiling','door']){const m=new THREE.MeshLambertMaterial({map:texture(kind)});this.retroMaterial(m);this.mats.set(kind,m)}
+  for(const kind of ['brick','metal','concrete','crate','floor','labfloor','road','ceiling','door']){const m=new THREE.MeshLambertMaterial({map:createRetroTexture(kind)});this.retroMaterial(m);this.mats.set(kind,m)}
   this.buildLevel();this.flush();
   for(const d of LEVEL.doors)this.buildDoor(d);
   for(const e of LEVEL.enemies){const mob=this.buildMob(e.kind);mob.root.position.set(e.x,0,e.z);this.enemyGroups.set(e.id,mob);this.scene.add(mob.root)}
@@ -205,10 +187,109 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
     this.box(x,.75,z,2.3,.14,1.1,this.mat(0x4b4738));this.sign('MARA WAS HERE',-17,2.5,-7,3,.6,Math.PI/2,'#eecc91');
    }
   }
+  this.buildEnvironmentDetails();
   // A handful of local lights, rather than a light per luminous decorative prop.
   for(const pos of [[0,2.6,7],[0,3,-26],[0,3,-39],[8,3,-8],[-9,3,-7]]){
    const l=new THREE.PointLight(pos[2]===-7?0xcf366e:0x54d799,7,12,2);l.position.set(pos[0],pos[1],pos[2]);this.lights.push(l);this.scene.add(l);
   }
+ }
+ private decal(kind:DecalKind,x:number,y:number,z:number,w:number,h:number,ry=0,floor=false){
+  const key=`decal-${kind}`;let mat=this.mats.get(key);
+  if(!mat){mat=new THREE.MeshBasicMaterial({map:createDecal(kind),alphaTest:.12,side:THREE.DoubleSide,depthWrite:!floor,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});this.mats.set(key,mat)}
+  this.addGeometry(new THREE.PlaneGeometry(w,h),mat,x,y,z,floor?-Math.PI/2:0,ry);
+ }
+ private buildEnvironmentDetails(){
+  const M=(k:string)=>this.mats.get(k)!;
+  const trim=this.mat(0x4c6258),dark=this.mat(0x1a3033),silver=this.mat(0x8d9781),rust=this.mat(0x785443),wood=this.mat(0x72624b);
+  const tube=(x:number,y:number,z:number,r:number,length:number,rx=0,rz=0)=>this.addGeometry(new THREE.CylinderGeometry(r,r,length,8),trim,x,y,z,rx,0,rz);
+  // Office desk: case files, a keyboard, radio, ashtray and articulated lamp.
+  this.box(-3.2,.88,8,2.3,.06,1.22,wood);this.box(-3.2,.72,8.54,2,.16,.025,dark);
+  for(const x of [-3.7,-3.1,-2.5]){this.box(x,.72,8.57,.49,.11,.035,wood);this.box(x,.73,8.6,.16,.025,.03,silver)}
+  this.box(-3.08,.98,8.26,.66,.055,.22,trim);
+  for(let row=0;row<3;row++)for(let col=0;col<10;col++)this.box(-3.34+col*.057,1.014,8.19+row*.052,.043,.018,.035,dark);
+  this.decal('paper',-2.46,.931,7.99,.43,.56,.15,true);this.decal('paper',-3.96,.928,8.15,.36,.47,-.2,true);
+  for(let i=0;i<4;i++)this.box(-2.54,.96+i*.045,7.69,.38,.035,.32,this.mat(i%2?0x605e43:0x8d8061),.12);
+  this.box(-4.03,1.04,7.72,.29,.25,.22,dark);this.box(-4.03,1.05,7.838,.23,.16,.012,trim);
+  for(let i=0;i<4;i++)this.box(-4.09+i*.04,1.06,7.85,.018,.09,.008,dark);
+  tube(-4.13,1.26,7.69,.012,.32);this.box(-3.58,.95,8.35,.17,.05,.14,silver);this.box(-3.59,.985,8.35,.1,.015,.08,dark);
+  tube(-2.36,.953,7.72,.11,.04);tube(-2.36,1.15,7.72,.025,.37);tube(-2.53,1.39,7.72,.026,.4,0,Math.PI/2);
+  this.addGeometry(new THREE.ConeGeometry(.19,.17,8),dark,-2.69,1.37,7.72);this.box(-2.69,1.29,7.72,.22,.015,.14,this.basic(0xadcca0));
+  // Shallow shelves and conduit stay against the walls, outside navigable space.
+  for(const y of [1.9,2.55]){this.box(-4.91,y,10.4,.16,.06,2.1,wood);for(let i=0;i<9;i++){const z=9.58+i*.19;this.box(-4.89,y+.17,z,.16,.28+rnd(i)*.09,.12,this.mat([0x6d4c44,0x577165,0x7e7556][i%3]));this.box(-4.8,y+.16,z,.012,.025,.1,silver)}}
+  this.box(-4.98,.95,8,.07,.04,7.6,dark);this.box(4.99,3.6,8,.07,.06,7.6,trim);
+  this.sign('VESPER 2091 / MISSING: MARA',-2.48,2.67,11.97,2.35,.44,Math.PI,'#b7a57b','#2b3230');
+  this.decal('paper',1.9,.048,10,.43,.54,.6,true);this.decal('paper',1.65,.047,10.32,.31,.42,-.2,true);
+  // Street storefronts: frame relief, awnings, AC vents, wiring and old posters.
+  for(const side of [-1,1])for(let i=0;i<5;i++){
+   const z=1-i*4.4,x=side*12.87;
+   for(const dz of [-.99,.99]){this.box(x,2.65,z+dz,.15,2.1,.14,trim);this.box(x-side*.045,2.65,z+dz,.06,1.9,.04,silver)}
+   this.box(x,3.71,z,.22,.13,2.16,trim);this.box(x,1.56,z,.29,.12,2.22,dark);
+   if(i%2===1){
+    this.box(side*12.5,3.98,z,.95,.1,2.4,dark);for(let j=0;j<6;j++)this.box(side*12.47,4.037,z-1.05+j*.4,.94,.015,.14,this.mat(side<0?0x815f59:0x537d6b));
+    this.box(side*12.04,3.82,z,.055,.28,2.42,trim);
+   }
+   const vz=z-1.65;
+   this.box(side*12.84,4.77,vz,.28,.63,.94,M('metal'));for(let j=0;j<6;j++)this.box(side*12.66,4.52+j*.09,vz,.026,.035,.77,dark);
+   tube(side*12.78,3.2,vz,.043,2.3);this.box(side*12.72,2.01,vz,.16,.19,.18,rust);
+   this.decal('leak',side*12.975,2.9,vz+.1,1,1.7,-side*Math.PI/2);
+   if(i===0||i===3)this.decal('poster',side*12.97,1.68,z-1.68,.64,.95,-side*Math.PI/2);
+   for(const dz of [-1.8,1.8])this.box(side*12.8,5.65,z+dz,.14,.4,.17,trim);
+  }
+  this.decal('graffiti',12.97,1.12,-14.2,2.55,1.12,-Math.PI/2);this.decal('graffiti',-12.97,1.3,-.7,2.4,1.05,Math.PI/2);
+  for(const side of [-1,1]){
+   tube(side*12.83,5.4,-8,.065,23,Math.PI/2);
+   for(let z=2;z>-20;z-=4){this.box(side*12.75,5.4,z,.09,.24,.2,trim);this.box(side*11.78,.13,z,2.25,.024,.025,dark)}
+   for(let z=1;z>-20;z-=6){this.box(side*11.68,.143,z,.7,.02,.42,dark);for(let i=0;i<7;i++)this.box(side*11.68-.3+i*.1,.16,z,.038,.018,.38,trim)}
+  }
+  // Painted lane wear and flat pixel reflections evoke rain without expensive mirrors.
+  for(let i=0;i<16;i++){const z=2-i*1.35;this.box(.6,.038,z,.12,.012,.62,this.mat(0x8d9167));for(let j=0;j<3;j++)this.box(.58+(rnd(i+j)-.5)*.13,.047,z+(rnd(i+j+20)-.5)*.65,.08,.004,.05,M('road'))}
+  for(const [x,z,w,d] of [[5,-4,2.8,1.6],[-5,-7,3.5,1.4],[9,-16,2.6,1.6],[-10,-1,2,1.2],[2,-17,3.2,1.5]])this.decal('puddle',x,.049,z,w,d,0,true);
+  for(let i=0;i<8;i++){const x=-10.7+rnd(i+42)*21,z=-1-rnd(i+90)*18;this.decal('paper',x,.048,z,.23,.31,rnd(i)*TAU,true)}
+  // Existing car collider gets original bodywork, grille, cracked glazing and tyres.
+  this.box(-7,.85,-8.17,1.75,.14,.1,trim);for(let i=0;i<10;i++)this.box(-7.6+i*.13,1.02,-8.11,.044,.13,.04,dark);
+  for(const x of [-7.59,-6.41]){this.box(x,1.12,-8.12,.28,.19,.045,this.mat(0xa1a58e));this.box(x,1.13,-8.09,.21,.07,.015,this.basic(0x778e76))}
+  this.box(-7,1.38,-8.22,1.53,.03,.1,rust);this.box(-7.2,1.66,-9.2,.026,.45,.028,silver,.6);
+  for(const sx of [-.97,.97])for(const sz of [-1.15,1.15]){
+   this.addGeometry(new THREE.CylinderGeometry(.2,.2,.27,8),trim,-7+sx,.46,-10+sz,0,0,Math.PI/2);
+   this.addGeometry(new THREE.CylinderGeometry(.085,.085,.28,6),dark,-7+sx,.46,-10+sz,0,0,Math.PI/2);
+  }
+  // Industrial interiors: bolted seams, duct flanges, control cards, cable trays.
+  for(const [half,z0,z1] of [[6.98,-21,-31],[9.98,-33,-45]])for(const side of [-1,1]){
+   const x=side*half;this.box(x,3.9,(z0+z1)/2,.14,.21,z0-z1,trim);tube(x-side*.11,3.62,(z0+z1)/2,.055,z0-z1,Math.PI/2);
+   for(let z=z0;z>=z1;z-=2.4){this.box(x,2,z,.065,3.65,.075,dark);for(const y of [.4,1.5,2.6,3.6])this.box(x-side*.045,y,z,.035,.055,.055,silver);this.box(x-side*.09,3.62,z,.06,.27,.22,trim)}
+   this.decal('circuit',x-side*.04,1.6,(z0+z1)/2,.53,.76,-side*Math.PI/2);
+  }
+  for(const x of [-3.5,3.5]){
+   this.box(x,4.28,-39,.6,.18,12,M('metal'));for(let z=-33.3;z>-45;z-=.65)this.box(x,4.17,z,.47,.08,.07,dark);
+   this.box(x,4.03,-33.5,.82,.18,.19,trim);this.box(x,4.03,-44.5,.82,.18,.19,trim);
+  }
+  this.decal('poster',-6.975,2.05,-22.8,.73,1.02,Math.PI/2);
+  this.sign('HELIX / SECTOR 04',6.98,2.55,-22.8,1.7,.42,-Math.PI/2,'#b3c4a1');
+  // Tank collar bolts, feed hoses, monitoring gauges and specimen labels.
+  let tankId=0;
+  for(const p of LEVEL.props)if(p.kind==='tank'){
+   const {x,z}=p;for(const y of [.32,2.7]){
+    this.addGeometry(new THREE.CylinderGeometry(.63,.63,.12,8),trim,x,y,z);
+    for(let i=0;i<8;i++){const a=i*TAU/8;this.box(x+Math.sin(a)*.6,y,z+Math.cos(a)*.6,.075,.16,.075,silver,a)}
+   }
+   for(const dx of [-.45,.45])tube(x+dx,1.52,z-.36,.042,2.47);
+   tube(x,3.16,z,.1,.34);tube(x,3.29,z-.5,.07,1,Math.PI/2);
+   this.box(x+.43,1.6,z+.37,.31,.67,.18,dark);this.decal('circuit',x+.43,1.6,z+.465,.24,.54);
+   this.addGeometry(new THREE.CylinderGeometry(.105,.105,.035,12),silver,x+.43,2.14,z+.42,Math.PI/2);this.box(x+.43,2.14,z+.446,.01,.11,.016,this.mat(0xbb684c),.4);
+   this.sign(`LZ-${String(++tankId).padStart(2,'0')} / CONTAINED`,x,.64,z+.655,.72,.18,0,'#b6cda2','#183b34');
+  }
+  // Laboratory instruments live on existing cover islands, not on walking routes.
+  for(const [x,z,y] of [[-4.4,-26.8,1.31],[12,-25.9,1.16],[5,-36,1.26]]){
+   this.box(x-.6,y+.09,z+.22,.26,.14,.3,dark);this.box(x-.6,y+.16,z+.22,.19,.015,.2,silver);this.decal('paper',x+.57,y+.009,z,.31,.43,.2,true);
+   for(let i=0;i<4;i++)this.box(x-.65+i*.15,y+.013,z-.24,.08,.012,.02,rust);
+  }
+  for(const x of [-1.38,1.38]){this.box(x,1.36,-40,.23,.055,1.43,silver);for(const z of [-40.49,-39.52])this.box(x,1.41,z,.27,.05,.12,dark)}
+  this.box(-1.1,1.4,-40,.18,.2,.22,dark);tube(-1.09,1.65,-40,.045,.28);this.box(-1.17,1.79,-40,.18,.07,.14,silver);
+  for(let i=0;i<3;i++){const x=.8+i*.27;this.addGeometry(new THREE.CylinderGeometry(.06,.09,.29,6),this.mat(0x638b74),x,1.48,-40.4);this.box(x,1.64,-40.4,.07,.025,.07,trim)}
+  this.decal('paper',-1,1.36,-39.6,.35,.43,0,true);
+  // Lift pistons and floor edge markers retain the original exit interaction volume.
+  for(const x of [-10.87,-3.12]){tube(x,2.1,-49,.09,3.6);for(const y of [.7,3.45])tube(x,y,-49,.14,.12);this.box(x,2.7,-51.88,.23,1.5,.12,trim)}
+  this.box(-7,4.25,-51.86,6,.12,.14,trim);this.sign('AXIOM INDUSTRIES / FREIGHT 06',-7,1.35,-51.87,3.6,.36,0,'#8aa08e');
  }
  private mesh(geo:THREE.BufferGeometry,mat:THREE.Material,x:number,y:number,z:number,parent:THREE.Group){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);parent.add(m);return m}
  private localBox(parent:THREE.Group,x:number,y:number,z:number,w:number,h:number,d:number,color:number,emissive=0){return this.mesh(new THREE.BoxGeometry(w,h,d),this.mat(color,emissive),x,y,z,parent)}
@@ -218,37 +299,196 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   this.scene.add(group);this.doorGroups.set(d.id,group);
   const sx=horizontal?d.x:d.x-.3,sz=horizontal?d.z+.33:d.z;this.sign(d.label,sx,3.57,sz,horizontal?Math.min(d.w+1.4,5):2.4,.5,horizontal?0:-Math.PI/2,d.locked?'#ffb05d':'#8ccdaa');
  }
+ /** Batch only the rigid parts of each pivot. Limbs retain their own animation groups. */
+ private mergeMobParts(group:THREE.Group):void {
+  for(const child of [...group.children])if(child instanceof THREE.Group)this.mergeMobParts(child);
+  const batches=new Map<THREE.Material,THREE.Mesh[]>();
+  for(const child of group.children)if(child instanceof THREE.Mesh&&!Array.isArray(child.material)){
+   const list=batches.get(child.material)??[];list.push(child);batches.set(child.material,list);
+  }
+  for(const [material,meshes]of batches){
+   if(meshes.length<2)continue;
+   const geometries=meshes.map(mesh=>{mesh.updateMatrix();return mesh.geometry.clone().applyMatrix4(mesh.matrix)});
+   const merged=mergeGeometries(geometries,false);
+   if(merged){for(const mesh of meshes){group.remove(mesh);mesh.geometry.dispose()}group.add(new THREE.Mesh(merged,material))}
+   for(const geometry of geometries)geometry.dispose();
+  }
+ }
  private buildMob(kind:EnemyKind,mount=false):MobVisual {
   const root=new THREE.Group(),head=new THREE.Group(),legs:THREE.Group[]=[],arms:THREE.Group[]=[];
+  type Point=[number,number,number];
+  const poly=(parent:THREE.Group,x:number,y:number,z:number,sx:number,sy:number,sz:number,color:number)=>{
+   const mesh=this.mesh(new THREE.SphereGeometry(1,6,4),this.mat(color),x,y,z,parent);mesh.scale.set(sx,sy,sz);return mesh;
+  };
+  const segment=(parent:THREE.Group,a:Point,b:Point,r1:number,r2:number,color:number,sides=6)=>{
+   const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),direction=end.clone().sub(start),mid=start.clone().add(end).multiplyScalar(.5);
+   const mesh=this.mesh(new THREE.CylinderGeometry(r2,r1,direction.length(),sides),this.mat(color),mid.x,mid.y,mid.z,parent);
+   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());return mesh;
+  };
+  const tooth=(parent:THREE.Group,x:number,y:number,z:number,length:number,color:number,angle=0)=>{
+   const mesh=this.mesh(new THREE.ConeGeometry(length*.26,length,4),this.mat(color),x,y,z,parent);mesh.rotation.z=angle;return mesh;
+  };
   if(kind==='raptor'){
-   const color=mount?0x8f8151:0x576f43,accent=mount?0xbbac71:0x789853;
-   this.localBox(root,0,.88,0,.53,.5,1.03,color);this.mesh(new THREE.OctahedronGeometry(.4,0),this.mat(accent),0,1.12,-.33,root);
-   head.position.set(0,1.48,-.53);root.add(head);this.localBox(head,0,0,-.12,.37,.32,.5,accent);this.localBox(head,0,-.07,-.45,.31,.17,.45,color);this.localBox(head,0,-.17,-.44,.3,.055,.43,0xb9ae88);
+   const skin=mount?0x958252:0x60794b,bell=mount?0xc4ae73:0x9baf74,dark=mount?0x5b523b:0x354b38,bone=0xd4c9a0;
+   // Narrow chest, broad haunches and an S-shaped neck replace the old box torso.
+   poly(root,0,.94,.15,.38,.33,.65,skin);poly(root,0,.86,-.17,.28,.24,.44,bell);
+   poly(root,0,1.2,-.34,.26,.28,.3,skin);segment(root,[0,1.1,-.26],[0,1.47,-.6],.19,.14,skin);
+   head.position.set(0,1.47,-.6);root.add(head);
+   poly(head,0,.01,-.08,.18,.19,.29,skin);
+   // A long, tapered carnivore muzzle and separated mandible read as a raptor head-on.
+   segment(head,[0,-.015,-.19],[0,-.025,-.86],.143,.075,skin);
+   poly(head,0,-.26,-.52,.119,.054,.415,bell);
+   this.localBox(head,0,-.151,-.59,.2,.105,.64,dark);
+   this.localBox(head,0,-.201,-.59,.2,.025,.64,bell);
+   for(const side of [-1,1])tooth(head,side*.065,-.153,-.907,.166,bone,Math.PI);
    for(const side of [-1,1]){
-    this.localBox(head,side*.194,.07,-.18,.02,.07,.12,mount?0xf0e895:0xff4934,0x771509);
-    const leg=new THREE.Group();leg.position.set(side*.27,.68,.12);this.localBox(leg,0,-.08,0,.2,.5,.32,color);this.localBox(leg,0,-.43,-.04,.1,.45,.11,accent);this.localBox(leg,0,-.64,-.2,.16,.11,.4,0x949475);this.localBox(leg,side*.075,-.64,-.42,.045,.07,.16,0xd0cab3);legs.push(leg);root.add(leg);
-    const arm=new THREE.Group();arm.position.set(side*.33,1,-.44);this.localBox(arm,0,-.15,-.12,.09,.34,.13,color);this.localBox(arm,0,-.28,-.22,.1,.065,.21,0xc1baa3);arms.push(arm);root.add(arm);
+    // Raised brow ridges, forward-facing pupils and dark nostrils remain readable at 320px.
+    const brow=poly(head,side*.144,.105,-.19,.067,.032,.12,dark);brow.rotation.z=side*.22;
+    const eye=this.localBox(head,side*.16,.062,-.249,.043,.039,.034,mount?0xf0d98b:0xff6142,0x5a1708);eye.rotation.y=side*.25;
+    this.localBox(head,side*.157,.062,-.271,.012,.034,.012,dark);
+    poly(head,side*.045,.031,-.832,.021,.016,.028,dark);
+    for(let i=0;i<4;i++)tooth(head,side*(.122-i*.011),-.147,-.4-i*.115,.078+(i%2)*.012,bone,Math.PI);
+    const leg=new THREE.Group();leg.position.set(side*.28,.78,.23);root.add(leg);legs.push(leg);
+    poly(leg,0,-.02,.02,.19,.29,.29,skin);segment(leg,[0,-.14,-.02],[0,-.4,.12],.115,.07,skin);
+    poly(leg,0,-.36,.1,.084,.085,.085,bell);segment(leg,[0,-.39,.1],[0,-.65,-.08],.065,.04,bell);
+    poly(leg,0,-.69,-.18,.125,.05,.2,dark);
+    for(let toe=-1;toe<=1;toe++){
+     segment(leg,[toe*.057,-.68,-.15],[toe*.077,-.69,-.35],.025,.014,skin,4);
+     segment(leg,[toe*.077,-.69,-.34],[toe*.077,-.7,-.43],.027,.001,bone,4);
+    }
+    // Raised sickle claw, characteristic of the district's mutated raptors.
+    segment(leg,[side*.09,-.62,-.15],[side*.12,-.55,-.3],.045,.008,bone,4);
+    const arm=new THREE.Group();arm.position.set(side*.29,1.11,-.42);root.add(arm);arms.push(arm);
+    segment(arm,[0,0,0],[side*.065,-.17,-.12],.055,.04,skin);
+    segment(arm,[side*.065,-.17,-.12],[side*.02,-.22,-.31],.04,.027,bell);
+    for(let i=0;i<3;i++)segment(arm,[side*.02+(i-1)*.027,-.22,-.29],[side*.02+(i-1)*.035,-.27,-.4],.021,.001,bone,4);
+    // Dark flank bands and actual geometric scale plates, rather than a plain green body.
+    for(let i=0;i<5;i++){
+     const band=poly(root,side*(.27+.035*Math.sin(i)),1.03-i*.035,-.31+i*.18,.055,.16,.065,dark);band.rotation.z=side*.23;
+     const scale=poly(root,side*.32,.88,-.2+i*.16,.032,.05,.07,bell);scale.rotation.z=side*.5;
+    }
    }
-   const tail=new THREE.Group();tail.position.set(0,1,.48);const t=this.mesh(new THREE.ConeGeometry(.23,1.5,4),this.mat(color),0,0,.68,tail);t.rotation.x=Math.PI/2;root.add(tail);
-   for(let i=0;i<5;i++)this.localBox(root,0,1.2-i*.04,.05+i*.19,.08,.2,.12,0x303c29);
-   if(mount){this.localBox(root,0,1.26,.02,.7,.18,.6,0x302d2f);this.localBox(root,0,1.4,.18,.58,.25,.13,0x5e5043);for(const s of [-1,1])this.localBox(root,s*.35,1.03,0,.07,.5,.65,0x333a36)}
-   return {root,legs,arms,head,tail,kind,dead:false};
+   const tail=new THREE.Group();tail.position.set(0,1.02,.6);root.add(tail);
+   for(let i=0;i<5;i++){
+    const a:Point=[Math.sin(i*.45)*.09,-i*.075,i*.31],b:Point=[Math.sin((i+1)*.45)*.09,-(i+1)*.075,(i+1)*.31];
+    segment(tail,a,b,.19-i*.034,Math.max(.005,.155-i*.034),skin);
+    if(i<4)poly(tail,a[0],a[1]+.115-i*.02,a[2]+.15,.05,.095-i*.012,.07,dark);
+   }
+   for(let i=0;i<7;i++){
+    const spine=tooth(root,0,1.24-i*.025,-.13+i*.14,.18-i*.007,dark);spine.rotation.x=.25;
+   }
+   if(mount){
+    this.localBox(root,0,1.26,.05,.58,.14,.6,0x41382c);this.localBox(root,0,1.41,.25,.55,.27,.12,0x64503d);
+    for(const side of [-1,1]){
+     this.localBox(root,side*.33,1.05,.08,.065,.5,.59,0x41382c);
+     this.localBox(root,side*.39,.83,.11,.17,.08,.26,bone);
+     segment(root,[side*.16,1.45,-.63],[side*.32,1.37,-.18],.014,.014,0x41382c,4);
+    }
+   }
+   this.mergeMobParts(root);return {root,legs,arms,head,tail,kind,dead:false};
   }
-  const brute=kind==='brute',soldier=kind==='soldier',skin=soldier?0x9a8770:brute?0x775650:0x77905c;
-  const armor=soldier?0x405568:brute?0x642e36:0x464b34;
-  this.localBox(root,0,1.1,0,brute?.94:.58,.82,.36,skin);this.localBox(root,0,1.15,.06,brute?1:.64,.7,.43,armor);
-  this.localBox(root,0,.66,0,.52,.22,.38,0x353740);head.position.set(0,1.72,-.01);root.add(head);
-  this.localBox(head,0,0,0,.4,.4,.38,skin);
-  if(soldier){this.localBox(head,0,.1,.025,.46,.35,.44,0x313f50);this.localBox(head,0,.025,-.211,.35,.09,.03,0x57e6cf,0x17675f);this.localBox(root,0,1.25,-.24,.34,.29,.1,0x779289);this.localBox(root,.05,1.22,-.305,.18,.08,.035,0xe5894c)}
-  else{this.localBox(head,0,-.05,-.211,.26,.17,.03,0x38211f);this.localBox(head,0,-.04,-.23,.22,.035,.02,0xc3b98c);for(const sx of [-.12,.12])this.localBox(head,sx,.07,-.207,.07,.045,.03,0xff573c,0x661500)}
+  const brute=kind==='brute',soldier=kind==='soldier';
+  const skin=soldier?0xa18c70:brute?0x9a6f64:0x86965e,armor=soldier?0x496276:brute?0x7b383d:0x4e5d43;
+  const dark=soldier?0x202e39:brute?0x3c292f:0x364431,bone=soldier?0x9cad9f:0xd4c3a1,metal=soldier?0x80938e:0x788375;
+  // Faceted torso volumes give the silhouettes curved, deliberate anatomy.
+  poly(root,0,1.15,.025,brute?.54:.34,.46,brute?.31:.235,skin);
+  poly(root,0,.78,.025,brute?.4:.28,.22,.24,dark);
+  segment(root,[0,1.4,0],[0,1.68,0],.15,.115,skin);
+  head.position.set(0,1.72,-.025);root.add(head);poly(head,0,0,0,.215,.215,.205,skin);
+  if(soldier){
+   // Layered breastplate and separate sternum, abdominal segments, belt and magazine pouches.
+   for(const side of [-1,1]){
+    const plate=poly(root,side*.167,1.3,-.157,.19,.245,.12,armor);plate.rotation.z=-side*.1;
+    this.localBox(root,side*.26,.83,-.19,.13,.19,.13,dark);this.localBox(root,side*.26,.89,-.27,.11,.055,.027,metal);
+    this.localBox(root,side*.135,.88,-.23,.12,.24,.1,armor);
+   }
+   this.localBox(root,0,1.3,-.278,.095,.24,.055,metal);
+   for(let i=0;i<3;i++)this.localBox(root,0,1.08-i*.075,-.232,.37,.055,.07,armor);
+   this.localBox(root,0,.74,-.01,.62,.1,.44,dark);this.localBox(root,0,.75,-.254,.1,.08,.035,metal);
+   this.localBox(root,0,1.22,.24,.37,.48,.19,dark);this.localBox(root,0,1.28,.35,.23,.25,.06,armor);
+   // Rounded helmet shell, side comms, inset visor and twin-filter respirator.
+   poly(head,0,.063,.016,.247,.235,.25,armor);this.localBox(head,0,.01,-.22,.34,.13,.047,dark);
+   this.localBox(head,0,.027,-.251,.3,.073,.017,0x64e9d0,0x1a6b5d);
+   this.localBox(head,.105,.027,-.269,.047,.055,.017,0xff8c55,0x762a10);
+   poly(head,0,-.1,-.193,.16,.088,.1,dark);
+   for(const side of [-1,1]){
+    segment(head,[side*.108,-.111,-.207],[side*.108,-.111,-.286],.051,.047,metal);
+    poly(head,side*.244,.01,.015,.046,.103,.115,dark);
+   }
+   segment(head,[.215,.18,.06],[.217,.39,.06],.011,.008,dark,4);
+   this.localBox(root,-.135,1.39,-.279,.06,.1,.013,0xe49b55);
+  }else{
+   // Broken exposed ribs, asymmetric growths and a surgical spine attachment.
+   poly(root,-.14,1.32,-.13,.29,.29,.18,skin);poly(root,.2,1.12,-.17,.16,.27,.14,armor);
+   for(let i=0;i<4;i++)for(const side of [-1,1]){
+    const rib=segment(root,[side*.035,1.36-i*.085,-.255],[side*(.21-i*.013),1.33-i*.085,-.205],.025,.018,bone,5);rib.rotation.z+=side*.07;
+   }
+   segment(root,[0,1.41,-.27],[0,1.03,-.275],.031,.026,dark);
+   this.localBox(root,-.2,1.38,.25,.14,.38,.11,metal);
+   for(let i=0;i<4;i++)poly(root,-.2,1.47-i*.09,.316,.039,.033,.024,dark);
+   // Jaw and cheeks are offset, avoiding a square, uniform toy face.
+   poly(head,-.035,-.105,-.105,.185,.125,.17,skin);this.localBox(head,-.018,-.061,-.222,.255,.142,.036,dark);
+   for(let i=0;i<5;i++)tooth(head,-.118+i*.047,-.11,-.243,.055+(i%2)*.023,bone,Math.PI);
+   for(const side of [-1,1]){
+    const brow=poly(head,side*.112,.069,-.165,.103,.064,.086,armor);brow.rotation.z=-side*.2;
+    this.localBox(head,side*.105,.027,-.213,.058,.051,.027,0xff6846,0x6c1f0d);
+   }
+   this.localBox(head,-.195,-.002,-.04,.054,.19,.18,metal);
+   for(let i=0;i<3;i++)this.localBox(head,-.225,.06-i*.055,-.13,.016,.025,.03,dark);
+  }
   for(const side of [-1,1]){
-   const leg=new THREE.Group();leg.position.set(side*(brute?.3:.19),.68,0);this.localBox(leg,0,-.25,0,.2,.53,.26,armor);this.localBox(leg,0,-.57,-.07,.24,.16,.36,0x1d2b32);legs.push(leg);root.add(leg);
-   const arm=new THREE.Group();arm.position.set(side*(brute?.59:.39),1.45,0);this.localBox(arm,0,-.28,0,brute?.3:.2,.65,.25,skin);this.localBox(arm,0,-.06,0,brute?.38:.28,.25,.35,armor);this.localBox(arm,0,-.55,-.06,.2,.17,.22,skin);arms.push(arm);root.add(arm);
-   if(!soldier){const spike=this.mesh(new THREE.ConeGeometry(.12,.36,4),this.mat(0xb3ab89),side*(brute?.48:.36),1.62,0,root);spike.rotation.z=-side*.55}
+   const leg=new THREE.Group();leg.position.set(side*(brute?.31:.19),.69,0);root.add(leg);legs.push(leg);
+   segment(leg,[0,-.025,0],[0,-.31,.025],brute?.16:.115,brute?.13:.09,soldier?dark:skin);
+   poly(leg,0,-.3,-.025,brute?.145:.11,.11,.13,armor);
+   segment(leg,[0,-.32,.025],[0,-.58,-.01],brute?.105:.075,.066,soldier?dark:skin);
+   if(soldier||brute){
+    poly(leg,0,-.46,-.075,.12,.19,.083,armor);this.localBox(leg,0,-.27,-.136,.17,.14,.059,metal);
+    this.localBox(leg,0,-.6,-.087,.24,.15,.35,dark);this.localBox(leg,0,-.652,-.1,.25,.038,.36,metal);
+   }else{
+    poly(leg,0,-.61,-.095,.13,.069,.2,armor);
+    for(let i=0;i<3;i++)segment(leg,[(i-1)*.068,-.625,-.18],[(i-1)*.078,-.651,-.32],.028,.001,bone,4);
+   }
+   const arm=new THREE.Group();arm.position.set(side*(brute?.55:.36),1.46,0);root.add(arm);arms.push(arm);
+   poly(arm,0,-.045,0,brute?.225:.155,brute?.19:.15,.195,armor);
+   segment(arm,[0,-.095,0],[side*.016,-.33,.009],brute?.15:.092,.083,skin);
+   poly(arm,side*.016,-.33,.009,.1,.105,.11,dark);
+   segment(arm,[side*.016,-.35,.009],[0,-.57,-.073],.09,brute?.115:.069,soldier||side<0?metal:skin);
+   poly(arm,0,-.58,-.09,brute?.14:.089,.12,.115,skin);
+   if(soldier){this.localBox(arm,0,-.455,-.13,.15,.19,.042,armor);this.localBox(arm,0,-.36,-.114,.115,.06,.025,metal)}
+   else{
+    // One implanted forearm and long bony claws emphasize escaped experiments.
+    if(side<0)for(let i=0;i<3;i++)this.localBox(arm,0,-.405-i*.055,-.108,.17,.03,.055,dark);
+    for(let i=0;i<3;i++)segment(arm,[(i-1)*.056,-.62,-.135],[(i-1)*.063,-.76,-.19],.027,.001,bone,4);
+    const spike=tooth(arm,side*.12,.082,0,brute?.29:.22,bone,-side*.65);spike.rotation.x=.2;
+   }
   }
-  if(soldier){this.localBox(arms[1],-.15,-.5,-.31,.18,.22,.6,0x182d36);this.localBox(arms[1],-.15,-.43,-.68,.06,.075,.25,0x61766d)}
-  if(brute){root.scale.setScalar(1.47);this.localBox(root,0,1.15,-.25,.35,.38,.14,0x7d8170);this.localBox(root,0,1.15,-.335,.13,.13,.035,0x56fb97,0x087e27)}
-  return {root,legs,arms,head,kind,dead:false};
+  if(soldier){
+   const gun=arms[1];this.localBox(gun,-.13,-.52,-.285,.16,.18,.42,dark);this.localBox(gun,-.13,-.42,-.31,.12,.025,.31,metal);
+   segment(gun,[-.13,-.5,-.45],[-.13,-.5,-.73],.041,.035,metal,6);
+   segment(gun,[-.13,-.5,-.72],[-.13,-.5,-.81],.046,.046,dark,6);
+   this.localBox(gun,-.13,-.652,-.36,.09,.18,.14,armor);
+   this.localBox(gun,-.13,-.37,-.35,.06,.075,.14,dark);this.localBox(gun,-.13,-.367,-.428,.035,.027,.011,0x64e9d0,0x1a6b5d);
+  }
+  if(brute){
+   // A rust-red containment exoskeleton, reactor and asymmetrical shoulder shield identify the boss.
+   root.scale.setScalar(1.47);
+   for(const side of [-1,1]){
+    const plate=poly(root,side*.265,1.29,-.235,.275,.285,.12,armor);plate.rotation.z=-side*.18;
+    this.localBox(root,side*.32,1.25,-.352,.035,.28,.032,metal);
+    poly(root,side*.42,1.54,.035,.21,.14,.25,armor);
+    segment(root,[side*.39,1.65,.15],[side*.43,1.88,.22],.053,.006,bone,4);
+   }
+   this.localBox(root,0,1.2,-.305,.31,.36,.12,dark);
+   segment(root,[0,1.2,-.365],[0,1.2,-.413],.106,.106,metal,8);
+   segment(root,[0,1.2,-.418],[0,1.2,-.434],.076,.076,0x788375,8);
+   this.localBox(root,0,1.2,-.45,.12,.12,.022,0x65fc9e,0x177c3d);
+   for(let i=0;i<3;i++)this.localBox(root,0,.99-i*.074,-.28,.5,.049,.073,armor);
+   segment(root,[-.3,1.03,.225],[-.3,1.5,.225],.095,.095,dark);segment(root,[.3,1.03,.225],[.3,1.5,.225],.095,.095,dark);
+   poly(head,0,.093,.035,.245,.16,.22,armor);this.localBox(head,0,.062,-.205,.35,.055,.039,metal);
+   this.localBox(head,0,-.166,-.138,.37,.055,.22,metal);
+   for(let i=0;i<4;i++)this.localBox(head,-.135+i*.09,-.172,-.253,.031,.048,.018,dark);
+  }
+  this.mergeMobParts(root);return {root,legs,arms,head,kind,dead:false};
  }
  private buildPickup(kind:PickupKind){
   const group=new THREE.Group();const palette:Record<PickupKind,number>={health:0xeabda1,armor:0x4ba9b4,ammo:0xc39945,keycard:0x78ee9d,evidence:0xc8b786,revolver:0xaebcb1,shotgun:0x8b9c91,plasma:0x63e89b,machinegun:0x768785};const col=palette[kind];

@@ -12,7 +12,7 @@ type Callbacks = {
 };
 
 const SETTINGS_KEY = 'fossil-noir-3d-settings';
-const DEFAULT_SETTINGS: Settings = { sensitivity: 1, resolution: '320', quality: 'high', volume: 0.5, difficulty: 'normal' };
+const DEFAULT_SETTINGS: Settings = { sensitivity: 1, resolution: '640', quality: 'high', volume: 0.5, difficulty: 'normal' };
 const WEAPONS = { revolver: 'DETECTIVE REVOLVER', shotgun: 'TACTICAL SHOTGUN', plasma: 'PLASMA RIFLE', machinegun: 'HEAVY MACHINE GUN' };
 
 export class UI {
@@ -166,7 +166,7 @@ export class UI {
     const finite = (value: unknown, min: number, max: number, fallback: number) => typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
     return {
       sensitivity: finite(data.sensitivity, 0.3, 2.5, DEFAULT_SETTINGS.sensitivity),
-      resolution: data.resolution === '640' ? '640' : '320',
+      resolution: data.resolution === '320' || data.resolution === '640' ? data.resolution : DEFAULT_SETTINGS.resolution,
       quality: data.quality === 'low' ? 'low' : 'high',
       volume: finite(data.volume, 0, 1, DEFAULT_SETTINGS.volume),
       difficulty: data.difficulty === 'easy' || data.difficulty === 'hard' ? data.difficulty : 'normal',

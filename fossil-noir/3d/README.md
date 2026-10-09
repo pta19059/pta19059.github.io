@@ -53,7 +53,7 @@ Touch mode provides a movement joystick, drag-to-look area, and action buttons. 
 
 ## Retro presentation
 
-Actual 3D geometry is rendered at 320×200 or 640×400 and scaled with nearest-neighbor filtering. Procedural pixel textures, faceted animated creatures, neon signage, fog, a visible mechanical arm, four animated weapon sprites, impacts and synthesized audio are original artwork and code. No Duke Nukem assets, characters or music are distributed.
+Actual 3D geometry is rendered at 640×400 by default, with a 320×200 classic option, and scaled with nearest-neighbor filtering. Saved resolution preferences are preserved. Original 128-pixel material tiles have brick relief, rivets, vents, rust, cracks and scuffed floors. Detailed faceted creatures have articulated limbs, teeth, claws, scales and armor, with rigid geometry batched within each animation pivot. Four 640×400 weapon sprites include machined hardware, mechanical fingers, etchings, copper coils and ammo indicators. Storefront relief, original posters, wet pavement decals, office case files, laboratory instruments and containment plumbing enrich the district without changing its collision layout. Neon signage, fog, impacts and synthesized audio are original artwork and code. No Duke Nukem assets, characters or music are distributed.
 
 Settings include mouse sensitivity, render resolution, graphics quality, volume and difficulty. Checkpoints and settings are browser-local, with defensive handling when storage is unavailable. WebGL2 hardware acceleration is required. Performance depends on the browser and GPU; 60 FPS is a target, not a measured guarantee.
 
@@ -65,7 +65,8 @@ Settings include mouse sensitivity, render resolution, graphics quality, volume 
 | `types.ts` | Shared state and input contracts |
 | `level.ts` | Level geometry, objects, progression and spawns |
 | `simulation.ts` | Movement, physics, weapons, AI and interactions |
-| `renderer.ts` | Three.js world, original textures and creature models |
+| `renderer.ts` | Three.js world, batched scenery and animated creature models |
+| `retro-textures.ts` | Original pixel material tiles, case files, posters and stains |
 | `viewmodel.ts` | Animated first-person arm and weapons |
 | `input.ts` | Pointer Lock, keyboard, mouse and touch |
 | `ui.ts` / `style.css` | HUD, menus and settings |
