@@ -55,6 +55,8 @@ Touch mode provides a movement joystick, drag-to-look area, and action buttons. 
 
 Actual 3D geometry is rendered at 640×400 by default, with a 320×200 classic option, and scaled with nearest-neighbor filtering. Saved resolution preferences are preserved. Original 128-pixel material tiles have brick relief, rivets, vents, rust, cracks and scuffed floors. Detailed faceted creatures have articulated limbs, teeth, claws, scales and armor, with rigid geometry batched within each animation pivot. Four 640×400 weapon sprites include machined hardware, mechanical fingers, etchings, copper coils and ammo indicators. Storefront relief, original posters, wet pavement decals, office case files, laboratory instruments and containment plumbing enrich the district without changing its collision layout. Neon signage, fog, impacts and synthesized audio are original artwork and code. No Duke Nukem assets, characters or music are distributed.
 
+Creatures use original pixel-painted hide, scarred skin, fabric and worn armor. Evidence threads, window blinds, a wall clock, sagging service cables, shop meters and covered laboratory specimens add further scene detail. Dithered contact shadows ground the characters; rain is confined to the outdoor street and steam rises at selected drains and vents. High effects quality enables rain and steam. Static wall hits leave up to 64 pixel scars, and defeated enemies leave textured blood stains; those marks reset with a new mission. These effects use fixed instance budgets and do not change combat or collision rules.
+
 Settings include mouse sensitivity, render resolution, graphics quality, volume and difficulty. Checkpoints and settings are browser-local, with defensive handling when storage is unavailable. WebGL2 hardware acceleration is required. Performance depends on the browser and GPU; 60 FPS is a target, not a measured guarantee.
 
 ## Source modules
@@ -67,6 +69,9 @@ Settings include mouse sensitivity, render resolution, graphics quality, volume 
 | `simulation.ts` | Movement, physics, weapons, AI and interactions |
 | `renderer.ts` | Three.js world, batched scenery and animated creature models |
 | `retro-textures.ts` | Original pixel material tiles, case files, posters and stains |
+| `creature-textures.ts` | Original pixel hide, flesh, fabric and armor surfaces |
+| `set-dressing.ts` | Batched office, storefront and laboratory props |
+| `atmosphere.ts` | Instanced rain, steam, contact shadows and impact decals |
 | `viewmodel.ts` | Animated first-person arm and weapons |
 | `input.ts` | Pointer Lock, keyboard, mouse and touch |
 | `ui.ts` / `style.css` | HUD, menus and settings |

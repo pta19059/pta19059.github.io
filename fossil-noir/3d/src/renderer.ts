@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {LEVEL} from './level';
 import {createRetroTexture,createDecal,type DecalKind} from './retro-textures';
+import {Atmosphere} from './atmosphere';
+import {buildSetDressing} from './set-dressing';
+import {createCreatureTexture} from './creature-textures';
 import type {EnemyKind,GameState,Settings,Wall,PickupKind} from './types';
 
 type MobVisual={root:THREE.Group;legs:THREE.Group[];arms:THREE.Group[];head:THREE.Group;tail?:THREE.Group;kind:EnemyKind;dead:boolean};
@@ -39,6 +42,7 @@ export class Renderer {
  private lastResolution='';
  private powerLamp?:THREE.Mesh;
  private lights:THREE.PointLight[]=[];
+ private atmosphere:Atmosphere;
  constructor(private canvas:HTMLCanvasElement){
   this.renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,powerPreference:'high-performance'});
   this.renderer.setPixelRatio(1);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.NoToneMapping;
@@ -55,6 +59,7 @@ export class Renderer {
   const mount=this.buildMob('raptor',true);this.mountGroup=mount.root;this.mountLegs=mount.legs;this.mountGroup.scale.setScalar(1.55);this.mountGroup.position.set(LEVEL.mount.x,0,LEVEL.mount.z);this.mountGroup.rotation.y=-.7;this.scene.add(this.mountGroup);
   this.effectMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.9});this.effectMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(.08,.08,.08),this.effectMat,128);this.effectMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.effectMesh.count=0;this.effectMesh.frustumCulled=false;this.scene.add(this.effectMesh);
   this.canvas.style.imageRendering='pixelated';
+  this.atmosphere=new Atmosphere(this.scene);
  }
  // Quantised clip-space vertices recreate the subtle subpixel wobble of PS1 scenes.
  private retroMaterial(m:THREE.MeshLambertMaterial){
@@ -188,6 +193,7 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
    }
   }
   this.buildEnvironmentDetails();
+  buildSetDressing({box:this.box.bind(this),addGeometry:this.addGeometry.bind(this),mat:this.mat.bind(this),basic:this.basic.bind(this),sign:this.sign.bind(this),decal:this.decal.bind(this)});
   // A handful of local lights, rather than a light per luminous decorative prop.
   for(const pos of [[0,2.6,7],[0,3,-26],[0,3,-39],[8,3,-8],[-9,3,-7]]){
    const l=new THREE.PointLight(pos[2]===-7?0xcf366e:0x54d799,7,12,2);l.position.set(pos[0],pos[1],pos[2]);this.lights.push(l);this.scene.add(l);
@@ -314,19 +320,37 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
    for(const geometry of geometries)geometry.dispose();
   }
  }
+ private creatureMaterial(kind:EnemyKind,mount:boolean,color:number):THREE.Material {
+  // Mouths, teeth, eyes and small accents retain their clean silhouettes and emissive colors.
+  const palettes:Record<EnemyKind,number[]>={
+   raptor:[0x60794b,0x9baf74,0x958252,0xc4ae73],
+   soldier:[0xa18c70,0x496276,0x202e39,0x80938e],
+   mutant:[0x86965e,0x4e5d43,0x788375],
+   brute:[0x9a6f64,0x7b383d,0x788375],
+  };
+  if(!palettes[kind].includes(color))return this.mat(color);
+  const key=`creature-${kind}-${mount?'saddle':'enemy'}-${color}`;
+  let material=this.mats.get(key);
+  if(!material){const painted=new THREE.MeshLambertMaterial({map:createCreatureTexture(kind,color),flatShading:true});this.retroMaterial(painted);material=painted;this.mats.set(key,material)}
+  return material;
+ }
  private buildMob(kind:EnemyKind,mount=false):MobVisual {
   const root=new THREE.Group(),head=new THREE.Group(),legs:THREE.Group[]=[],arms:THREE.Group[]=[];
   type Point=[number,number,number];
+  const surface=(color:number)=>this.creatureMaterial(kind,mount,color);
+  const box=(parent:THREE.Group,x:number,y:number,z:number,w:number,h:number,d:number,color:number,emissive=0)=>{
+   const mesh=this.localBox(parent,x,y,z,w,h,d,color,emissive);if(!emissive)mesh.material=surface(color);return mesh;
+  };
   const poly=(parent:THREE.Group,x:number,y:number,z:number,sx:number,sy:number,sz:number,color:number)=>{
-   const mesh=this.mesh(new THREE.SphereGeometry(1,6,4),this.mat(color),x,y,z,parent);mesh.scale.set(sx,sy,sz);return mesh;
+   const mesh=this.mesh(new THREE.SphereGeometry(1,6,4),surface(color),x,y,z,parent);mesh.scale.set(sx,sy,sz);return mesh;
   };
   const segment=(parent:THREE.Group,a:Point,b:Point,r1:number,r2:number,color:number,sides=6)=>{
    const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),direction=end.clone().sub(start),mid=start.clone().add(end).multiplyScalar(.5);
-   const mesh=this.mesh(new THREE.CylinderGeometry(r2,r1,direction.length(),sides),this.mat(color),mid.x,mid.y,mid.z,parent);
+   const mesh=this.mesh(new THREE.CylinderGeometry(r2,r1,direction.length(),sides),surface(color),mid.x,mid.y,mid.z,parent);
    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());return mesh;
   };
   const tooth=(parent:THREE.Group,x:number,y:number,z:number,length:number,color:number,angle=0)=>{
-   const mesh=this.mesh(new THREE.ConeGeometry(length*.26,length,4),this.mat(color),x,y,z,parent);mesh.rotation.z=angle;return mesh;
+   const mesh=this.mesh(new THREE.ConeGeometry(length*.26,length,4),surface(color),x,y,z,parent);mesh.rotation.z=angle;return mesh;
   };
   if(kind==='raptor'){
    const skin=mount?0x958252:0x60794b,bell=mount?0xc4ae73:0x9baf74,dark=mount?0x5b523b:0x354b38,bone=0xd4c9a0;
@@ -338,14 +362,14 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
    // A long, tapered carnivore muzzle and separated mandible read as a raptor head-on.
    segment(head,[0,-.015,-.19],[0,-.025,-.86],.143,.075,skin);
    poly(head,0,-.26,-.52,.119,.054,.415,bell);
-   this.localBox(head,0,-.151,-.59,.2,.105,.64,dark);
-   this.localBox(head,0,-.201,-.59,.2,.025,.64,bell);
+   box(head,0,-.151,-.59,.2,.105,.64,dark);
+   box(head,0,-.201,-.59,.2,.025,.64,bell);
    for(const side of [-1,1])tooth(head,side*.065,-.153,-.907,.166,bone,Math.PI);
    for(const side of [-1,1]){
     // Raised brow ridges, forward-facing pupils and dark nostrils remain readable at 320px.
     const brow=poly(head,side*.144,.105,-.19,.067,.032,.12,dark);brow.rotation.z=side*.22;
-    const eye=this.localBox(head,side*.16,.062,-.249,.043,.039,.034,mount?0xf0d98b:0xff6142,0x5a1708);eye.rotation.y=side*.25;
-    this.localBox(head,side*.157,.062,-.271,.012,.034,.012,dark);
+    const eye=box(head,side*.16,.062,-.249,.043,.039,.034,mount?0xf0d98b:0xff6142,0x5a1708);eye.rotation.y=side*.25;
+    box(head,side*.157,.062,-.271,.012,.034,.012,dark);
     poly(head,side*.045,.031,-.832,.021,.016,.028,dark);
     for(let i=0;i<4;i++)tooth(head,side*(.122-i*.011),-.147,-.4-i*.115,.078+(i%2)*.012,bone,Math.PI);
     const leg=new THREE.Group();leg.position.set(side*.28,.78,.23);root.add(leg);legs.push(leg);
@@ -378,10 +402,10 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
     const spine=tooth(root,0,1.24-i*.025,-.13+i*.14,.18-i*.007,dark);spine.rotation.x=.25;
    }
    if(mount){
-    this.localBox(root,0,1.26,.05,.58,.14,.6,0x41382c);this.localBox(root,0,1.41,.25,.55,.27,.12,0x64503d);
+    box(root,0,1.26,.05,.58,.14,.6,0x41382c);box(root,0,1.41,.25,.55,.27,.12,0x64503d);
     for(const side of [-1,1]){
-     this.localBox(root,side*.33,1.05,.08,.065,.5,.59,0x41382c);
-     this.localBox(root,side*.39,.83,.11,.17,.08,.26,bone);
+     box(root,side*.33,1.05,.08,.065,.5,.59,0x41382c);
+     box(root,side*.39,.83,.11,.17,.08,.26,bone);
      segment(root,[side*.16,1.45,-.63],[side*.32,1.37,-.18],.014,.014,0x41382c,4);
     }
    }
@@ -399,24 +423,24 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
    // Layered breastplate and separate sternum, abdominal segments, belt and magazine pouches.
    for(const side of [-1,1]){
     const plate=poly(root,side*.167,1.3,-.157,.19,.245,.12,armor);plate.rotation.z=-side*.1;
-    this.localBox(root,side*.26,.83,-.19,.13,.19,.13,dark);this.localBox(root,side*.26,.89,-.27,.11,.055,.027,metal);
-    this.localBox(root,side*.135,.88,-.23,.12,.24,.1,armor);
+    box(root,side*.26,.83,-.19,.13,.19,.13,dark);box(root,side*.26,.89,-.27,.11,.055,.027,metal);
+    box(root,side*.135,.88,-.23,.12,.24,.1,armor);
    }
-   this.localBox(root,0,1.3,-.278,.095,.24,.055,metal);
-   for(let i=0;i<3;i++)this.localBox(root,0,1.08-i*.075,-.232,.37,.055,.07,armor);
-   this.localBox(root,0,.74,-.01,.62,.1,.44,dark);this.localBox(root,0,.75,-.254,.1,.08,.035,metal);
-   this.localBox(root,0,1.22,.24,.37,.48,.19,dark);this.localBox(root,0,1.28,.35,.23,.25,.06,armor);
+   box(root,0,1.3,-.278,.095,.24,.055,metal);
+   for(let i=0;i<3;i++)box(root,0,1.08-i*.075,-.232,.37,.055,.07,armor);
+   box(root,0,.74,-.01,.62,.1,.44,dark);box(root,0,.75,-.254,.1,.08,.035,metal);
+   box(root,0,1.22,.24,.37,.48,.19,dark);box(root,0,1.28,.35,.23,.25,.06,armor);
    // Rounded helmet shell, side comms, inset visor and twin-filter respirator.
-   poly(head,0,.063,.016,.247,.235,.25,armor);this.localBox(head,0,.01,-.22,.34,.13,.047,dark);
-   this.localBox(head,0,.027,-.251,.3,.073,.017,0x64e9d0,0x1a6b5d);
-   this.localBox(head,.105,.027,-.269,.047,.055,.017,0xff8c55,0x762a10);
+   poly(head,0,.063,.016,.247,.235,.25,armor);box(head,0,.01,-.22,.34,.13,.047,dark);
+   box(head,0,.027,-.251,.3,.073,.017,0x64e9d0,0x1a6b5d);
+   box(head,.105,.027,-.269,.047,.055,.017,0xff8c55,0x762a10);
    poly(head,0,-.1,-.193,.16,.088,.1,dark);
    for(const side of [-1,1]){
     segment(head,[side*.108,-.111,-.207],[side*.108,-.111,-.286],.051,.047,metal);
     poly(head,side*.244,.01,.015,.046,.103,.115,dark);
    }
    segment(head,[.215,.18,.06],[.217,.39,.06],.011,.008,dark,4);
-   this.localBox(root,-.135,1.39,-.279,.06,.1,.013,0xe49b55);
+   box(root,-.135,1.39,-.279,.06,.1,.013,0xe49b55);
   }else{
    // Broken exposed ribs, asymmetric growths and a surgical spine attachment.
    poly(root,-.14,1.32,-.13,.29,.29,.18,skin);poly(root,.2,1.12,-.17,.16,.27,.14,armor);
@@ -424,17 +448,17 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
     const rib=segment(root,[side*.035,1.36-i*.085,-.255],[side*(.21-i*.013),1.33-i*.085,-.205],.025,.018,bone,5);rib.rotation.z+=side*.07;
    }
    segment(root,[0,1.41,-.27],[0,1.03,-.275],.031,.026,dark);
-   this.localBox(root,-.2,1.38,.25,.14,.38,.11,metal);
+   box(root,-.2,1.38,.25,.14,.38,.11,metal);
    for(let i=0;i<4;i++)poly(root,-.2,1.47-i*.09,.316,.039,.033,.024,dark);
    // Jaw and cheeks are offset, avoiding a square, uniform toy face.
-   poly(head,-.035,-.105,-.105,.185,.125,.17,skin);this.localBox(head,-.018,-.061,-.222,.255,.142,.036,dark);
+   poly(head,-.035,-.105,-.105,.185,.125,.17,skin);box(head,-.018,-.061,-.222,.255,.142,.036,dark);
    for(let i=0;i<5;i++)tooth(head,-.118+i*.047,-.11,-.243,.055+(i%2)*.023,bone,Math.PI);
    for(const side of [-1,1]){
     const brow=poly(head,side*.112,.069,-.165,.103,.064,.086,armor);brow.rotation.z=-side*.2;
-    this.localBox(head,side*.105,.027,-.213,.058,.051,.027,0xff6846,0x6c1f0d);
+    box(head,side*.105,.027,-.213,.058,.051,.027,0xff6846,0x6c1f0d);
    }
-   this.localBox(head,-.195,-.002,-.04,.054,.19,.18,metal);
-   for(let i=0;i<3;i++)this.localBox(head,-.225,.06-i*.055,-.13,.016,.025,.03,dark);
+   box(head,-.195,-.002,-.04,.054,.19,.18,metal);
+   for(let i=0;i<3;i++)box(head,-.225,.06-i*.055,-.13,.016,.025,.03,dark);
   }
   for(const side of [-1,1]){
    const leg=new THREE.Group();leg.position.set(side*(brute?.31:.19),.69,0);root.add(leg);legs.push(leg);
@@ -442,8 +466,8 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
    poly(leg,0,-.3,-.025,brute?.145:.11,.11,.13,armor);
    segment(leg,[0,-.32,.025],[0,-.58,-.01],brute?.105:.075,.066,soldier?dark:skin);
    if(soldier||brute){
-    poly(leg,0,-.46,-.075,.12,.19,.083,armor);this.localBox(leg,0,-.27,-.136,.17,.14,.059,metal);
-    this.localBox(leg,0,-.6,-.087,.24,.15,.35,dark);this.localBox(leg,0,-.652,-.1,.25,.038,.36,metal);
+    poly(leg,0,-.46,-.075,.12,.19,.083,armor);box(leg,0,-.27,-.136,.17,.14,.059,metal);
+    box(leg,0,-.6,-.087,.24,.15,.35,dark);box(leg,0,-.652,-.1,.25,.038,.36,metal);
    }else{
     poly(leg,0,-.61,-.095,.13,.069,.2,armor);
     for(let i=0;i<3;i++)segment(leg,[(i-1)*.068,-.625,-.18],[(i-1)*.078,-.651,-.32],.028,.001,bone,4);
@@ -454,39 +478,39 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
    poly(arm,side*.016,-.33,.009,.1,.105,.11,dark);
    segment(arm,[side*.016,-.35,.009],[0,-.57,-.073],.09,brute?.115:.069,soldier||side<0?metal:skin);
    poly(arm,0,-.58,-.09,brute?.14:.089,.12,.115,skin);
-   if(soldier){this.localBox(arm,0,-.455,-.13,.15,.19,.042,armor);this.localBox(arm,0,-.36,-.114,.115,.06,.025,metal)}
+   if(soldier){box(arm,0,-.455,-.13,.15,.19,.042,armor);box(arm,0,-.36,-.114,.115,.06,.025,metal)}
    else{
     // One implanted forearm and long bony claws emphasize escaped experiments.
-    if(side<0)for(let i=0;i<3;i++)this.localBox(arm,0,-.405-i*.055,-.108,.17,.03,.055,dark);
+    if(side<0)for(let i=0;i<3;i++)box(arm,0,-.405-i*.055,-.108,.17,.03,.055,dark);
     for(let i=0;i<3;i++)segment(arm,[(i-1)*.056,-.62,-.135],[(i-1)*.063,-.76,-.19],.027,.001,bone,4);
     const spike=tooth(arm,side*.12,.082,0,brute?.29:.22,bone,-side*.65);spike.rotation.x=.2;
    }
   }
   if(soldier){
-   const gun=arms[1];this.localBox(gun,-.13,-.52,-.285,.16,.18,.42,dark);this.localBox(gun,-.13,-.42,-.31,.12,.025,.31,metal);
+   const gun=arms[1];box(gun,-.13,-.52,-.285,.16,.18,.42,dark);box(gun,-.13,-.42,-.31,.12,.025,.31,metal);
    segment(gun,[-.13,-.5,-.45],[-.13,-.5,-.73],.041,.035,metal,6);
    segment(gun,[-.13,-.5,-.72],[-.13,-.5,-.81],.046,.046,dark,6);
-   this.localBox(gun,-.13,-.652,-.36,.09,.18,.14,armor);
-   this.localBox(gun,-.13,-.37,-.35,.06,.075,.14,dark);this.localBox(gun,-.13,-.367,-.428,.035,.027,.011,0x64e9d0,0x1a6b5d);
+   box(gun,-.13,-.652,-.36,.09,.18,.14,armor);
+   box(gun,-.13,-.37,-.35,.06,.075,.14,dark);box(gun,-.13,-.367,-.428,.035,.027,.011,0x64e9d0,0x1a6b5d);
   }
   if(brute){
    // A rust-red containment exoskeleton, reactor and asymmetrical shoulder shield identify the boss.
    root.scale.setScalar(1.47);
    for(const side of [-1,1]){
     const plate=poly(root,side*.265,1.29,-.235,.275,.285,.12,armor);plate.rotation.z=-side*.18;
-    this.localBox(root,side*.32,1.25,-.352,.035,.28,.032,metal);
+    box(root,side*.32,1.25,-.352,.035,.28,.032,metal);
     poly(root,side*.42,1.54,.035,.21,.14,.25,armor);
     segment(root,[side*.39,1.65,.15],[side*.43,1.88,.22],.053,.006,bone,4);
    }
-   this.localBox(root,0,1.2,-.305,.31,.36,.12,dark);
+   box(root,0,1.2,-.305,.31,.36,.12,dark);
    segment(root,[0,1.2,-.365],[0,1.2,-.413],.106,.106,metal,8);
    segment(root,[0,1.2,-.418],[0,1.2,-.434],.076,.076,0x788375,8);
-   this.localBox(root,0,1.2,-.45,.12,.12,.022,0x65fc9e,0x177c3d);
-   for(let i=0;i<3;i++)this.localBox(root,0,.99-i*.074,-.28,.5,.049,.073,armor);
+   box(root,0,1.2,-.45,.12,.12,.022,0x65fc9e,0x177c3d);
+   for(let i=0;i<3;i++)box(root,0,.99-i*.074,-.28,.5,.049,.073,armor);
    segment(root,[-.3,1.03,.225],[-.3,1.5,.225],.095,.095,dark);segment(root,[.3,1.03,.225],[.3,1.5,.225],.095,.095,dark);
-   poly(head,0,.093,.035,.245,.16,.22,armor);this.localBox(head,0,.062,-.205,.35,.055,.039,metal);
-   this.localBox(head,0,-.166,-.138,.37,.055,.22,metal);
-   for(let i=0;i<4;i++)this.localBox(head,-.135+i*.09,-.172,-.253,.031,.048,.018,dark);
+   poly(head,0,.093,.035,.245,.16,.22,armor);box(head,0,.062,-.205,.35,.055,.039,metal);
+   box(head,0,-.166,-.138,.37,.055,.22,metal);
+   for(let i=0;i<4;i++)box(head,-.135+i*.09,-.172,-.253,.031,.048,.018,dark);
   }
   this.mergeMobParts(root);return {root,legs,arms,head,kind,dead:false};
  }
@@ -519,7 +543,7 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
     m.root.scale.y=(m.kind==='brute'?1.47:1)*(e.hurt>0?.94:1);m.dead=false;
    }else{
     m.root.position.y=.1;m.root.rotation.z=Math.PI/2;m.root.rotation.x=.15;m.root.scale.y=m.kind==='brute'?1.47:1;
-    if(!m.dead){const blood=new THREE.Mesh(new THREE.CircleGeometry(m.kind==='brute'?1:.6,9),new THREE.MeshBasicMaterial({color:0x681c32,side:THREE.DoubleSide}));blood.rotation.x=-Math.PI/2;blood.position.set(e.x,.018,e.z);this.scene.add(blood);m.dead=true}
+    m.dead=true;
    }
   }
   for(const item of state.pickups){const g=this.pickupGroups.get(item.id)!;g.visible=!item.collected;if(g.visible){g.position.y=.48+Math.sin(this.clock*3+item.x)*.06;g.rotation.y=this.clock*.75}}
@@ -535,9 +559,11 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
    }
   }
   this.effectMesh.count=count;this.effectMesh.instanceMatrix.needsUpdate=true;if(this.effectMesh.instanceColor)this.effectMesh.instanceColor.needsUpdate=true;
+  this.atmosphere.update(state,this.camera,this.clock,settings);
   this.renderer.render(this.scene,this.camera);
  }
  dispose(){
+  this.atmosphere.dispose();
   const geometries=new Set<THREE.BufferGeometry>();this.scene.traverse(o=>{if(o instanceof THREE.Mesh)geometries.add(o.geometry)});for(const g of geometries)g.dispose();
   for(const mat of this.mats.values()){const map=(mat as THREE.MeshLambertMaterial).map;map?.dispose();mat.dispose()}this.effectMat.dispose();this.renderer.dispose();
  }
