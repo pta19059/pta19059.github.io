@@ -12,7 +12,7 @@ type Callbacks = {
 };
 
 const SETTINGS_KEY = 'fossil-noir-3d-settings';
-const DEFAULT_SETTINGS: Settings = { sensitivity: 1, resolution: '640', quality: 'high', volume: 0.5, difficulty: 'normal' };
+const DEFAULT_SETTINGS: Settings = { sensitivity: 1, resolution: '640', quality: 'high', volume: 0.7, musicVolume: 0.75, effectsVolume: 0.95, difficulty: 'normal' };
 const WEAPONS = { revolver: 'DETECTIVE REVOLVER', shotgun: 'TACTICAL SHOTGUN', plasma: 'PLASMA RIFLE', machinegun: 'HEAVY MACHINE GUN' };
 
 export class UI {
@@ -44,12 +44,14 @@ export class UI {
       const target = event.target as HTMLInputElement | HTMLSelectElement;
       if (!target.dataset.setting) return;
       const field = target.dataset.setting as keyof Settings;
-      const raw: unknown = ['sensitivity', 'volume'].includes(field) ? Number(target.value) : target.value;
+      const raw: unknown = ['sensitivity', 'volume', 'musicVolume', 'effectsVolume'].includes(field) ? Number(target.value) : target.value;
       this.settings = this.validateSettings({ ...this.settings, [field]: raw });
       try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings)); } catch { /* Settings still apply for this session. */ }
       this.callbacks.settings({ ...this.settings });
       if (field === 'sensitivity') this.overlay.querySelector('#sensitivity-value')!.textContent = `${this.settings.sensitivity.toFixed(1)}×`;
       if (field === 'volume') this.overlay.querySelector('#volume-value')!.textContent = `${Math.round(this.settings.volume * 100)}%`;
+      if (field === 'musicVolume') this.overlay.querySelector('#music-volume-value')!.textContent = `${Math.round(this.settings.musicVolume * 100)}%`;
+      if (field === 'effectsVolume') this.overlay.querySelector('#effects-volume-value')!.textContent = `${Math.round(this.settings.effectsVolume * 100)}%`;
     });
     document.addEventListener('keydown', (event) => {
       if (this.screen !== 'playing' && event.code === 'Escape') {
@@ -136,7 +138,7 @@ export class UI {
       content = `<div class="controls-grid"><span>MOVE</span><kbd>W A S D</kbd><span>AIM / FIRE</span><kbd>MOUSE / LEFT CLICK</kbd><span>SPRINT / JUMP</span><kbd>SHIFT / SPACE</kbd><span>CROUCH</span><kbd>CTRL / C</kbd><span>INTERACT / RIDE</span><kbd>E</kbd><span>RELOAD</span><kbd>R</kbd><span>CHANGE WEAPON</span><kbd>1–4 / MOUSE WHEEL</kbd><span>BULLET TIME</span><kbd>HOLD Q</kbd><span>PAUSE</span><kbd>ESC / P</kbd></div><p class="field-note">Click the game to capture your mouse. Esc releases it. Collect weapons, ammunition, armor and medical kits by walking over them.</p><p class="field-note">TOUCH: left joystick to move; drag the right side to aim. Hold FIRE or RUN. Tap E for doors, switches and the rideable raptor.</p><button data-action="back" class="menu-button">← BACK</button>`;
     } else if (this.panel === 'settings') {
       title = 'SYSTEM SETUP';
-      content = `<div class="settings-grid"><label for="sensitivity">MOUSE SENSITIVITY <output id="sensitivity-value">${this.settings.sensitivity.toFixed(1)}×</output></label><input id="sensitivity" data-setting="sensitivity" type="range" min="0.3" max="2.5" step="0.1" value="${this.settings.sensitivity}"><label for="resolution">RETRO RESOLUTION</label><select id="resolution" data-setting="resolution"><option value="320" ${this.settings.resolution === '320' ? 'selected' : ''}>320 × 200 — CLASSIC</option><option value="640" ${this.settings.resolution === '640' ? 'selected' : ''}>640 × 400 — SHARP</option></select><label for="quality">EFFECTS QUALITY</label><select id="quality" data-setting="quality"><option value="low" ${this.settings.quality === 'low' ? 'selected' : ''}>LOW</option><option value="high" ${this.settings.quality === 'high' ? 'selected' : ''}>HIGH</option></select><label for="volume">SOUND VOLUME <output id="volume-value">${Math.round(this.settings.volume * 100)}%</output></label><input id="volume" data-setting="volume" type="range" min="0" max="1" step="0.05" value="${this.settings.volume}"><label for="difficulty">DIFFICULTY</label><select id="difficulty" data-setting="difficulty"><option value="easy" ${this.settings.difficulty === 'easy' ? 'selected' : ''}>EASY — NIGHT SHIFT</option><option value="normal" ${this.settings.difficulty === 'normal' ? 'selected' : ''}>NORMAL — HARD BOILED</option><option value="hard" ${this.settings.difficulty === 'hard' ? 'selected' : ''}>HARD — EXTINCTION</option></select></div><p class="field-note">Difficulty applies when starting or restarting a mission. Your settings are saved automatically.</p><button data-action="back" class="menu-button">← BACK</button>`;
+      content = `<div class="settings-grid"><label for="sensitivity">MOUSE SENSITIVITY <output id="sensitivity-value">${this.settings.sensitivity.toFixed(1)}×</output></label><input id="sensitivity" data-setting="sensitivity" type="range" min="0.3" max="2.5" step="0.1" value="${this.settings.sensitivity}"><label for="resolution">RETRO RESOLUTION</label><select id="resolution" data-setting="resolution"><option value="320" ${this.settings.resolution === '320' ? 'selected' : ''}>320 × 200 — CLASSIC</option><option value="640" ${this.settings.resolution === '640' ? 'selected' : ''}>640 × 400 — SHARP</option></select><label for="quality">EFFECTS QUALITY</label><select id="quality" data-setting="quality"><option value="low" ${this.settings.quality === 'low' ? 'selected' : ''}>LOW</option><option value="high" ${this.settings.quality === 'high' ? 'selected' : ''}>HIGH</option></select><label for="volume">MASTER VOLUME <output id="volume-value">${Math.round(this.settings.volume * 100)}%</output></label><input id="volume" data-setting="volume" type="range" min="0" max="1" step="0.05" value="${this.settings.volume}"><label for="music-volume">MUSIC VOLUME <output id="music-volume-value">${Math.round(this.settings.musicVolume * 100)}%</output></label><input id="music-volume" data-setting="musicVolume" type="range" min="0" max="1" step="0.05" value="${this.settings.musicVolume}"><label for="effects-volume">EFFECTS VOLUME <output id="effects-volume-value">${Math.round(this.settings.effectsVolume * 100)}%</output></label><input id="effects-volume" data-setting="effectsVolume" type="range" min="0" max="1" step="0.05" value="${this.settings.effectsVolume}"><label for="difficulty">DIFFICULTY</label><select id="difficulty" data-setting="difficulty"><option value="easy" ${this.settings.difficulty === 'easy' ? 'selected' : ''}>EASY — NIGHT SHIFT</option><option value="normal" ${this.settings.difficulty === 'normal' ? 'selected' : ''}>NORMAL — HARD BOILED</option><option value="hard" ${this.settings.difficulty === 'hard' ? 'selected' : ''}>HARD — EXTINCTION</option></select></div><p class="field-note">Difficulty applies when starting or restarting a mission. Your settings are saved automatically.</p><button data-action="back" class="menu-button">← BACK</button>`;
     } else if (isMenu) {
       content = `<button data-action="start" class="menu-button primary"><span>▶</span> START MISSION</button><button data-action="continue" class="menu-button" ${checkpoint ? '' : 'disabled'}>CONTINUE CHECKPOINT</button><button data-action="controls" class="menu-button">CONTROLS</button><button data-action="settings" class="menu-button">SETTINGS</button><a class="original-link" href="../">↗ PLAY THE ORIGINAL 2D GAME</a>`;
     } else if (this.screen === 'pause') {
@@ -169,6 +171,8 @@ export class UI {
       resolution: data.resolution === '320' || data.resolution === '640' ? data.resolution : DEFAULT_SETTINGS.resolution,
       quality: data.quality === 'low' ? 'low' : 'high',
       volume: finite(data.volume, 0, 1, DEFAULT_SETTINGS.volume),
+      musicVolume: finite(data.musicVolume, 0, 1, DEFAULT_SETTINGS.musicVolume),
+      effectsVolume: finite(data.effectsVolume, 0, 1, DEFAULT_SETTINGS.effectsVolume),
       difficulty: data.difficulty === 'easy' || data.difficulty === 'hard' ? data.difficulty : 'normal',
     };
   }

@@ -59,7 +59,9 @@ Creatures use original pixel-painted hide, scarred skin, fabric and worn armor. 
 
 Creature anatomy includes a horizontal raptor ribcage, muscular haunches, a tapered skull, an articulated jaw, digitigrade feet and a four-joint counterbalance tail. Humanoids have separate pelvis, chest, knee and elbow joints. Their gait follows actual collision-resolved travel, with planted stance feet, inverse kinematics, lifted swing feet and natural step cadence. Pursuit accelerates and brakes; turning follows the route and the tail reacts to a change in direction. Stationary creatures breathe without walking in place, attack poses follow real combat windups, and defeated creatures settle into a fallen pose. Smooth skin shading and stable animated vertices improve silhouettes while the world keeps its retro vertex wobble and nearest-filtered textures.
 
-Settings include mouse sensitivity, render resolution, graphics quality, volume and difficulty. Checkpoints and settings are browser-local, with defensive handling when storage is unavailable. WebGL2 hardware acceleration is required. Performance depends on the browser and GPU; 60 FPS is a target, not a measured guarantee.
+The original soundtrack is a sixteen-bar D-minor industrial/noir composition at 112 BPM: syncopated kick and snare, ghost notes, metallic percussion, a gritty bass line, wide dark chords and a recurring detective motif. A synchronized heavier percussion and distorted riff stem fades in when nearby enemies are alerted. The score is generated once into stereo sample buffers, loops continuously, and resumes at the same musical position after pause. Each weapon has a different locally generated sample with layered muzzle crack, pressure-wave body, filtered powder noise, asymmetric room reflections and mechanical detail; the plasma rifle uses a layered energy discharge. Reloads, doors, footsteps and creature attacks have distinct effects. Music briefly dips during shots, and a master compressor preserves attack while controlling overlapping peaks. No external music or sound recordings are required.
+
+Settings include mouse sensitivity, render resolution, graphics quality, separate master/music/effects volumes and difficulty. Existing saved master-volume preferences are preserved. Checkpoints and settings are browser-local, with defensive handling when storage is unavailable. WebGL2 hardware acceleration is required. Performance depends on the browser and GPU; 60 FPS is a target, not a measured guarantee.
 
 ## Source modules
 
@@ -78,13 +80,16 @@ Settings include mouse sensitivity, render resolution, graphics quality, volume 
 | `viewmodel.ts` | Animated first-person arm and weapons |
 | `input.ts` | Pointer Lock, keyboard, mouse and touch |
 | `ui.ts` / `style.css` | HUD, menus and settings |
-| `audio.ts` | Web Audio sounds and atmosphere |
+| `audio.ts` | Web Audio playback, adaptive music mix, layered effects and volume controls |
+| `audio-synthesis.ts` | Original stereo instruments, weapon samples and industrial/noir composition |
 
 Three.js is MIT licensed. Dependency versions and licenses are recorded by npm; the compiled bundle retains relevant license notices.
 
 ## Validation
 
 The automated suite covers weapons, reloads, AI, wall and door occlusion, physics, hazards, riding, keycard and elevator gates, checkpoint restoration, death and a complete input-only playthrough with all 20 enemies defeated. Creature checks additionally verify collision-resolved motion, stopping, attack synchronization, articulated knees, planted feet, pause, fresh-mission pose reset and geometry budgets.
+
+Audio checks verify substantial weapon transients and bodies, decaying tails, different shotgun/machine-gun/plasma waveforms, bounded finite samples, synchronized score-stem lengths, stereo separation and closed loop boundaries.
 
 Chromium with software WebGL2 was used to inspect the office, street, security wing, laboratory, lift and all four weapons, with no JavaScript or shader errors. The compiled production page was separately served under `/fossil-noir/3d/`: both hashed assets returned HTTP 200, no TypeScript source was requested, Pointer Lock worked, movement collected the revolver and Escape paused the mission.
 

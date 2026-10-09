@@ -68,6 +68,8 @@ function menu() { changeScreen('menu'); }
 function applySettings(settings: Settings) {
   input.sensitivity = settings.sensitivity;
   audio.setVolume(settings.volume);
+  audio.setMusicVolume(settings.musicVolume);
+  audio.setEffectsVolume(settings.effectsVolume);
   renderer?.resize(settings);
 }
 try {

@@ -1,187 +1,221 @@
-import type {GameEvent,GameState,WeaponId} from './types';
+import type { GameEvent, GameState, WeaponId } from './types';
+import { renderScore, renderWeaponSound, type SynthClip } from './audio-synthesis';
 
-/** Small original synthesized soundtrack and effects; no recordings or fetched assets. */
+/** Original layered weapons and a composed, adaptive industrial/noir score. */
 export class AudioSystem {
-  private context?:AudioContext;
-  private master?:GainNode;
-  private fx?:GainNode;
-  private music?:GainNode;
-  private noise?:AudioBuffer;
-  private volume=0.45;
-  private unlocked=false;
-  private nextBeat=0;
-  private beat=0;
-  private lastStep=0;
-  private lastX=0;
-  private lastZ=0;
-  private distance=0;
-  private lastEnemy=0;
-  private musicActive=false;
+  private context?: AudioContext;
+  private master?: GainNode;
+  private fx?: GainNode;
+  private music?: GainNode;
+  private musicDuck?: GainNode;
+  private districtGain?: GainNode;
+  private combatGain?: GainNode;
+  private noise?: AudioBuffer;
+  private district?: AudioBuffer;
+  private combat?: AudioBuffer;
+  private weapons = new Map<WeaponId, AudioBuffer>();
+  private musicSources: AudioBufferSourceNode[] = [];
+  private musicStarted = 0;
+  private musicOffset = 0;
+  private volume = 0.7;
+  private musicVolume = 0.75;
+  private effectsVolume = 0.95;
+  private unlocked = false;
+  private lastStep = 0;
+  private lastX?: number;
+  private lastZ?: number;
+  private distance = 0;
+  private lastEnemy = -10;
+  private danger = 0;
 
-  constructor() {
-    // An AudioContext must only be created/unlocked from the user's start gesture.
-  }
-
-  unlock():void {
+  unlock(): void {
     try {
-      if(!this.context) {
-        const AudioCtor=window.AudioContext||(window as unknown as {webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
-        if(!AudioCtor)return;
-        this.context=new AudioCtor();
-        this.master=this.context.createGain();
-        this.master.gain.value=this.volume;
-        this.master.connect(this.context.destination);
-        this.fx=this.context.createGain();this.fx.gain.value=0.8;this.fx.connect(this.master);
-        this.music=this.context.createGain();this.music.gain.value=0.2;this.music.connect(this.master);
-        const length=this.context.sampleRate*2;
-        this.noise=this.context.createBuffer(1,length,this.context.sampleRate);
-        const data=this.noise.getChannelData(0);
-        let seed=1793;
-        for(let i=0;i<length;i++) {seed=(seed*1664525+1013904223)>>>0;data[i]=((seed/4294967296)*2-1);}
+      if (!this.context) {
+        const AudioCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioCtor) return;
+        const c = this.context = new AudioCtor();
+        const limiter = c.createDynamicsCompressor();
+        limiter.threshold.value = -7; limiter.knee.value = 8; limiter.ratio.value = 4;
+        limiter.attack.value = 0.002; limiter.release.value = 0.16;
+        this.master = c.createGain(); this.master.gain.value = this.volume;
+        this.master.connect(limiter); limiter.connect(c.destination);
+        this.fx = c.createGain(); this.fx.gain.value = this.effectsVolume; this.fx.connect(this.master);
+        this.music = c.createGain(); this.music.gain.value = this.musicVolume; this.music.connect(this.master);
+        this.musicDuck = c.createGain(); this.musicDuck.connect(this.music);
+        this.districtGain = c.createGain(); this.districtGain.gain.value = 0.92; this.districtGain.connect(this.musicDuck);
+        this.combatGain = c.createGain(); this.combatGain.gain.value = 0; this.combatGain.connect(this.musicDuck);
+        const length = c.sampleRate * 2;
+        this.noise = c.createBuffer(1, length, c.sampleRate);
+        const data = this.noise.getChannelData(0);
+        let seed = 1793;
+        for (let i = 0; i < length; i++) { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; data[i] = seed / 2147483648 - 1; }
+        for (const weapon of ['revolver', 'shotgun', 'plasma', 'machinegun'] as WeaponId[]) this.weapons.set(weapon, this.buffer(renderWeaponSound(weapon)));
+        const score = renderScore();
+        this.district = this.buffer(score.district); this.combat = this.buffer(score.combat);
       }
-      void this.context.resume().then(()=>{this.unlocked=true;this.nextBeat=this.context!.currentTime+0.08;}).catch(()=>{});
-      this.unlocked=true;
-    } catch { /* A silent game remains playable if the browser declines audio. */ }
+      void this.context.resume().then(() => { this.unlocked = true; }).catch(() => {});
+      this.unlocked = this.context.state === 'running';
+    } catch { /* The mission remains playable if a browser declines optional audio. */ }
   }
 
-  setVolume(value:number):void {
-    this.volume=Math.max(0,Math.min(1,value));
-    if(this.context&&this.master) this.master.gain.setTargetAtTime(this.volume,this.context.currentTime,0.04);
+  setVolume(value: number): void { this.volume = this.clamp(value); this.setGain(this.master, this.volume); }
+  setMusicVolume(value: number): void { this.musicVolume = this.clamp(value); this.setGain(this.music, this.musicVolume); }
+  setEffectsVolume(value: number): void { this.effectsVolume = this.clamp(value); this.setGain(this.fx, this.effectsVolume); }
+  private clamp(value: number): number { return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0; }
+  private setGain(node: GainNode | undefined, value: number): void {
+    if (!this.context || !node) return;
+    const at = this.context.currentTime;
+    node.gain.cancelScheduledValues(at);
+    // A mute is exact, including an effects branch that was idle when changed.
+    if (value === 0) node.gain.setValueAtTime(0, at);
+    else node.gain.setTargetAtTime(value, at, 0.04);
   }
 
-  suspend():void {
-    this.musicActive=false;
-    if(this.context&&this.music)this.music.gain.setTargetAtTime(0,this.context.currentTime,0.08);
-    // Do not suspend the AudioContext: gesture-free unpausing must remain possible.
+  suspend(): void {
+    const c = this.context;
+    if (c && this.musicSources.length && this.district) {
+      this.musicOffset = (this.musicOffset + Math.max(0, c.currentTime - this.musicStarted)) % this.district.duration;
+      this.musicDuck?.gain.cancelScheduledValues(c.currentTime);
+      this.musicDuck?.gain.setTargetAtTime(0, c.currentTime, 0.035);
+      for (const source of this.musicSources) source.stop(c.currentTime + 0.16);
+      this.musicSources = [];
+    }
+    this.lastX = this.lastZ = undefined; this.distance = 0;
+    // Keep the context alive so keyboard unpause needs no extra permission gesture.
   }
 
-  handle(events:GameEvent[]):void {
-    if(!this.context||!this.unlocked||this.context.state!=='running')return;
-    for(const event of events) {
-      switch(event.type) {
-        case 'shot':this.shot(event.weapon||'revolver');break;
-        case 'reload':
-          this.tone(720,0.035,0.11,'square',370);
-          this.burst(0.08,0.14,1500,0.09);
-          this.tone(440,0.05,0.1,'triangle',180,0.17);
-          this.burst(0.03,0.11,2600,0.32);break;
-        case 'hurt':this.burst(0.2,0.15,700);this.tone(96,0.17,0.16,'sawtooth',46);break;
-        case 'pickup':this.tone(554.37,0.08,0.13,'triangle');this.tone(830.61,0.1,0.11,'triangle',830.61,0.085);break;
-        case 'door':this.burst(0.43,0.07,850);this.tone(89,0.3,0.08,'sawtooth',58);this.tone(420,0.06,0.06,'square',350,0.35);break;
+  handle(events: GameEvent[]): void {
+    if (!this.context || !this.unlocked || this.context.state !== 'running') return;
+    for (const event of events) {
+      switch (event.type) {
+        case 'shot': this.shot(event.weapon || 'revolver'); break;
+        case 'reload': this.reload(event.weapon || 'revolver'); break;
+        case 'hurt': this.burst(0.23, 0.24, 850); this.tone(97, 0.21, 0.21, 'sawtooth', 45); break;
+        case 'pickup': this.tone(554.37, 0.08, 0.13, 'triangle'); this.tone(830.61, 0.1, 0.11, 'triangle', 830.61, 0.085); break;
+        case 'door': this.burst(0.55, 0.14, 740); this.tone(89, 0.43, 0.14, 'sawtooth', 58); this.burst(0.085, 0.19, 2700, 0.42); break;
         case 'enemy': {
-          // Rate-limited warning barks stay audible without becoming a constant wall of noise.
-          if(this.context.currentTime-this.lastEnemy>0.65) {
-            this.lastEnemy=this.context.currentTime;
-            if(event.message?.includes('charging shot')) {
-              this.tone(260,0.19,0.055,'sawtooth',790);
-              this.tone(880,0.07,0.055,'square',330,0.2);
-            } else if(event.message?.startsWith('Strider')) {
-              this.tone(90,0.27,0.1,'sawtooth',42);
-              this.burst(0.28,0.08,530);
+          const now = this.context.currentTime;
+          if (now - this.lastEnemy > 0.55) {
+            this.lastEnemy = now;
+            if (event.message?.includes('charging shot')) {
+              this.tone(260, 0.19, 0.1, 'sawtooth', 790);
+              this.burst(0.1, 0.24, 4600, 0.2); this.tone(145, 0.16, 0.17, 'triangle', 45, 0.2);
             } else {
-              this.tone(195,0.23,0.09,'sawtooth',58);
-              this.burst(0.22,0.09,650);
+              const strider = event.message?.startsWith('Strider');
+              this.tone(strider ? 86 : 143, 0.34, 0.2, 'sawtooth', strider ? 35 : 56);
+              this.tone(strider ? 134 : 218, 0.27, 0.1, 'triangle', 63);
+              this.burst(0.32, 0.2, strider ? 630 : 1100);
             }
           }
           break;
         }
-        case 'kill':this.burst(0.2,0.12,430);this.tone(118,0.22,0.1,'sawtooth',34);break;
-        case 'mount':this.tone(110,0.22,0.11,'sawtooth',210);this.tone(82,0.12,0.12,'triangle',45,0.15);break;
-        case 'checkpoint':this.chime([261.63,329.63,392],0.16,0.11);break;
-        case 'complete':this.chime([164.81,220,261.63,329.63,440],0.18,0.16);break;
-        case 'message':break;
+        case 'kill': this.burst(0.26, 0.19, 620); this.tone(118, 0.27, 0.13, 'sawtooth', 34); break;
+        case 'mount': this.tone(110, 0.22, 0.16, 'sawtooth', 210); this.tone(82, 0.18, 0.17, 'triangle', 45, 0.15); break;
+        case 'checkpoint': this.chime([261.63, 329.63, 392], 0.16, 0.11); break;
+        case 'complete': this.chime([164.81, 220, 261.63, 329.63, 440], 0.18, 0.16); break;
+        case 'message': break;
       }
     }
   }
 
-  tick(state:GameState,dt:number):void {
-    if(!this.context||!this.unlocked||this.context.state!=='running')return;
-    if(!this.musicActive) {
-      this.musicActive=true;this.nextBeat=this.context.currentTime+0.06;
-      this.music?.gain.setTargetAtTime(state.status==='playing'?0.2:0.1,this.context.currentTime,0.35);
-    }
-    const now=this.context.currentTime;
-    // Only a short look-ahead is scheduled, so a paused game immediately goes quiet.
-    if(now>this.nextBeat+0.8)this.nextBeat=now+0.04;
-    while(this.nextBeat<now+0.11) {
-      this.ambientBeat(this.nextBeat,state);
-      this.nextBeat+=0.375;this.beat++;
-    }
-    const p=state.player;
-    const travelled=Math.hypot(p.x-this.lastX,p.z-this.lastZ);
-    this.lastX=p.x;this.lastZ=p.z;
-    if(travelled<1)this.distance+=travelled;
-    if(p.grounded&&this.distance>(p.mounted?2.2:1.65)&&now-this.lastStep>0.22&&dt>0) {
-      this.distance=0;this.lastStep=now;
-      this.burst(0.045,p.mounted?0.10:0.045,p.mounted?350:950);
-      this.tone(p.mounted?65:110,0.07,p.mounted?0.11:0.045,'triangle',40);
+  tick(state: GameState, dt: number): void {
+    const c = this.context;
+    if (!c || !this.unlocked || c.state !== 'running' || state.status !== 'playing') return;
+    if (!this.musicSources.length) this.startMusic();
+    const p = state.player;
+    const threatened = state.enemies.some(enemy => enemy.alive && enemy.alert && Math.hypot(enemy.x - p.x, enemy.z - p.z) < 22);
+    this.danger += ((threatened ? 1 : 0) - this.danger) * Math.min(1, dt * (threatened ? 1.7 : 0.32));
+    this.combatGain?.gain.setTargetAtTime(this.danger * 0.93, c.currentTime, 0.18);
+    this.districtGain?.gain.setTargetAtTime(0.92 - this.danger * 0.12, c.currentTime, 0.22);
+    const travelled = this.lastX === undefined ? 0 : Math.hypot(p.x - this.lastX, p.z - this.lastZ!);
+    this.lastX = p.x; this.lastZ = p.z;
+    if (travelled < 1) this.distance += travelled;
+    if (p.grounded && this.distance > (p.mounted ? 2.2 : 1.65) && c.currentTime - this.lastStep > 0.22 && dt > 0) {
+      this.distance = 0; this.lastStep = c.currentTime;
+      this.burst(0.065, p.mounted ? 0.18 : 0.085, p.mounted ? 430 : 1400);
+      this.tone(p.mounted ? 65 : 110, 0.09, p.mounted ? 0.15 : 0.08, 'triangle', 40);
     }
   }
 
-  private tone(frequency:number,duration:number,volume:number,type:OscillatorType='square',end=frequency,delay=0,bus:'fx'|'music'='fx',at?:number):void {
-    const c=this.context;
-    if(!c||!this.master||!this.fx||!this.music)return;
-    const start=at??c.currentTime+delay;
-    const osc=c.createOscillator(),gain=c.createGain();
-    osc.type=type;osc.frequency.setValueAtTime(Math.max(1,frequency),start);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(1,end),start+duration);
-    gain.gain.setValueAtTime(0.0001,start);
-    gain.gain.linearRampToValueAtTime(volume,start+Math.min(0.006,duration/4));
-    gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
-    osc.connect(gain);gain.connect(bus==='music'?this.music:this.fx);
-    osc.start(start);osc.stop(start+duration+0.025);
-    osc.onended=()=>{osc.disconnect();gain.disconnect();};
+  private buffer(sound: SynthClip): AudioBuffer {
+    const result = this.context!.createBuffer(sound.channels.length, sound.channels[0].length, sound.sampleRate);
+    sound.channels.forEach((data, i) => result.getChannelData(i).set(data));
+    return result;
   }
 
-  private burst(duration:number,volume:number,cutoff:number,delay=0,at?:number,bus:'fx'|'music'='fx'):void {
-    const c=this.context;
-    if(!c||!this.noise||!this.fx||!this.music)return;
-    const start=at??c.currentTime+delay;
-    const source=c.createBufferSource(),filter=c.createBiquadFilter(),gain=c.createGain();
-    source.buffer=this.noise;
-    filter.type='lowpass';filter.frequency.setValueAtTime(cutoff,start);filter.Q.value=0.4;
-    gain.gain.setValueAtTime(volume,start);gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
-    source.connect(filter);filter.connect(gain);gain.connect(bus==='music'?this.music:this.fx);
-    source.start(start,Math.random());source.stop(start+duration+0.025);
-    source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};
-  }
-
-  private shot(weapon:WeaponId):void {
-    switch(weapon) {
-      case 'revolver':
-        this.burst(0.13,0.34,4800);this.tone(180,0.11,0.24,'triangle',42);
-        this.tone(1280,0.027,0.065,'square',190);break;
-      case 'shotgun':
-        this.burst(0.25,0.48,3900);this.tone(130,0.2,0.28,'triangle',28);
-        this.burst(0.05,0.09,1800,0.23);this.burst(0.08,0.11,2900,0.37);break;
-      case 'plasma':
-        this.tone(980,0.14,0.14,'sawtooth',140);this.tone(1450,0.08,0.07,'triangle',260);
-        this.burst(0.07,0.06,4400);break;
-      case 'machinegun':
-        this.burst(0.075,0.27,4200);this.tone(157,0.065,0.16,'triangle',46);
-        this.tone(970,0.017,0.07,'square',380);break;
+  private startMusic(): void {
+    const c = this.context;
+    if (!c || !this.district || !this.combat || !this.districtGain || !this.combatGain || !this.musicDuck) return;
+    const at = c.currentTime + 0.025;
+    this.musicDuck.gain.cancelScheduledValues(c.currentTime);
+    this.musicDuck.gain.setValueAtTime(0, c.currentTime);
+    this.musicDuck.gain.linearRampToValueAtTime(1, at + 0.3);
+    this.musicStarted = at;
+    for (const [buffer, bus] of [[this.district, this.districtGain], [this.combat, this.combatGain]] as const) {
+      const source = c.createBufferSource(); source.buffer = buffer; source.loop = true; source.connect(bus);
+      source.start(at, this.musicOffset); source.onended = () => source.disconnect();
+      this.musicSources.push(source);
     }
   }
 
-  private chime(notes:number[],spacing:number,volume:number):void {
-    notes.forEach((note,i)=>this.tone(note,0.42,volume,'triangle',note,i*spacing));
+  private shot(weapon: WeaponId): void {
+    const c = this.context, buffer = this.weapons.get(weapon);
+    if (!c || !buffer || !this.fx) return;
+    const source = c.createBufferSource(), gain = c.createGain();
+    source.buffer = buffer; source.playbackRate.value = 0.985 + Math.random() * 0.03;
+    gain.gain.value = { revolver: 0.84, shotgun: 1, plasma: 0.74, machinegun: 0.70 }[weapon];
+    source.connect(gain); gain.connect(this.fx); source.start();
+    source.onended = () => { source.disconnect(); gain.disconnect(); };
+    // A gentle transient dip lets each muzzle crack cut through the score.
+    if (this.musicDuck && this.musicSources.length) {
+      const now = c.currentTime;
+      this.musicDuck.gain.cancelScheduledValues(now);
+      this.musicDuck.gain.setValueAtTime(Math.min(1, this.musicDuck.gain.value), now);
+      this.musicDuck.gain.linearRampToValueAtTime(0.79, now + 0.006);
+      this.musicDuck.gain.linearRampToValueAtTime(1, now + 0.145);
+    }
   }
 
-  private ambientBeat(at:number,state:GameState):void {
-    const b=this.beat%32;
-    // Sparse minor-key pulse: noir bass, distant metal hits and a quiet green synth motif.
-    const roots=[55,55,65.406,49];
-    const root=roots[Math.floor(b/8)];
-    if(b%4===0)this.tone(root,0.48,0.21,'triangle',root,0,'music',at);
-    if(b%8===4)this.tone(root*2,0.35,0.1,'triangle',root*2,0,'music',at);
-    if(b%4===2)this.burst(0.035,0.022,2100,0,at,'music');
-    if(b===2||b===11||b===18||b===27) {
-      const note=[220,261.626,293.665,196][Math.floor(b/8)];
-      this.tone(note,0.8,0.055,'triangle',note,0,'music',at);
-      this.tone(note*1.005,0.65,0.025,'sine',note*1.005,0,'music',at+0.12);
+  private reload(weapon: WeaponId): void {
+    if (weapon === 'plasma') {
+      this.tone(180, 0.28, 0.13, 'sawtooth', 740); this.burst(0.17, 0.15, 2900, 0.25);
+      this.tone(1320, 0.18, 0.09, 'triangle', 420, 0.47); return;
     }
-    if(state.enemies.some(enemy=>enemy.alive&&enemy.alert)&&b%2===0) {
-      this.tone(75,0.085,0.10,'sine',30,0,'music',at);
+    this.burst(0.075, 0.19, 4200); this.tone(420, 0.045, 0.11, 'square', 180);
+    this.burst(0.13, 0.12, 1600, 0.19); this.tone(710, 0.045, 0.1, 'triangle', 270, 0.31);
+    if (weapon === 'shotgun' || weapon === 'revolver') {
+      for (let i = 0; i < 3; i++) {
+        this.burst(0.032, 0.09, 3100, 0.36 + i * 0.19);
+        this.tone(1870, 0.024, 0.035, 'triangle', 970, 0.36 + i * 0.19);
+      }
     }
+    this.burst(0.06, 0.22, 3800, weapon === 'machinegun' ? 0.83 : 1.0);
+    this.tone(160, 0.08, 0.14, 'triangle', 61, weapon === 'machinegun' ? 0.84 : 1.02);
+  }
+
+  private tone(frequency: number, duration: number, volume: number, type: OscillatorType = 'square', end = frequency, delay = 0): void {
+    const c = this.context;
+    if (!c || !this.fx) return;
+    const start = c.currentTime + delay, osc = c.createOscillator(), gain = c.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(Math.max(1, frequency), start);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, end), start + duration);
+    gain.gain.setValueAtTime(0.0001, start); gain.gain.linearRampToValueAtTime(volume, start + Math.min(0.006, duration / 4));
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    osc.connect(gain); gain.connect(this.fx); osc.start(start); osc.stop(start + duration + 0.025);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+  }
+
+  private burst(duration: number, volume: number, cutoff: number, delay = 0): void {
+    const c = this.context;
+    if (!c || !this.noise || !this.fx) return;
+    const start = c.currentTime + delay, source = c.createBufferSource(), filter = c.createBiquadFilter(), gain = c.createGain();
+    source.buffer = this.noise; filter.type = 'lowpass'; filter.frequency.setValueAtTime(cutoff, start); filter.Q.value = 0.4;
+    gain.gain.setValueAtTime(volume, start); gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    source.connect(filter); filter.connect(gain); gain.connect(this.fx); source.start(start, Math.random()); source.stop(start + duration + 0.025);
+    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
+  }
+
+  private chime(notes: number[], spacing: number, volume: number): void {
+    notes.forEach((note, i) => this.tone(note, 0.42, volume, 'triangle', note, i * spacing));
   }
 }

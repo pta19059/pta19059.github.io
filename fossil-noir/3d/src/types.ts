@@ -27,5 +27,5 @@ export interface Effect extends Vec2 {y:number;kind:'blood'|'spark'|'plasma'|'sm
 export interface InputFrame {forward:number;strafe:number;lookX:number;lookY:number;fire:boolean;sprint:boolean;crouch:boolean;jump:boolean;interact:boolean;reload:boolean;weaponDelta:number;weaponSlot:number;slow:boolean}
 export type GameEvent = {type:'shot'|'reload'|'hurt'|'pickup'|'door'|'enemy'|'kill'|'mount'|'complete'|'checkpoint'|'message';message?:string;weapon?:WeaponId};
 export interface GameState {player:Player;enemies:Enemy[];doors:Door[];pickups:Pickup[];effects:Effect[];status:'playing'|'dead'|'complete';kills:number;time:number;message:string;messageTime:number;powered:boolean;checkpoint:boolean;secrets:number;slow:number;events:GameEvent[];mount:Vec2;difficulty:'easy'|'normal'|'hard'}
-export interface Settings {sensitivity:number;resolution:'320'|'640';quality:'low'|'high';volume:number;difficulty:'easy'|'normal'|'hard'}
+export interface Settings {sensitivity:number;resolution:'320'|'640';quality:'low'|'high';volume:number;musicVolume:number;effectsVolume:number;difficulty:'easy'|'normal'|'hard'}
 export const EMPTY_INPUT:InputFrame={forward:0,strafe:0,lookX:0,lookY:0,fire:false,sprint:false,crouch:false,jump:false,interact:false,reload:false,weaponDelta:0,weaponSlot:0,slow:false};
