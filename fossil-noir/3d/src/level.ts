@@ -75,6 +75,16 @@ export const LEVEL:LevelData={
   {id:'lab-evidence',kind:'evidence',x:-8.8,z:-44.6,label:'PROJECT LAZARUS: NO SURVIVORS'},
  ],
  hazards:[{x:9,z:-10,w:2.8,d:3},{x:-4.5,z:-38.5,w:2.5,d:2.8}],
+ // Fuel canisters provide tactical blasts near patrols; neither glass panel is
+ // a progression gate. Their shallow volumes stand in front of the shop wall.
+ destructibles:[
+  {id:'fuel-street-west',kind:'barrel',x:-8.8,z:-13.2,y:0,w:.85,d:.85,h:1.35,health:30},
+  {id:'fuel-street-east',kind:'barrel',x:5.7,z:-16.8,y:0,w:.85,d:.85,h:1.35,health:30},
+  {id:'fuel-security',kind:'barrel',x:4.8,z:-29.7,y:0,w:.85,d:.85,h:1.35,health:30},
+  {id:'fuel-containment',kind:'barrel',x:.9,z:-43.5,y:0,w:.85,d:.85,h:1.35,health:30},
+  {id:'glass-hotel',kind:'glass',x:-12.66,z:-1.7,y:1.12,w:.14,d:3.2,h:2.2,health:1},
+  {id:'glass-eden',kind:'glass',x:12.66,z:-4.5,y:1.12,w:.14,d:3.2,h:2.2,health:1},
+ ],
  props:[
   {kind:'office-sign',x:0,z:3.55,label:'VANE / PRIVATE INVESTIGATIONS'},
   {kind:'portrait',x:0,z:11.94,label:'ELIAS VANE'},
@@ -84,7 +94,7 @@ export const LEVEL:LevelData={
   {kind:'neon',x:12.93,z:-7,rotation:-Math.PI/2,label:'EDEN / AFTER DARK'},
   {kind:'neon',x:-12.93,z:-7,rotation:Math.PI/2,label:'LAST CHANCE'},
   {kind:'facility-sign',x:0,z:-19.56,label:'AXIOM / HELIX RESEARCH'},
-  {kind:'car',x:-7,z:-10,rotation:.15},{kind:'barrels',x:11.7,z:-12},{kind:'barrels',x:-11,z:-19},
+  {kind:'car',x:-7,z:-10,rotation:.15},
   {kind:'lamp',x:10.8,z:1},{kind:'lamp',x:-10.8,z:-8},{kind:'lamp',x:10.8,z:-18},
   {kind:'rubble',x:-11,z:-11},{kind:'rubble',x:11,z:-16},{kind:'corpse',x:3,z:-9},
   {kind:'street-mark',x:0,z:-8},{kind:'street-mark',x:0,z:-15},{kind:'drain',x:4,z:-3},

@@ -13,7 +13,7 @@ function finish(canvas:HTMLCanvasElement,repeat=false):THREE.CanvasTexture {
 /** Hand-painted pixel materials: small repeating tiles, deliberate wear and relief. */
 export function createRetroTexture(kind:string):THREE.CanvasTexture {
  const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d')!;
- const palettes:Record<string,string[]>={brick:['#48434c','#63585e','#292c35'],metal:['#334743','#6a7a6e','#162b2c'],concrete:['#4c5554','#69716a','#303e3e'],crate:['#696047','#988457','#30342c'],floor:['#303b3b','#515952','#19292b'],labfloor:['#405450','#697b6e','#223a39'],road:['#252a32','#485057','#171f28'],ceiling:['#2c3a3a','#53635b','#142628'],door:['#3d5149','#7d8e77','#182b29']};
+ const palettes:Record<string,string[]>={brick:['#48434c','#63585e','#292c35'],metal:['#454c52','#82908d','#222e35'],concrete:['#77776c','#a6a190','#484c49'],crate:['#696047','#988457','#30342c'],floor:['#303b3b','#515952','#19292b'],labfloor:['#52625f','#839488','#2a4143'],road:['#45464b','#777971','#292c34'],ceiling:['#2c3a3a','#53635b','#142628'],door:['#3d5149','#7d8e77','#182b29'],fuel:['#954732','#c87647','#4d302b']};
  const p=palettes[kind]??palettes.metal;
  const rect=(color:string,x:number,y:number,w:number,h:number)=>{g.fillStyle=color;g.fillRect(x,y,w,h)};
  const line=(color:string,points:number[],width=1)=>{g.strokeStyle=color;g.lineWidth=width;g.beginPath();g.moveTo(points[0],points[1]);for(let i=2;i<points.length;i+=2)g.lineTo(points[i],points[i+1]);g.stroke()};
@@ -32,6 +32,15 @@ export function createRetroTexture(kind:string):THREE.CanvasTexture {
   }
   // Damp brick ends and soft soot, rather than uniform random speckles.
   for(let i=0;i<15;i++){g.globalAlpha=.12;rect('#1b302c',noise(i+201)*128|0,noise(i+231)*128|0,4,8)}g.globalAlpha=1;
+ }else if(kind==='fuel'){
+  for(const y of [8,35,95,117]){rect('#252d33',0,y,128,5);rect('#87918b',0,y,128,2)}
+  for(const x of [8,40,72,104]){
+   rect('#d6b55e',x,48,24,34);rect('#392e27',x+2,50,20,30);
+   g.fillStyle='#efc368';g.beginPath();g.moveTo(x+12,52);g.lineTo(x+20,66);g.lineTo(x+4,66);g.fill();
+   rect('#312b25',x+11,56,2,6);rect('#312b25',x+11,63,2,2);
+   rect('#d5be86',x+4,71,16,2);rect('#a38960',x+4,76,12,1);
+  }
+  for(let i=0;i<20;i++){rect('#513e35',noise(i+33)*128,noise(i+66)*128,1,3+noise(i+4)*8)}
  }else if(['metal','ceiling','door'].includes(kind)){
   for(let row=0;row<2;row++)for(let col=0;col<2;col++){
    const x=col*64,y=row*64;

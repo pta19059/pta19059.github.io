@@ -68,8 +68,8 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
  const skin=dinosaur?(mount?0x958252:0x60794b):soldier?0xa18c70:brute?0x9a6f64:0x86965e;
  const belly=dinosaur?(mount?0xc4ae73:0x9baf74):skin;
  const armor=soldier?0x496276:brute?0x7b383d:0x4e5d43;
- const dark=dinosaur?(mount?0x5b523b:0x354b38):soldier?0x202e39:brute?0x3c292f:0x364431;
- const bone=dinosaur?0xd4c9a0:soldier?0x80938e:0xd4c3a1;
+ const dark=dinosaur?(mount?0x514333:0x403d2c):soldier?0x202e39:brute?0x4b3029:0x44362f;
+ const bone=dinosaur?0xe1d4ad:soldier?0x80938e:0xddd0b4;
  if(dinosaur){
   // Horizontal ribcage, narrow chest and muscular pelvic mass; the skull is small relative to the body.
   oval(pelvis,[0,.13,.13],[.32,.3,.6],skin);oval(chest,[0,.09,-.34],[.265,.26,.39],skin);
@@ -84,7 +84,7 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
   for(const side of [-1,1]){
    const brow=oval(head,[side*.146,.092,-.085],[.052,.035,.12],skin);brow.rotation.z=side*.24;
    oval(head,[side*.16,.055,-.128],[.018,.032,.036],dark);
-   box(head,[side*.172,.056,-.135],[.009,.018,.029],mount?0xd6b86d:0xd9a861,0x271700);
+   box(head,[side*.172,.056,-.135],[.009,.018,.029],mount?0xe8bf70:0xefb961,0x422400);
    box(head,[side*.179,.056,-.141],[.004,.018,.008],dark);
    oval(head,[side*.059,.01,-.586],[.017,.012,.022],dark);
    for(let i=0;i<6;i++){
@@ -142,19 +142,19 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
    box(chest,[0,.44,-.266],[.065,.22,.046],bone);box(pelvis,[0,.015,-.03],[.59,.07,.39],dark);box(pelvis,[0,.025,-.23],[.082,.06,.024],bone);
    box(chest,[0,.38,.258],[.31,.43,.17],dark);box(chest,[0,.48,.356],[.2,.24,.042],armor);
    oval(head,[0,.06,.007],[.18,.2,.187],armor);box(head,[0,.014,-.16],[.255,.065,.026],dark);
-   box(head,[0,.021,-.18],[.216,.024,.01],0x64e9d0,0x154b42);
-   box(head,[.073,.021,-.189],[.036,.029,.009],0xe0a260,0x32180d);
+   box(head,[0,.021,-.18],[.216,.024,.01],0xe5b66b,0x553713);
+   box(head,[.073,.021,-.189],[.036,.029,.009],0xffd68a,0x594019);
    oval(head,[0,-.086,-.134],[.104,.06,.075],dark);
    for(const side of [-1,1]){segment(head,[side*.078,-.087,-.149],[side*.078,-.087,-.21],.033,.031,bone);oval(head,[side*.179,.03,.007],[.025,.072,.064],dark)}
    segment(head,[.15,.15,.034],[.15,.32,.034],.009,.007,dark,5);
-   box(chest,[-.136,.51,-.268],[.052,.053,.012],0xcaa374);
+   box(chest,[-.136,.51,-.268],[.052,.053,.012],0xf1c489);
   }else{
    // Asymmetric pectorals, rib arcs and a heavy implant distinguish the infected silhouettes.
    oval(chest,[-width*.38,.5,-.126],[width*.67,.22,.17],skin);oval(chest,[width*.45,.36,-.135],[width*.44,.205,.124],armor);
    for(let i=0;i<4;i++)for(const side of [-1,1])segment(chest,[side*.025,.52-i*.069,-.236],[side*(width*.75-i*.018),.48-i*.064,-.199],.018,.013,bone,5);
    segment(chest,[0,.51,-.246],[0,.245,-.225],.023,.018,dark,5);
    box(chest,[width*.82,.43,.042],[.14,.26,.27],armor);box(chest,[.055,.47,.239],[.19,.3,.08],0x788375);
-   for(let i=0;i<4;i++)box(chest,[.053,.58-i*.062,.287],[.15,.023,.02],dark);
+   for(let i=0;i<4;i++)box(chest,[.053,.58-i*.062,.287],[.15,.023,.02],i===0?0x79b597:dark,i===0?0x163526:0);
    oval(head,[-.053,.029,-.107],[.09,.07,.09],skin);oval(head,[.083,.027,-.103],[.084,.08,.072],armor);
    for(const side of [-1,1]){oval(head,[side*.073,.047,-.144],[.052,.045,.022],dark);box(head,[side*.071,.04,-.168],[.018,.012,.008],0xd5ac65,0x331908)}
    box(head,[0,-.069,-.142],[.126,.041,.03],dark);
@@ -172,7 +172,7 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
    rig.legs.push({hip,knee,hock,foot,side,upper:.52,lower:.54,metatarsal:0,anchor:new THREE.Vector2(),swingStart:new THREE.Vector2(),worldFoot:new THREE.Vector2(),height:0,previous:0,initialized:false});
    const upper=joint(chest,[side*shoulder,.56,.015]),lower=joint(upper,[0,-.34,0]);
    const bulky=!soldier&&side<0;
-   oval(upper,[0,-.075,0],[bulky?.17:.12,.16,.14],soldier?armor:skin);segment(upper,[0,-.06,0],[0,-.34,0],bulky?.137:.105,.073,soldier?dark:skin);
+   oval(upper,[0,-.075,0],[bulky?.17:.12,.16,.14],soldier?(side<0?0x8b555b:armor):skin);segment(upper,[0,-.06,0],[0,-.34,0],bulky?.137:.105,.073,soldier?dark:skin);
    segment(lower,[0,0,0],[0,-.33,0],bulky?.115:.075,.048,soldier?dark:skin);oval(lower,[0,-.34,-.014],[.06,.09,.055],soldier?dark:skin);
    if(!soldier){for(let finger=-1;finger<=1;finger++){segment(lower,[finger*.034,-.373,-.025],[finger*.041,-.43,-.065],.019,.012,skin,5);segment(lower,[finger*.041,-.43,-.065],[finger*.043,-.443,-.112],.018,.002,bone,5)}}
    else box(lower,[0,-.16,-.05],[.11,.18,.06],armor);

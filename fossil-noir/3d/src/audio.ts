@@ -93,6 +93,14 @@ export class AudioSystem {
         case 'hurt': this.burst(0.23, 0.24, 850); this.tone(97, 0.21, 0.21, 'sawtooth', 45); break;
         case 'pickup': this.tone(554.37, 0.08, 0.13, 'triangle'); this.tone(830.61, 0.1, 0.11, 'triangle', 830.61, 0.085); break;
         case 'door': this.burst(0.55, 0.14, 740); this.tone(89, 0.43, 0.14, 'sawtooth', 58); this.burst(0.085, 0.19, 2700, 0.42); break;
+        case 'explosion':
+          this.burst(0.85,0.72,2900);this.burst(0.18,0.48,6700);
+          this.tone(128,0.65,0.48,'triangle',26);this.tone(49,0.9,0.28,'sine',24);
+          this.burst(0.55,0.20,1800,0.12);break;
+        case 'shatter':
+          this.burst(0.18,0.35,8800);this.burst(0.48,0.17,5200,0.05);
+          for(let i=0;i<5;i++)this.tone(2140+i*479,.06,.04,'triangle',1330+i*313,.04+i*.043);
+          break;
         case 'enemy': {
           const now = this.context.currentTime;
           if (now - this.lastEnemy > 0.55) {

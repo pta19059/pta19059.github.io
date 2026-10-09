@@ -1,4 +1,4 @@
-import type {Door, Effect, Enemy, GameState, InputFrame, LevelData, Player, Vec2, WeaponId} from './types';
+import type {Destructible, Door, Effect, Enemy, GameState, InputFrame, LevelData, Player, Vec2, WeaponId} from './types';
 
 export const WEAPONS: Record<WeaponId, {name:string;damage:number;interval:number;clip:number;range:number;reload:number;pellets:number;spread:number}> = {
   revolver:{name:'Detective Revolver',damage:36,interval:.32,clip:6,range:58,reload:1.35,pellets:1,spread:.003},
@@ -39,7 +39,8 @@ export class Simulation {
       mounted:false,crouching:false,grounded:true,weapon:'revolver',owned:[],ammo:{...START_AMMO},reserve:{...START_AMMO},reload:0,cooldown:0,recoil:0,hurt:0};
     this.state={player,enemies:this.level.enemies.map(e=>({...e,health:Math.round(STATS[e.kind].health*healthScale),maxHealth:Math.round(STATS[e.kind].health*healthScale),
       alive:true,alert:false,cooldown:.7,hurt:0,phase:0,heading:0,speed:0,attack:0,vx:0,vz:0,path:[],pathTime:0})),
-      doors:this.level.doors.map(d=>({...d,open:0,target:0})),pickups:this.level.pickups.map(p=>({...p,collected:false})),effects:[],
+      doors:this.level.doors.map(d=>({...d,open:0,target:0})),pickups:this.level.pickups.map(p=>({...p,collected:false})),
+      destructibles:(this.level.destructibles??[]).map(prop=>({...prop,maxHealth:prop.health,destroyed:false})),effects:[],
       status:'playing',kills:0,time:0,message:'ELIAS VANE: "Another night. Another extinction event." Find your revolver.',
       messageTime:5,powered:false,checkpoint:false,secrets:0,slow:1,events:[],mount:{...this.level.mount},difficulty};
     this.reloading=null;this.attackWindups.clear();this.secretDoors.clear();
@@ -126,6 +127,10 @@ export class Simulation {
       if(y+height<=d.open*3.4+.025)continue;
       if(this.circleBox(x,z,radius,d.x,d.z,d.w,d.d))return false;
     }
+    for(const prop of this.state.destructibles){
+      if(prop.destroyed||prop.kind!=='barrel'||y>=prop.y+prop.h-.025||y+height<=prop.y+.025)continue;
+      if(this.circleBox(x,z,radius,prop.x,prop.z,prop.w,prop.d))return false;
+    }
     return true;
   }
 
@@ -157,6 +162,11 @@ export class Simulation {
       for(const wall of this.level.walls){
         const top=(wall.y??0)+wall.h;
         if(top<=p.y+.035&&top>=nextY&&this.circleBox(p.x,p.z,radius,wall.x,wall.z,wall.w,wall.d))landing=Math.max(landing,top);
+      }
+      for(const prop of this.state.destructibles){
+        if(prop.destroyed||prop.kind!=='barrel')continue;
+        const top=prop.y+prop.h;
+        if(top<=p.y+.035&&top>=nextY&&this.circleBox(p.x,p.z,radius,prop.x,prop.z,prop.w,prop.d))landing=Math.max(landing,top);
       }
     }
     if(p.vy<=0&&nextY<=landing){p.y=landing;p.vy=0;p.grounded=true;}
@@ -200,14 +210,21 @@ export class Simulation {
     for(let pellet=0;pellet<w.pellets;pellet++){
       const yaw=p.yaw+(this.random()-.5)*w.spread*2,pitch=p.pitch+(this.random()-.5)*w.spread*1.5;
       const dx=-Math.sin(yaw)*Math.cos(pitch),dz=-Math.cos(yaw)*Math.cos(pitch),dy=Math.sin(pitch),ey=this.eyeHeight();
-      let hitDistance=this.rayWalls(p.x,ey,p.z,dx,dy,dz,w.range),hit:Enemy|null=null;
+      let hitDistance=this.rayWalls(p.x,ey,p.z,dx,dy,dz,w.range),hit:Enemy|null=null,propHit:Destructible|null=null;
       for(const enemy of this.state.enemies){
         if(!enemy.alive)continue;
         const stat=STATS[enemy.kind],t=this.rayEnemy(enemy,p.x,ey,p.z,dx,dy,dz,stat.radius,stat.height);
         if(t!==null&&t>=0&&t<hitDistance){hitDistance=t;hit=enemy;}
       }
+      for(const prop of this.state.destructibles){
+        if(prop.destroyed)continue;
+        const t=this.rayBox(p.x,ey,p.z,dx,dy,dz,prop.x-prop.w/2,prop.x+prop.w/2,prop.y,prop.y+prop.h,prop.z-prop.d/2,prop.z+prop.d/2);
+        if(t!==null&&t<hitDistance){hitDistance=t;propHit=prop;hit=null;}
+      }
       const hx=p.x+dx*hitDistance,hz=p.z+dz*hitDistance,hy=ey+dy*hitDistance;
-      if(hit){
+      if(propHit){
+        this.damageDestructible(propHit,w.damage);this.effect('spark',hx,hz,hy,.16);
+      }else if(hit){
         const falloff=p.weapon==='shotgun'?Math.max(.35,1-hitDistance/42):1;
         this.damageEnemy(hit,w.damage*falloff);this.effect('blood',hx,hz,hy,.24);
       }else if(hitDistance<w.range)this.effect('spark',hx,hz,hy,.15);
@@ -279,6 +296,7 @@ export class Simulation {
   }
 
   private damageEnemy(e:Enemy,damage:number):void {
+    if(!e.alive)return;
     e.health-=damage;e.hurt=1;e.alert=true;
     if(e.health>0)return;
     e.health=0;e.alive=false;e.path=[];e.speed=0;e.vx=0;e.vz=0;e.attack=0;this.attackWindups.delete(e.id);this.state.kills++;
@@ -287,6 +305,61 @@ export class Simulation {
     const p=this.state.player;
     p.reserve.revolver+=2;p.reserve.plasma+=2;p.reserve.machinegun+=3;
     if(e.kind==='brute')this.message('Containment beast neutralized. Restore the elevator power.',3);
+  }
+
+  private damageDestructible(prop:Destructible,damage:number):void {
+    if(prop.destroyed)return;
+    prop.health=Math.max(0,prop.health-damage);
+    if(prop.health>0)return;
+    prop.destroyed=true;
+    if(prop.kind==='glass'){this.shatterGlass(prop);return;}
+    this.explodeBarrels(prop);
+  }
+
+  private shatterGlass(prop:Destructible):void {
+    this.state.events.push({type:'shatter'});
+    for(let i=0;i<16;i++){
+      const x=prop.x+(this.random()-.5)*prop.w,z=prop.z+(this.random()-.5)*prop.d,y=prop.y+this.random()*prop.h;
+      this.state.effects.push({kind:'shard',x,z,y,life:.7,maxLife:.7,dx:(this.random()-.5)*2,dz:(this.random()-.5)*2});
+    }
+    this.message('SHOP WINDOW SHATTERED — the district answers back.',1.5);
+  }
+
+  /** Iterative chains mark a canister destroyed before scheduling its blast. */
+  private explodeBarrels(first:Destructible):void {
+    const queue=[first],processed=new Set<string>(),radius=4.2;
+    for(let head=0;head<queue.length&&head<this.state.destructibles.length;head++){
+      const barrel=queue[head];if(processed.has(barrel.id))continue;processed.add(barrel.id);
+      this.state.events.push({type:'explosion'});
+      this.effect('explosion',barrel.x,barrel.z,barrel.y+.75,.5);
+      for(let i=0;i<10;i++){
+        const angle=this.random()*Math.PI*2,r=this.random()*1.2;
+        this.effect(i<6?'smoke':'spark',barrel.x+Math.sin(angle)*r,barrel.z+Math.cos(angle)*r,barrel.y+.4+this.random()*1.3,i<6?1.5:.38);
+      }
+      for(const enemy of this.state.enemies){
+        const distance=dist(barrel,enemy);
+        if(!enemy.alive||distance>=radius||!this.blastVisible(barrel,enemy,Math.min(1.1,STATS[enemy.kind].height*.6)))continue;
+        this.damageEnemy(enemy,145*(1-distance/radius));
+        this.effect('blood',enemy.x,enemy.z,1.05,.35);
+      }
+      const p=this.state.player,distance=dist(barrel,p);
+      if(distance<radius&&this.blastVisible(barrel,p,p.y+Math.min(this.height()*.5,1.2)))this.hurtPlayer(75*(1-distance/radius));
+      for(const prop of this.state.destructibles){
+        const gap=dist(barrel,prop);
+        if(prop.destroyed||gap>=radius||!this.blastVisible(barrel,prop,prop.y+prop.h*.5))continue;
+        prop.health=Math.max(0,prop.health-145*(1-gap/radius));
+        if(prop.health>0)continue;
+        prop.destroyed=true;
+        if(prop.kind==='barrel')queue.push(prop);else this.shatterGlass(prop);
+      }
+    }
+    if(this.state.status==='playing')this.message('FUEL CANISTER DETONATED — keep your distance from the blast.',2.5);
+  }
+
+  private blastVisible(source:Destructible,target:Vec2,targetY:number):boolean {
+    const sourceY=source.y+.9,dx=target.x-source.x,dy=targetY-sourceY,dz=target.z-source.z,length=Math.hypot(dx,dy,dz);
+    if(length<.001)return true;
+    return this.rayWalls(source.x,sourceY,source.z,dx/length,dy/length,dz/length,length)>=length-.015;
   }
 
   private updateDoors(dt:number):void {

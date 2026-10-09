@@ -33,6 +33,8 @@ The build type-checks TypeScript, bundles Three.js with Vite, and copies the gen
 
 Interact with the cyan-saddled Strider in the street to ride it. Interact again to dismount. Health, armor and ammunition are collected on contact. Evidence and the secret room reward exploration.
 
+Shoot the marked fuel canisters to damage nearby enemies, but keep your distance from their blast. The diner and Eden display windows shatter when hit; the shop walls remain solid. Destruction is preserved at a checkpoint and resets with a new mission.
+
 ## Controls
 
 | Action | Keyboard / mouse |
@@ -53,7 +55,11 @@ Touch mode provides a movement joystick, drag-to-look area, and action buttons. 
 
 ## Retro presentation
 
-Actual 3D geometry is rendered at 640×400 by default, with a 320×200 classic option, and scaled with nearest-neighbor filtering. Saved resolution preferences are preserved. Original 128-pixel material tiles have brick relief, rivets, vents, rust, cracks and scuffed floors. Detailed faceted creatures have articulated limbs, teeth, claws, scales and armor, with rigid geometry batched within each animation pivot. Four 640×400 weapon sprites include machined hardware, mechanical fingers, etchings, copper coils and ammo indicators. Storefront relief, original posters, wet pavement decals, office case files, laboratory instruments and containment plumbing enrich the district without changing its collision layout. Neon signage, fog, impacts and synthesized audio are original artwork and code. No Duke Nukem assets, characters or music are distributed.
+Actual 3D geometry is rendered at 640×400 by default, with a 320×200 classic option, and scaled with nearest-neighbor filtering. Saved resolution preferences are preserved. Original 128-pixel material tiles have brick relief, rivets, vents, rust, cracks and scuffed floors. Detailed faceted creatures have articulated limbs, teeth, claws, scales and armor, with rigid geometry batched within each animation pivot. Four 640×400 weapon sprites include machined hardware, mechanical fingers, etchings, copper coils and ammo indicators. Office case files, laboratory instruments and containment plumbing enrich the mission. Neon signage, fog, impacts and synthesized audio are original artwork and code. No Duke Nukem assets, characters or music are distributed.
+
+Six distinct street frontages include a terracotta diner, the Last Chance, a cinema, a blue record shop, Eden's nightclub and a cream-and-teal Helix clinic. Cornices, pilasters, projecting signs, striped awnings and original illustrated posters give each building a recognizable silhouette. Lit window grids on surrounding towers extend the skyline. Neutral moonlight reveals cracked asphalt and pale masonry, while warm diner light, magenta club light and green laboratory light distinguish the areas. Raptors have earthy hide and ivory claws, soldiers have cool armor and amber visors, and mutants have pale scarred flesh so targets remain readable against their surroundings.
+
+Marked fuel canisters have collision, bullet detection, blast damage, smoke, debris, a brief dynamic light and charred remains. Shop glazing breaks into pixel shards with its recess visible behind it. Weapon firing adds layered muzzle flares, localized flash reflections, plasma arcs, drifting smoke and ejected cases. Revolver reloads eject retained cases; machine-gun bolts and revolver hammers move with firing. These effects freeze during pause and clear on mission restart. Closed-door visibility culling avoids drawing creatures in hidden sectors without stopping their simulation.
 
 Creatures use original pixel-painted hide, scarred skin, fabric and worn armor. Evidence threads, window blinds, a wall clock, sagging service cables, shop meters and covered laboratory specimens add further scene detail. Dithered contact shadows ground the characters; rain is confined to the outdoor street and steam rises at selected drains and vents. High effects quality enables rain and steam. Static wall hits leave up to 64 pixel scars, and defeated enemies leave textured blood stains; those marks reset with a new mission. These effects use fixed instance budgets and do not change combat or collision rules.
 
@@ -76,6 +82,7 @@ Settings include mouse sensitivity, render resolution, graphics quality, separat
 | `retro-textures.ts` | Original pixel material tiles, case files, posters and stains |
 | `creature-textures.ts` | Original pixel hide, flesh, fabric and armor surfaces |
 | `set-dressing.ts` | Batched office, storefront and laboratory props |
+| `district.ts` / `district-textures.ts` | Designed street facades, skyline, original urban surfaces and illustrated posters |
 | `atmosphere.ts` | Instanced rain, steam, contact shadows and impact decals |
 | `viewmodel.ts` | Animated first-person arm and weapons |
 | `input.ts` | Pointer Lock, keyboard, mouse and touch |
@@ -87,11 +94,13 @@ Three.js is MIT licensed. Dependency versions and licenses are recorded by npm; 
 
 ## Validation
 
-The automated suite covers weapons, reloads, AI, wall and door occlusion, physics, hazards, riding, keycard and elevator gates, checkpoint restoration, death and a complete input-only playthrough with all 20 enemies defeated. Creature checks additionally verify collision-resolved motion, stopping, attack synchronization, articulated knees, planted feet, pause, fresh-mission pose reset and geometry budgets.
+All 31 automated tests pass. The suite covers weapons, reloads, AI, wall and door occlusion, physics, hazards, riding, keycard and elevator gates, checkpoint restoration, death and a complete input-only playthrough with all 20 enemies defeated. Creature checks additionally verify collision-resolved motion, stopping, attack synchronization, articulated knees, planted feet, pause, fresh-mission pose reset and geometry budgets. Destructible checks verify collision removal, barrel-top landings, bullet and blast occlusion, finite chain reactions, distance falloff, armor, glass boundary preservation and checkpoint/restart state.
 
 Audio checks verify substantial weapon transients and bodies, decaying tails, different shotgun/machine-gun/plasma waveforms, bounded finite samples, synchronized score-stem lengths, stereo separation and closed loop boundaries.
 
 Chromium with software WebGL2 was used to inspect the office, street, security wing, laboratory, lift and all four weapons, with no JavaScript or shader errors. The compiled production page was separately served under `/fossil-noir/3d/`: both hashed assets returned HTTP 200, no TypeScript source was requested, Pointer Lock worked, movement collected the revolver and Escape paused the mission.
+
+The current district was visually inspected at both retro resolutions and multiple desktop viewport sizes. Browser checks confirmed barrel collision removal, rendered explosion/light decay, glass shards, restored props after restart and creature visibility after a door opens. A rendered input-only run completed the mission with all 20 kills. Production-page checks exercised aiming, firing, reload, door interaction, pause/resume, settings and resizing. Test runs use a controlled frame clock with software rendering; simulated completion time is not a human playtime measurement. Weapon checks confirmed frozen paused frames and one muzzle flash per automatic shot at both 60 and 120 simulated frame rates.
 
 Browser interaction checks also passed for keyboard and touch input, firing, reloading, office door interaction, pause/resume, settings persistence and mobile portrait/landscape layouts. Touch checks used a browser device emulation rather than a physical phone.
 

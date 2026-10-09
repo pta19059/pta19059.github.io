@@ -3,6 +3,9 @@ import type {GameState, WeaponId} from './types';
 /** Original, hand-drawn procedural sprites. Half-unit details are native 640×400 pixels. */
 type Point = readonly [number, number];
 const STEEL = ['#151b20','#2d3b43','#465761','#687b84','#96a7ad','#ced5ce'];
+type SmokeParticle = {age:number;life:number;x:number;y:number;vx:number;vy:number;size:number;variant:number;green:boolean};
+type CasingParticle = {age:number;weapon:string;x:number;y:number;vx:number;vy:number;spin:number};
+const MUZZLES:Record<string,Point>={revolver:[159,119],shotgun:[159,117],plasma:[160,119],machinegun:[158,116]};
 
 export class Viewmodel {
   private readonly ctx: CanvasRenderingContext2D;
@@ -19,6 +22,15 @@ export class Viewmodel {
   private lastZ = 0;
   private travel = 0;
   private initialized = false;
+  private effectTime = 0;
+  private movementAmount = 0;
+  private shotSerial = 0;
+  private readonly flares = new Map<string, HTMLCanvasElement[]>();
+  private readonly smokeSprites:HTMLCanvasElement[]=[];
+  private readonly smoke:SmokeParticle[]=[];
+  private readonly casings:CasingParticle[]=[];
+  private reloadCasesEjected = false;
+  private lastSimulationTime = 0;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     canvas.width = 640;
@@ -39,15 +51,24 @@ export class Viewmodel {
       this.paintWeapon(s, weapon);
       this.sprites.set(weapon, sprite);
     }
+    this.cacheFiringEffects();
   }
 
   render(state: GameState, dt: number): void {
     const p = state.player;
     const c = this.ctx;
-    dt = Math.min(dt, 0.06);
+    dt = Math.max(0, Math.min(dt, 0.06));
+    this.effectTime += dt;
     c.setTransform(2, 0, 0, 2, 0, 0);
     c.clearRect(0, 0, 320, 200);
     const weapon = p.owned.includes(p.weapon) ? p.weapon : 'fist';
+    if(state.time < this.lastSimulationTime) {
+      this.initialized = false;
+      this.flash = 0;this.shotAge = 1;this.lastRecoil = 0;
+      this.lastReload = 0;this.switchTime = 0;this.movementAmount = 0;
+      this.travel = 0;this.effectTime = 0;this.smoke.length = 0;this.casings.length = 0;
+    }
+    this.lastSimulationTime = state.time;
     if (!this.initialized) {
       this.current = this.next = weapon;
       this.lastX = p.x;
@@ -63,37 +84,57 @@ export class Viewmodel {
       if (this.switchTime < 0.16) this.current = this.next;
     }
     if (p.recoil > 0.65 && p.recoil > this.lastRecoil + 0.04 && weapon !== 'fist' && !p.mounted) {
-      this.flash = 0.075;
+      this.flash = weapon==='plasma' ? 0.11 : weapon==='shotgun' ? 0.09 : 0.075;
       this.shotAge = 0;
+      this.shotSerial++;
+      this.spawnShotEffects(weapon);
     }
     this.lastRecoil = p.recoil;
     this.flash = Math.max(0, this.flash - dt);
     this.shotAge += dt;
-    if (p.reload > this.lastReload + 0.1) this.reloadDuration = p.reload;
+    if (p.reload > this.lastReload + 0.1) {
+      this.reloadDuration = p.reload;
+      this.reloadCasesEjected = false;
+    }
     this.lastReload = p.reload;
-    const speed = Math.hypot(p.x - this.lastX, p.z - this.lastZ) / Math.max(dt, 0.001);
-    this.lastX = p.x;
-    this.lastZ = p.z;
-    this.travel += Math.min(speed, 15) * dt * (p.mounted ? 1.9 : 2.5);
-    const amount = Math.min(speed / 4, 1);
+    if (dt > 0) {
+      const speed = Math.hypot(p.x - this.lastX, p.z - this.lastZ) / dt;
+      this.lastX = p.x;
+      this.lastZ = p.z;
+      this.travel += Math.min(speed, 15) * dt * (p.mounted ? 1.9 : 2.5);
+      this.movementAmount = Math.min(speed / 4, 1);
+      this.updateParticles(dt);
+    }
+    const amount = this.movementAmount;
     const bobX = Math.sin(this.travel) * 2.2 * amount;
     const bobY = Math.abs(Math.cos(this.travel)) * 2.5 * amount;
     const switchDip = this.switchTime > 0 ? Math.sin((this.switchTime / 0.32) * Math.PI) * 100 : 0;
     const reloadProgress = p.reload > 0 ? 1 - p.reload / this.reloadDuration : 0;
     const reloadWave = p.reload > 0 ? Math.sin(reloadProgress * Math.PI) : 0;
     const recoil = Math.min(1, p.recoil);
-    const recoilStrength = this.current === 'shotgun' ? 13 : this.current === 'machinegun' ? 5 : 8;
+    // A crisp wrist/shoulder impulse followed by a heavier return. Local timers
+    // keep the full firing presentation still when the simulation is paused.
+    const impulse = this.shotAge < 0.26 ? Math.exp(-this.shotAge * (this.current==='shotgun'?11:19)) : 0;
+    const kick = this.current==='shotgun' ? 11 : this.current==='revolver' ? 6 : this.current==='machinegun' ? 3.5 : 4;
+    const tilt = this.current==='shotgun' ? .12 : this.current==='revolver' ? .105 : this.current==='machinegun' ? .033 : .035;
+    if (this.current==='revolver' && p.reload > 0 && reloadProgress > .22 && !this.reloadCasesEjected) {
+      this.reloadCasesEjected = true;
+      for(let i=0;i<6;i++)this.spawnCasing('revolver',168-i*.7,167+i*.3,28+i*7,-27-i*3,i);
+    }
 
     if (p.mounted) {
       // Mounted combat is a strider bite. Holster the weapon and keep Elias's
       // metal glove/reins visible, rather than displaying a gun that cannot fire.
-      this.paintMount(c, state.time, amount, recoil);
+      this.paintMount(c, this.effectTime, amount, recoil);
       this.line(c,[173,159],[251,188],'#5b4f35',2);
       this.arm(c,247,186);
       return;
     }
     c.save();
-    c.translate(Math.round(bobX), Math.round(bobY + switchDip + recoil * recoilStrength + reloadWave * 23));
+    c.translate(Math.round(bobX + impulse*(this.current==='machinegun'?Math.sin(this.shotSerial*2.4)*1.5:1)), Math.round(bobY + switchDip + impulse*kick + reloadWave * 23));
+    if(impulse>0 && p.reload<=0) {
+      c.translate(220,180);c.rotate(impulse*tilt);c.translate(-220,-180);
+    }
     // A reload presents the side of the gun, distinct from the upward kick when firing.
     if (p.reload > 0) {
       c.translate(209, 176);
@@ -102,24 +143,16 @@ export class Viewmodel {
     }
     c.drawImage(this.sprites.get(this.current)!, 0, 0, 320, 200);
     this.paintAmmoGauge(c, this.current, p.ammo[this.current as WeaponId] || 0);
-    if (this.current === 'plasma') this.paintPlasmaPulse(c, state.time, p.reload > 0);
+    this.paintMechanism(c, this.current, p.reload > 0);
+    if (this.current === 'plasma') this.paintPlasmaPulse(c, this.effectTime, p.reload > 0);
+    this.paintSmoke(c);
     if (p.reload > 0) this.paintReload(c, this.current, reloadProgress);
-    if (this.flash > 0 && p.reload <= 0) this.paintFlash(c, this.current, state.time);
+    if (this.flash > 0 && p.reload <= 0) this.paintFlash(c, this.current);
     if (this.current === 'shotgun' && this.shotAge < 0.48 && this.shotAge > 0.12 && p.reload <= 0) {
       this.paintPumpHand(c, Math.sin((this.shotAge - 0.12) / 0.36 * Math.PI) * 8);
     }
     c.restore();
-    // Brass is part of the foreground animation, never an external asset.
-    if (['shotgun','machinegun','revolver'].includes(this.current) && this.shotAge > 0.06 && this.shotAge < 0.35) {
-      const t = this.shotAge / 0.35;
-      c.save();
-      c.translate(Math.round(222 + t * 59), Math.round(148 - Math.sin(t * Math.PI) * 25));
-      c.rotate(t * 9);
-      c.fillStyle = '#17130b'; c.fillRect(-2,-1,9,4);
-      c.fillStyle = this.current === 'shotgun' ? '#a12b25' : '#c19f4d'; c.fillRect(-1,0,6,2);
-      c.fillStyle = '#e2ce86'; c.fillRect(4,0,2,2);
-      c.restore();
-    }
+    this.paintCasings(c);
   }
 
   private poly(c: CanvasRenderingContext2D, points: readonly Point[], fill: string, outline = '#080c10'): void {
@@ -591,6 +624,15 @@ export class Viewmodel {
     c.fillStyle=Math.sin(time*9)>0?'#c4ffe1':'#49dc95';
     c.fillRect(215,158,4,2);c.fillRect(221,165,2,2);
     c.fillRect(158,117,3,3);
+    const charge=1-Math.min(1,this.shotAge/.32);
+    for(let i=0;i<5;i++) {
+      const bright=charge>.05 || Math.sin(time*7-i*.9)>.4;
+      this.line(c,[185+i*4,149+i*4],[181+i*4,153+i*4],bright?'#b0ffbd':'#2fbc79',1);
+      if(charge>.2) {
+        c.fillStyle='#d6ffd2';c.fillRect(182+i*4,151+i*4,.5,1);
+        if(i%2===this.shotSerial%2)this.line(c,[184+i*4,151+i*4],[188+i*4,151+i*4],'#68eaa7',.5);
+      }
+    }
   }
 
   private paintReload(c:CanvasRenderingContext2D,weapon:string,progress:number):void {
@@ -631,13 +673,144 @@ export class Viewmodel {
     }
   }
 
-  private paintFlash(c:CanvasRenderingContext2D,weapon:string,time:number):void {
-    const green=weapon==='plasma',x=159,y=114;
-    const size=weapon==='shotgun'?23:weapon==='machinegun'?17:13;
-    const shift=Math.floor(time*70)%2?1:-1;
-    this.poly(c,[[x-3,y],[x-size,y-9],[x-7,y-12],[x-11,y-size-5],[x,y-15],[x+size*0.7,y-size],[x+7,y-8],[x+size,y-3],[x+5,y+4]],green?'#247e55':'#af4321','');
-    this.poly(c,[[x-3,y],[x-10,y-7],[x-3,y-10],[x+shift*3,y-19],[x+4,y-9],[x+12,y-6],[x+4,y+2]],green?'#82ffae':'#f9b84e','');
-    this.poly(c,[[x-3,y],[x-2,y-7],[x+2,y-11],[x+5,y-4],[x+3,y+3]],green?'#e7ffeb':'#fff3b9','');
+  private cacheFiringEffects():void {
+    // Small original pixel sprites are painted once. No gradients, canvas
+    // allocations, randomness or blur work in the render loop.
+    for(const weapon of ['revolver','shotgun','plasma','machinegun']) {
+      const frames:HTMLCanvasElement[]=[];
+      for(let variant=0;variant<2;variant++)for(let frame=0;frame<4;frame++) {
+        const sprite=document.createElement('canvas');sprite.width=128;sprite.height=128;
+        const c=sprite.getContext('2d')!;c.setTransform(2,0,0,2,0,0);
+        const plasma=weapon==='plasma';
+        const size=(weapon==='shotgun'?26:weapon==='machinegun'?20:plasma?22:17)*(1-frame*.12);
+        const x=32,y=42,shift=variant?1:-1;
+        // Asymmetric lobes with a stepped silhouette rather than smooth bloom.
+        for(let lobe=0;lobe<7;lobe++) {
+          const a=-Math.PI+(lobe/6)*Math.PI;
+          const length=size*(.62+((lobe*5+variant*3)%7)*.065);
+          const dx=Math.round(Math.cos(a)*length),dy=Math.round(Math.sin(a)*length);
+          this.poly(c,[[x-3,y-1],[x+dx*.5-2,y+dy*.5-2],[x+dx-1,y+dy],[x+dx+3,y+dy+2],[x+dx*.5+3,y+dy*.5+3],[x+3,y+1]],plasma?'#126948':frame>1?'#873925':'#a84925','');
+        }
+        this.poly(c,[[x-4,y],[x-15,y-5],[x-10,y-8],[x-12,y-15],[x-6,y-12],[x+shift*4,y-size],[x+7,y-12],[x+13,y-15],[x+11,y-7],[x+20,y-6],[x+12,y-1],[x+4,y+4]],plasma?'#27c881':'#e6742b','');
+        this.poly(c,[[x-4,y],[x-8,y-6],[x-3,y-8],[x+shift*3,y-16],[x+6,y-8],[x+12,y-6],[x+5,y+3]],plasma?'#8affa9':'#ffd466','');
+        // White is restricted to the small hot core; enemies stay readable.
+        c.fillStyle=plasma?'#e6ffdd':'#fff5bc';
+        c.fillRect(x-2,y-5,6,7);c.fillRect(x,y-9,3,5);c.fillRect(x-4,y-3,2,3);
+        if(plasma) {
+          const arcs:Point[][]=[[[x-4,y-9],[x-14,y-17],[x-11,y-21],[x-19,y-25]],[[x+4,y-7],[x+16,y-14],[x+12,y-18],[x+20,y-24]],[[x,y-12],[x+shift*5,y-24],[x-shift*1,y-27]]];
+          for(const arc of arcs)for(let i=0;i<arc.length-1;i++)this.line(c,arc[i],arc[i+1],frame%2?'#72efb3':'#bef6bd',.5);
+          c.fillStyle='#72e5ac';
+          for(let i=0;i<7;i++)c.fillRect(x-23+(i*11+variant*5)%43,y-10-(i*7)%22,.5,.5);
+        } else {
+          // Incandescent powder grains have an uneven, chunky edge.
+          for(let i=0;i<15;i++) {
+            c.fillStyle=i%3?'#da8c43':'#ffd996';
+            c.fillRect(x-25+(i*13+variant*7)%49,y-4-(i*11)%31,i%4===0?1.5:.5,.5);
+          }
+        }
+        frames.push(sprite);
+      }
+      this.flares.set(weapon,frames);
+    }
+    for(let variant=0;variant<4;variant++) {
+      const sprite=document.createElement('canvas');sprite.width=48;sprite.height=48;
+      const c=sprite.getContext('2d')!;c.setTransform(2,0,0,2,0,0);
+      const colors=['#495457','#66716d','#829084'];
+      for(let i=0;i<22;i++) {
+        const x=3+(i*7+variant*3)%15,y=3+(i*11+variant*5)%15;
+        c.fillStyle=colors[i%3];c.fillRect(x,y,2+(i%3),2+((i+variant)%3));
+      }
+      this.smokeSprites.push(sprite);
+    }
+  }
+
+  private spawnShotEffects(weapon:string):void {
+    const muzzle=MUZZLES[weapon];if(!muzzle)return;
+    const count=weapon==='shotgun'?4:weapon==='plasma'?2:3;
+    for(let i=0;i<count;i++) {
+      this.smoke.push({age:0,life:.35+i*.08,x:muzzle[0],y:muzzle[1]-3,
+        vx:-10+((this.shotSerial*7+i*13)%21),vy:-22-i*8,
+        size:weapon==='shotgun'?7+i:5+i,variant:(this.shotSerial+i)%4,green:weapon==='plasma'});
+    }
+    if(this.smoke.length>28)this.smoke.splice(0,this.smoke.length-28);
+    if(weapon==='shotgun')this.spawnCasing(weapon,217,174,88,-73,this.shotSerial);
+    if(weapon==='machinegun')this.spawnCasing(weapon,223,165,94,-62,this.shotSerial);
+  }
+
+  private spawnCasing(weapon:string,x:number,y:number,vx:number,vy:number,spin:number):void {
+    this.casings.push({age:0,weapon,x,y,vx,vy,spin});
+    if(this.casings.length>14)this.casings.splice(0,this.casings.length-14);
+  }
+
+  private updateParticles(dt:number):void {
+    for(let i=this.smoke.length-1;i>=0;i--) {
+      const puff=this.smoke[i];puff.age+=dt;
+      if(puff.age>puff.life)this.smoke.splice(i,1);
+    }
+    for(let i=this.casings.length-1;i>=0;i--) {
+      const casing=this.casings[i];casing.age+=dt;
+      if(casing.age>.55)this.casings.splice(i,1);
+    }
+  }
+
+  private paintSmoke(c:CanvasRenderingContext2D):void {
+    for(const puff of this.smoke) {
+      const t=puff.age/puff.life;
+      const size=Math.round(puff.size*(.65+t*.75));
+      const x=Math.round(puff.x+puff.vx*puff.age),y=Math.round(puff.y+puff.vy*puff.age);
+      c.save();c.globalAlpha=(1-t)*(puff.green?.22:.36);
+      c.drawImage(this.smokeSprites[puff.variant],x-size/2,y-size/2,size,size);
+      c.restore();
+    }
+  }
+
+  private paintCasings(c:CanvasRenderingContext2D):void {
+    for(const shell of this.casings) {
+      const delay=shell.weapon==='shotgun'?.14:shell.weapon==='machinegun'?.035:0;
+      if(shell.age<delay)continue;
+      const t=shell.age-delay;
+      c.save();c.translate(Math.round(shell.x+shell.vx*t),Math.round(shell.y+shell.vy*t+175*t*t));
+      c.rotate(((Math.floor(t*18)+shell.spin)%4)*Math.PI/2);
+      const shotgun=shell.weapon==='shotgun';
+      c.fillStyle='#111711';c.fillRect(-1.5,-1.5,shotgun?8:5,3.5);
+      c.fillStyle=shotgun?'#a6312c':'#b2964f';c.fillRect(-1,-1,shotgun?6:4,2.5);
+      c.fillStyle=shotgun?'#ee7861':'#e6cb78';c.fillRect(-1,-1,shotgun?5:3,.5);
+      c.fillStyle='#e7ce82';c.fillRect(shotgun?4:2,-1,1.5,2.5);
+      c.fillStyle='#675435';c.fillRect(shotgun?5:3,-.5,.5,1.5);
+      c.restore();
+    }
+  }
+
+  private paintMechanism(c:CanvasRenderingContext2D,weapon:string,reload:boolean):void {
+    if(reload)return;
+    const cycle=Math.max(0,1-this.shotAge/.16);
+    if(weapon==='revolver' && cycle>0) {
+      const lift=Math.round(cycle*4);
+      this.poly(c,[[198,148],[199,142+lift],[203,141+lift],[207,145+lift],[207,150]],'#37474b');
+      this.line(c,[199,143+lift],[203,142+lift],'#c8d1b8',.5);
+      c.fillStyle='#141f27';c.fillRect(199,149,6,1.5);
+    } else if(weapon==='machinegun') {
+      const back=Math.round(cycle*3);
+      c.fillStyle='#07151b';c.fillRect(218,151,12,8);
+      this.poly(c,[[218+back,153+back],[222+back,152+back],[227+back,157+back],[225+back,160+back],[220+back,156+back]],'#7f9592');
+      this.line(c,[219+back,153+back],[222+back,152+back],'#dbe1bd',.5);
+      c.fillStyle=cycle>.4?'#d8c074':'#364640';c.fillRect(221,154,1,2);
+    }
+    // Colored reflections stay on barrel edges and the mechanical knuckles.
+    if(this.flash<=0)return;
+    const color=weapon==='plasma'?'#a5ffd2':'#ffe0a2';
+    c.save();c.globalAlpha=.55;
+    this.line(c,[163,123],[178,141],color,1);
+    this.line(c,[182,146],[193,148],color,.5);
+    this.line(c,[220,176],[229,183],color,.5);
+    c.fillStyle=color;c.fillRect(223,182,2,.5);c.fillRect(231,186,1,.5);
+    c.restore();
+  }
+
+  private paintFlash(c:CanvasRenderingContext2D,weapon:string):void {
+    const frames=this.flares.get(weapon),muzzle=MUZZLES[weapon];if(!frames||!muzzle)return;
+    const frame=Math.min(3,Math.floor(this.shotAge*45));
+    c.drawImage(frames[(this.shotSerial%2)*4+frame],muzzle[0]-32,muzzle[1]-42,64,64);
   }
 
   private paintMount(c:CanvasRenderingContext2D,time:number,amount:number,recoil=0):void {

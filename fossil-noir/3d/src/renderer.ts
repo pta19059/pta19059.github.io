@@ -4,9 +4,10 @@ import {LEVEL} from './level';
 import {createRetroTexture,createDecal,type DecalKind} from './retro-textures';
 import {Atmosphere} from './atmosphere';
 import {buildSetDressing} from './set-dressing';
+import {buildDistrict} from './district';
 import {createCreatureTexture} from './creature-textures';
 import {buildCreatureRig,updateCreatureRig,type CreatureRig} from './creature-rig';
-import type {EnemyKind,GameState,Settings,Wall,PickupKind} from './types';
+import type {EnemyKind,GameState,Settings,Wall,PickupKind,DestructibleDef} from './types';
 
 const TAU=Math.PI*2;
 const rnd=(n:number)=>{const x=Math.sin(n*127.1+91.7)*43758.5453;return x-Math.floor(x)};
@@ -30,6 +31,10 @@ export class Renderer {
  private doorGroups=new Map<string,THREE.Group>();
  private enemyGroups=new Map<string,CreatureRig>();
  private pickupGroups=new Map<string,THREE.Group>();
+ private propGroups=new Map<string,THREE.Group>();
+ private propRuins=new Map<string,THREE.Group>();
+ private muzzleLight=new THREE.PointLight(0xffd29a,0,8,2);
+ private blastLight=new THREE.PointLight(0xff932e,0,15,2);
  private lamps:THREE.Mesh[]=[];
  private hazmat:THREE.Mesh[]=[];
  private mountRig:CreatureRig;
@@ -50,18 +55,22 @@ export class Renderer {
  constructor(private canvas:HTMLCanvasElement){
   this.renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,powerPreference:'high-performance'});
   this.renderer.setPixelRatio(1);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.NoToneMapping;
-  this.scene.background=new THREE.Color(0x090f1a);this.scene.fog=new THREE.Fog(0x0a1820,13,68);
+  this.scene.background=new THREE.Color(0x070910);this.scene.fog=new THREE.Fog(0x10151f,24,94);
   this.camera.rotation.order='YXZ';
-  const hemisphere=new THREE.HemisphereLight(0x99c3c8,0x203b29,1.45);this.scene.add(hemisphere);
-  const moon=new THREE.DirectionalLight(0xa9bbd6,1.05);moon.position.set(-10,25,12);this.scene.add(moon);
-  const green=new THREE.DirectionalLight(0x73efba,.65);green.position.set(7,9,-25);this.scene.add(green);
-  for(const kind of ['brick','metal','concrete','crate','floor','labfloor','road','ceiling','door']){const m=new THREE.MeshLambertMaterial({map:createRetroTexture(kind)});this.retroMaterial(m);this.mats.set(kind,m)}
+  // Neutral fill reveals painted surfaces; local amber, magenta and green lights define districts.
+  const hemisphere=new THREE.HemisphereLight(0xb9c9df,0x615951,1.38);this.scene.add(hemisphere);
+  const moon=new THREE.DirectionalLight(0xb9c8e3,1.12);moon.position.set(-10,25,12);this.scene.add(moon);
+  const warm=new THREE.DirectionalLight(0xffd3a2,.42);warm.position.set(-18,8,3);this.scene.add(warm);
+  const green=new THREE.DirectionalLight(0x83eebc,.22);green.position.set(7,9,-25);this.scene.add(green);
+  this.scene.add(this.muzzleLight,this.blastLight);
+  for(const kind of ['brick','metal','concrete','crate','floor','labfloor','road','ceiling','door','fuel']){const m=new THREE.MeshLambertMaterial({map:createRetroTexture(kind)});this.retroMaterial(m);this.mats.set(kind,m)}
   this.buildLevel();this.flush();
   for(const d of LEVEL.doors)this.buildDoor(d);
+  for(const prop of LEVEL.destructibles??[])this.buildDestructible(prop);
   for(const e of LEVEL.enemies){const mob=buildCreatureRig(e.kind,false,(color,emissive=0)=>this.creatureMaterial(e.kind,false,color,emissive));mob.root.position.set(e.x,0,e.z);this.enemyGroups.set(e.id,mob);this.scene.add(mob.root)}
   for(const p of LEVEL.pickups){const group=this.buildPickup(p.kind);group.position.set(p.x,.5,p.z);this.scene.add(group);this.pickupGroups.set(p.id,group)}
   this.mountRig=buildCreatureRig('raptor',true,(color,emissive=0)=>this.creatureMaterial('raptor',true,color,emissive));this.mountRig.root.position.set(LEVEL.mount.x,0,LEVEL.mount.z);this.mountRig.root.rotation.y=this.mountHeading;this.scene.add(this.mountRig.root);
-  this.effectMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.9});this.effectMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(.08,.08,.08),this.effectMat,128);this.effectMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.effectMesh.count=0;this.effectMesh.frustumCulled=false;this.scene.add(this.effectMesh);
+  this.effectMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.94,depthWrite:false});this.effectMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(.08,.08,.08),this.effectMat,192);this.effectMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.effectMesh.count=0;this.effectMesh.frustumCulled=false;this.scene.add(this.effectMesh);
   this.canvas.style.imageRendering='pixelated';
   this.atmosphere=new Atmosphere(this.scene);
  }
@@ -123,12 +132,6 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   }
   // Street sidewalk edges and luminous windows in the street facing walls.
   for(const x of [-11.8,11.8]){this.box(x,.045,-8,2.6,.15,24,M('concrete'));this.box(x+Math.sign(x)*.9,1.2,-8,.06,.08,22,this.mat(0x385346))}
-  for(const side of [-1,1])for(let i=0;i<5;i++){
-   const z=1-i*4.4;this.box(side*12.94,2.65,z,.08,1.8,1.7,this.mat(0x172c32));
-   for(let k=-1;k<=1;k++)this.box(side*12.88,2.65,z+k*.58,.07,1.8,.045,this.mat(0x59675c));
-   this.box(side*12.85,1.72,z,.13,.15,1.9,M('metal'));
-   if(i%2===0)this.lamp(side*12.84,3.95,z,i===2?0xdb496f:0x76e4bb,false);
-  }
   // Ceiling structure with vents and industrial strips; low mesh count via batching.
   for(const z of [6,10,-22,-27,-30,-34,-38,-42,-49]){
    const lab=z<-31&&z>-46;this.box(0,3.91,z,lab?20:9,.18,.25,M('metal'));
@@ -141,7 +144,8 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   // Original props and small environmental stories.
   for(const p of LEVEL.props){
    const x=p.x,z=p.z,r=p.rotation??0;
-   if(['neon','office-sign','facility-sign','sign'].includes(p.kind)){
+   if(p.kind==='neon')continue; // The district's large, distinct shop signs replace the repeated plaques.
+   if(['office-sign','facility-sign','sign'].includes(p.kind)){
     const isNeon=p.kind==='neon';const y=p.kind==='office-sign'?3.05:p.kind==='facility-sign'?4.15:isNeon?4.9:3.6;
     this.sign(p.label??'',x,y,z,p.kind==='facility-sign'?9:isNeon?4.8:5,p.kind==='facility-sign'?1.3:.85,r,isNeon&&z<-3?'#ff7095':'#96ffc9');
    }else if(p.kind==='portrait'){
@@ -198,9 +202,10 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   }
   this.buildEnvironmentDetails();
   buildSetDressing({box:this.box.bind(this),addGeometry:this.addGeometry.bind(this),mat:this.mat.bind(this),basic:this.basic.bind(this),sign:this.sign.bind(this),decal:this.decal.bind(this)});
+  buildDistrict({box:this.box.bind(this),addGeometry:this.addGeometry.bind(this),mat:this.mat.bind(this),basic:this.basic.bind(this),sign:this.sign.bind(this),decal:this.decal.bind(this)});
   // A handful of local lights, rather than a light per luminous decorative prop.
-  for(const pos of [[0,2.6,7],[0,3,-26],[0,3,-39],[8,3,-8],[-9,3,-7]]){
-   const l=new THREE.PointLight(pos[2]===-7?0xcf366e:0x54d799,7,12,2);l.position.set(pos[0],pos[1],pos[2]);this.lights.push(l);this.scene.add(l);
+  for(const [x,y,z,color,power]of [[0,2.6,7,0xffbc79,9],[0,3,-26,0x8bcabd,9],[0,3,-39,0x54d799,10],[9,3.6,-5.5,0xcf4b8c,12],[-9,3.6,-1.7,0xffba6c,13],[-9,3.7,-12,0x66a9dc,9]]){
+   const l=new THREE.PointLight(color,power,13,2);l.position.set(x,y,z);this.lights.push(l);this.scene.add(l);
   }
  }
  private decal(kind:DecalKind,x:number,y:number,z:number,w:number,h:number,ry=0,floor=false){
@@ -229,22 +234,7 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   this.box(-4.98,.95,8,.07,.04,7.6,dark);this.box(4.99,3.6,8,.07,.06,7.6,trim);
   this.sign('VESPER 2091 / MISSING: MARA',-2.48,2.67,11.97,2.35,.44,Math.PI,'#b7a57b','#2b3230');
   this.decal('paper',1.9,.048,10,.43,.54,.6,true);this.decal('paper',1.65,.047,10.32,.31,.42,-.2,true);
-  // Street storefronts: frame relief, awnings, AC vents, wiring and old posters.
-  for(const side of [-1,1])for(let i=0;i<5;i++){
-   const z=1-i*4.4,x=side*12.87;
-   for(const dz of [-.99,.99]){this.box(x,2.65,z+dz,.15,2.1,.14,trim);this.box(x-side*.045,2.65,z+dz,.06,1.9,.04,silver)}
-   this.box(x,3.71,z,.22,.13,2.16,trim);this.box(x,1.56,z,.29,.12,2.22,dark);
-   if(i%2===1){
-    this.box(side*12.5,3.98,z,.95,.1,2.4,dark);for(let j=0;j<6;j++)this.box(side*12.47,4.037,z-1.05+j*.4,.94,.015,.14,this.mat(side<0?0x815f59:0x537d6b));
-    this.box(side*12.04,3.82,z,.055,.28,2.42,trim);
-   }
-   const vz=z-1.65;
-   this.box(side*12.84,4.77,vz,.28,.63,.94,M('metal'));for(let j=0;j<6;j++)this.box(side*12.66,4.52+j*.09,vz,.026,.035,.77,dark);
-   tube(side*12.78,3.2,vz,.043,2.3);this.box(side*12.72,2.01,vz,.16,.19,.18,rust);
-   this.decal('leak',side*12.975,2.9,vz+.1,1,1.7,-side*Math.PI/2);
-   if(i===0||i===3)this.decal('poster',side*12.97,1.68,z-1.68,.64,.95,-side*Math.PI/2);
-   for(const dz of [-1.8,1.8])this.box(side*12.8,5.65,z+dz,.14,.4,.17,trim);
-  }
+  // Large, distinct shop fronts are built by the district module.
   this.decal('graffiti',12.97,1.12,-14.2,2.55,1.12,-Math.PI/2);this.decal('graffiti',-12.97,1.3,-.7,2.4,1.05,Math.PI/2);
   for(const side of [-1,1]){
    tube(side*12.83,5.4,-8,.065,23,Math.PI/2);
@@ -303,6 +293,33 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
  }
  private mesh(geo:THREE.BufferGeometry,mat:THREE.Material,x:number,y:number,z:number,parent:THREE.Group){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);parent.add(m);return m}
  private localBox(parent:THREE.Group,x:number,y:number,z:number,w:number,h:number,d:number,color:number,emissive=0){return this.mesh(new THREE.BoxGeometry(w,h,d),this.mat(color,emissive),x,y,z,parent)}
+ private buildDestructible(prop:DestructibleDef){
+  const group=new THREE.Group();group.position.set(prop.x,prop.y,prop.z);group.name=`shootable-${prop.id}`;
+  if(prop.kind==='barrel'){
+   this.mesh(new THREE.CylinderGeometry(prop.w*.44,prop.w*.44,prop.h,12),this.mats.get('fuel')!,0,prop.h/2,0,group);
+   for(const y of [.08,prop.h*.26,prop.h*.76,prop.h-.04])this.mesh(new THREE.CylinderGeometry(prop.w*.456,prop.w*.456,.075,12),this.mat(0x70747a),0,y,0,group);
+   this.mesh(new THREE.CylinderGeometry(.105,.105,.055,8),this.mat(0x22272e),.14,prop.h+.035,.10,group);
+   this.localBox(group,-.12,prop.h+.06,.04,.25,.08,.10,0x9b9685);
+  }else{
+   // Bright broken reflections show precisely which panes can be shot.
+   const glassMat=new THREE.MeshBasicMaterial({color:0x91b9c1,transparent:true,opacity:.25,side:THREE.DoubleSide,depthWrite:false});
+   this.mats.set(`breakable-glass-${prop.id}`,glassMat);
+   this.mesh(new THREE.BoxGeometry(prop.w,prop.h,prop.d),glassMat,0,prop.h/2,0,group);
+   for(let i=0;i<4;i++){
+    const stripe=this.mesh(new THREE.BoxGeometry(.012,prop.h*.73,.045),this.basic(i%2?0x648b97:0xc6d9cc),-Math.sign(prop.x)*(prop.w/2+.012),prop.h*.58,-prop.d*.32+i*.15,group);
+    stripe.rotation.x=-.36;
+   }
+   this.localBox(group,-Math.sign(prop.x)*.09,.04,0,.08,.08,prop.d,0x9fb6b4);
+  }
+  const ruin=new THREE.Group();ruin.position.set(prop.x,prop.y,prop.z);ruin.visible=false;ruin.name=`ruin-${prop.id}`;
+  if(prop.kind==='barrel'){
+   const shell=this.mesh(new THREE.CylinderGeometry(prop.w*.43,prop.w*.44,.25,10,1,true),this.mat(0x24282b),0,.13,0,ruin);shell.rotation.z=.13;
+   for(let i=0;i<4;i++){const bit=this.localBox(ruin,(rnd(i+prop.x)-.5)*1.15,.05,(rnd(i+prop.z)-.5)*1.15,.23,.045,.18,0x443a33);bit.rotation.y=i*1.2;}
+  }else{
+   for(let i=0;i<12;i++){const shard=this.mesh(new THREE.PlaneGeometry(.05+rnd(i)*.13,.08+rnd(i+2)*.17),this.basic(0x9dbcc0),-.10,.017,-prop.d/2+i*prop.d/12,ruin);shard.rotation.set(-Math.PI/2,0,i*2.1);}
+  }
+  this.scene.add(group,ruin);this.propGroups.set(prop.id,group);this.propRuins.set(prop.id,ruin);
+ }
  private buildDoor(d:typeof LEVEL.doors[number]){
   const group=new THREE.Group();group.position.set(d.x,0,d.z);this.mesh(new THREE.BoxGeometry(d.w,3.2,d.d),this.mats.get('door')!,0,1.6,0,group);
   const horizontal=d.w>d.d;if(horizontal){this.localBox(group,0,1.58,d.d/2+.015,d.w*.85,.08,.035,0x73ad88);this.localBox(group,d.w*.35,1.3,d.d/2+.03,.15,.25,.03,d.locked?0xee7b36:0x78eab0,0x225532)}else this.localBox(group,-d.w/2-.015,1.58,0,.035,.08,d.d*.85,0x73ad88);
@@ -356,10 +373,18 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   const eye=p.crouching?.9:p.mounted?2.6:1.65;
   const speedBob=state.status==='playing'?Math.sin(this.cameraStride*(p.mounted?4.3:8.2))*this.cameraMotion*(p.mounted?.032:.016):0;
   this.camera.position.set(p.x,p.y+eye+speedBob,p.z);this.camera.rotation.set(p.pitch+(p.recoil*.012),p.yaw,0,'YXZ');
+  this.muzzleLight.visible=settings.quality==='high'&&!p.mounted&&p.owned.includes(p.weapon);
+  this.muzzleLight.intensity=Math.max(0,p.recoil-.58)*26;
+  this.muzzleLight.color.setHex(p.weapon==='plasma'?0x65ff9e:0xffcf8b);
+  this.muzzleLight.position.set(p.x-Math.sin(p.yaw)*.65+Math.cos(p.yaw)*.20,p.y+eye-.15,p.z-Math.cos(p.yaw)*.65-Math.sin(p.yaw)*.20);
+  this.blastLight.visible=false;this.blastLight.intensity=0;
   for(const d of state.doors){const g=this.doorGroups.get(d.id);if(g)g.position.y=d.open*3.4}
   for(const e of state.enemies){
    const rig=this.enemyGroups.get(e.id)!;
    updateCreatureRig(rig,{x:e.x,z:e.z,heading:e.heading,speed:e.speed,attack:e.attack,hurt:e.hurt,alive:e.alive,time:state.time,dt});
+   // A shut portal fully hides the next room, so its creatures need no draw calls.
+   rig.root.visible=this.sectorVisible(e.z,state)&&Math.hypot(e.x-p.x,e.z-p.z)<65;
+   rig.root.position.y=this.curbstep(e.x,e.z);
   }
   for(const item of state.pickups){const g=this.pickupGroups.get(item.id)!;g.visible=!item.collected;if(g.visible){g.position.y=.48+Math.sin(this.clock*3+item.x)*.06;g.rotation.y=this.clock*.75}}
   const mount=state.mount,previous=this.lastMountPosition;
@@ -367,24 +392,48 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   if(mountDistance>.002&&mountDistance<2)this.mountHeading=Math.atan2(-(mount.x-previous!.x),-(mount.z-previous!.z));
   updateCreatureRig(this.mountRig,{x:mount.x,z:mount.z,heading:this.mountHeading,speed:dt>0&&mountDistance<2?mountDistance/dt:0,attack:p.mounted?p.recoil:0,hurt:0,alive:true,time:state.time,dt});
   this.mountRig.root.visible=!p.mounted;
+  this.mountRig.root.position.y=this.curbstep(mount.x,mount.z);
   this.lastMountPosition={x:mount.x,z:mount.z};
   if(this.powerLamp)(this.powerLamp.material as THREE.MeshBasicMaterial).color.setHex(state.powered?0x73ff99:0xff6633);
+  for(const prop of state.destructibles){
+   const group=this.propGroups.get(prop.id),ruin=this.propRuins.get(prop.id);
+   if(group)group.visible=!prop.destroyed;if(ruin)ruin.visible=prop.destroyed;
+  }
   for(let i=0;i<this.lamps.length;i++)this.lamps[i].visible=Math.sin(this.clock*3+i*1.73)>.0||i%4!==1||Math.sin(this.clock*31+i)>-.7;
   for(let i=0;i<this.hazmat.length;i++){const m=this.hazmat[i].material as THREE.MeshBasicMaterial;m.color.setRGB(.22+.04*Math.sin(this.clock*3),.48+.07*Math.sin(this.clock*2+i),.19)}
   let count=0;for(const fx of state.effects){
-   const c=fx.kind==='blood'?0xbc3446:fx.kind==='plasma'?0x6effa1:fx.kind==='smoke'?0x647b78:0xffd280;
-   const age=1-fx.life/fx.maxLife;for(let i=0;i<(fx.kind==='muzzle'?3:7)&&count<128;i++){
-    const spread=fx.kind==='smoke'?.32:fx.kind==='plasma'?.06:.22;this.dummy.position.set(fx.x+(rnd(i+fx.x)-.5)*age*spread*5+(fx.dx??0)*age*.4,fx.y+(rnd(i+fx.z)-.3)*age*spread*3,fx.z+(rnd(i+13)-.5)*age*spread*5+(fx.dz??0)*age*.4);
-    this.dummy.scale.setScalar(fx.kind==='smoke'?(1+age*4):Math.max(.25,1-age));this.dummy.updateMatrix();this.effectMesh.setMatrixAt(count,this.dummy.matrix);this.effectMesh.setColorAt(count,new THREE.Color(c));count++;
+   const age=1-fx.life/fx.maxLife,explosion=fx.kind==='explosion',shard=fx.kind==='shard';
+   if(explosion&&settings.quality==='high'&&(1-age)*32>this.blastLight.intensity){this.blastLight.visible=true;this.blastLight.intensity=(1-age)*32;this.blastLight.position.set(fx.x,fx.y,fx.z);}
+   const total=explosion?24:shard?1:fx.kind==='muzzle'?5:7;
+   for(let i=0;i<total&&count<192;i++){
+    const c=fx.kind==='blood'?0xd8443d:fx.kind==='plasma'?0x7affb0:fx.kind==='smoke'?0x77766d:shard?0xb7d9dd:explosion?(i%3===0?0xffefb0:i%3===1?0xffa137:0xd54a25):0xffd280;
+    const spread=explosion?.55:fx.kind==='smoke'?.4:fx.kind==='plasma'?.08:shard?.4:.22;
+    const sx=(rnd(i+fx.x)-.5)*age*spread*5+(fx.dx??0)*age*.6,sz=(rnd(i+fx.z+13)-.5)*age*spread*5+(fx.dz??0)*age*.6;
+    this.dummy.position.set(fx.x+sx,shard?Math.max(.04,fx.y-age*age*4):fx.y+(rnd(i+fx.z)-.2)*age*spread*3+(explosion?age*.4:0),fx.z+sz);
+    this.dummy.rotation.set(shard?age*9:0,age*i*.2,shard?age*7:0);
+    const size=explosion?(3.8+age*5)*(1-age*.76):fx.kind==='smoke'?(1.5+age*5):Math.max(.25,1-age);
+    this.dummy.scale.set(size,shard?size*.23:size,size);this.dummy.updateMatrix();this.effectMesh.setMatrixAt(count,this.dummy.matrix);this.effectMesh.setColorAt(count,new THREE.Color(c));count++;
    }
   }
   this.effectMesh.count=count;this.effectMesh.instanceMatrix.needsUpdate=true;if(this.effectMesh.instanceColor)this.effectMesh.instanceColor.needsUpdate=true;
   this.atmosphere.update(state,this.camera,this.clock,settings);
   this.renderer.render(this.scene,this.camera);
  }
+ private curbstep(x:number,z:number){return z>-20&&z<4&&Math.abs(x)>10.5&&Math.abs(x)<13.1?.12:0;}
+ private sectorVisible(z:number,state:GameState){
+  // Even a partly raised door can expose feet or a crouching player's sightline.
+  const pz=state.player.z,closed=(id:string)=>(state.doors.find(d=>d.id===id)?.open??1)<=.001;
+  if(pz>4.35&&z<3.7&&closed('office'))return false;
+  if(pz>-19.6&&z<-20.4&&closed('facility'))return false;
+  if(pz>-31.8&&z<-32.6&&closed('laboratory'))return false;
+  if(pz<-20.4&&z>-19.6&&closed('facility'))return false;
+  if(pz<-32.6&&z>-31.8&&closed('laboratory'))return false;
+  return true;
+ }
  dispose(){
   this.atmosphere.dispose();
-  const geometries=new Set<THREE.BufferGeometry>();this.scene.traverse(o=>{if(o instanceof THREE.Mesh)geometries.add(o.geometry)});for(const g of geometries)g.dispose();
-  for(const mat of this.mats.values()){const map=(mat as THREE.MeshLambertMaterial).map;map?.dispose();mat.dispose()}this.effectMat.dispose();this.renderer.dispose();
+  const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>(this.mats.values()),textures=new Set<THREE.Texture>();
+  this.scene.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m)}});
+  for(const g of geometries)g.dispose();for(const m of materials){const map=(m as THREE.MeshLambertMaterial).map;if(map)textures.add(map);m.dispose()}for(const t of textures)t.dispose();this.renderer.dispose();
  }
 }
