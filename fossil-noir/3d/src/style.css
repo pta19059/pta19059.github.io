@@ -12,7 +12,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 #world,#weapon{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
 #world{display:block;outline:none}
 #weapon{pointer-events:none;z-index:2}
-.screen-treatment{position:absolute;inset:0;z-index:3;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,#00000018 2px,#00000018 3px);box-shadow:inset 0 0 100px #0008}
+.screen-treatment{position:absolute;inset:0;z-index:3;pointer-events:none;box-shadow:inset 0 0 85px #0004}
 .screen-treatment:after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 100px 35px rgba(160,20,10,var(--hurt));border:1px solid #9ec88120}
 .crosshair{position:absolute;z-index:4;left:50%;top:50%;width:21px;height:21px;transform:translate(-50%,-50%);filter:drop-shadow(1px 1px 0 #000);pointer-events:none;opacity:.8}
 .crosshair:before,.crosshair:after,.crosshair i,.crosshair b{content:"";position:absolute;background:#cddcab}

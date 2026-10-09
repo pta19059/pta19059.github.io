@@ -6,6 +6,7 @@ import {Atmosphere} from './atmosphere';
 import {buildSetDressing} from './set-dressing';
 import {buildDistrict} from './district';
 import {createCreatureTexture} from './creature-textures';
+import {createEffectTexture} from './effect-textures';
 import {buildCreatureRig,updateCreatureRig,type CreatureRig} from './creature-rig';
 import type {EnemyKind,GameState,Settings,Wall,PickupKind,DestructibleDef} from './types';
 
@@ -42,8 +43,10 @@ export class Renderer {
  private lastMountPosition?:{x:number;z:number};
  private effectMesh:THREE.InstancedMesh;
  private effectMat:THREE.MeshBasicMaterial;
+ private effectTiles=new THREE.InstancedBufferAttribute(new Float32Array(192),1).setUsage(THREE.DynamicDrawUsage);
+ private effectAlpha=new THREE.InstancedBufferAttribute(new Float32Array(192),1).setUsage(THREE.DynamicDrawUsage);
  private dummy=new THREE.Object3D();
- private snapGrid=new THREE.Vector2(160,100);
+ private snapGrid=new THREE.Vector2(640,400);
  private clock=0;
  private cameraStride=0;
  private cameraMotion=0;
@@ -70,11 +73,21 @@ export class Renderer {
   for(const e of LEVEL.enemies){const mob=buildCreatureRig(e.kind,false,(color,emissive=0)=>this.creatureMaterial(e.kind,false,color,emissive));mob.root.position.set(e.x,0,e.z);this.enemyGroups.set(e.id,mob);this.scene.add(mob.root)}
   for(const p of LEVEL.pickups){const group=this.buildPickup(p.kind);group.position.set(p.x,.5,p.z);this.scene.add(group);this.pickupGroups.set(p.id,group)}
   this.mountRig=buildCreatureRig('raptor',true,(color,emissive=0)=>this.creatureMaterial('raptor',true,color,emissive));this.mountRig.root.position.set(LEVEL.mount.x,0,LEVEL.mount.z);this.mountRig.root.rotation.y=this.mountHeading;this.scene.add(this.mountRig.root);
-  this.effectMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.94,depthWrite:false});this.effectMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(.08,.08,.08),this.effectMat,192);this.effectMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.effectMesh.count=0;this.effectMesh.frustumCulled=false;this.scene.add(this.effectMesh);
+  this.effectMat=new THREE.MeshBasicMaterial({color:0xffffff,map:createEffectTexture(),transparent:true,opacity:.94,alphaTest:.07,depthWrite:false});
+  this.effectMat.onBeforeCompile=shader=>{
+   shader.vertexShader='attribute float effectTile;\nattribute float effectAlpha;\nvarying float vEffectTile;\nvarying float vEffectAlpha;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvEffectTile=effectTile;vEffectAlpha=effectAlpha;');
+   shader.fragmentShader='varying float vEffectTile;\nvarying float vEffectAlpha;\n'+shader.fragmentShader.replace('#include <map_fragment>',`#ifdef USE_MAP
+vec2 atlasUV=vec2((vMapUv.x+mod(vEffectTile,4.0))/4.0,(vMapUv.y+floor(vEffectTile/4.0))/2.0);
+diffuseColor *= texture2D(map,atlasUV);diffuseColor.a *= vEffectAlpha;
+#endif`);
+  };
+  this.effectMat.customProgramCacheKey=()=> 'fossil-pixel-billboard-v1';
+  const effectGeometry=new THREE.PlaneGeometry(.13,.13);effectGeometry.setAttribute('effectTile',this.effectTiles);effectGeometry.setAttribute('effectAlpha',this.effectAlpha);
+  this.effectMesh=new THREE.InstancedMesh(effectGeometry,this.effectMat,192);this.effectMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.effectMesh.count=0;this.effectMesh.frustumCulled=false;this.scene.add(this.effectMesh);
   this.canvas.style.imageRendering='pixelated';
   this.atmosphere=new Atmosphere(this.scene);
  }
- // Quantised clip-space vertices recreate the subtle subpixel wobble of PS1 scenes.
+ // Half-pixel world snapping keeps the retro edges stable enough to read painted detail.
  private retroMaterial(m:THREE.MeshLambertMaterial){
   m.onBeforeCompile=shader=>{shader.uniforms.retroGrid={value:this.snapGrid};shader.vertexShader='uniform vec2 retroGrid;\n'+shader.vertexShader.replace('#include <project_vertex>',`#include <project_vertex>
 if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p*retroGrid+0.5)/retroGrid*gl_Position.w;}`)};
@@ -339,7 +352,9 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   const key=`creature-${kind}-${mount?'saddle':'enemy'}-${color}-${emissive}`;
   let material=this.mats.get(key);
   if(!material){
-   const surface={color:textured?0xffffff:color,map:textured?createCreatureTexture(kind,color):undefined,emissive,flatShading:!skin};
+   const map=textured?createCreatureTexture(kind,color):undefined;
+   // Baked sprite-era surface color stays readable on the unlit side of a moving creature.
+   const surface={color:textured?0xffffff:color,map,emissive:textured?0xffffff:emissive,emissiveMap:map,emissiveIntensity:textured?.20:1,flatShading:false};
    material=kind==='soldier'&&textured&&!skin?new THREE.MeshPhongMaterial({...surface,shininess:14,specular:0x253030}):new THREE.MeshLambertMaterial(surface);
    // Keep the world wobble, but preserve subpixel precision on animated joints and facial details.
    this.mats.set(key,material);
@@ -358,7 +373,7 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   return group;
  }
  resize(settings:Settings){
-  const width=settings.resolution==='320'?320:640,height=settings.resolution==='320'?200:400;this.renderer.setSize(width,height,false);this.snapGrid.set(width/2,height/2);
+  const width=settings.resolution==='320'?320:640,height=settings.resolution==='320'?200:400;this.renderer.setSize(width,height,false);this.snapGrid.set(width*(width===640?1:.5),height*(width===640?1:.5));
   const rect=this.canvas.getBoundingClientRect();this.camera.aspect=rect.width&&rect.height?rect.width/rect.height:1.6;this.camera.updateProjectionMatrix();this.lastResolution=settings.resolution;
   for(const l of this.lights)l.visible=settings.quality==='high';
  }
@@ -403,6 +418,8 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   for(let i=0;i<this.hazmat.length;i++){const m=this.hazmat[i].material as THREE.MeshBasicMaterial;m.color.setRGB(.22+.04*Math.sin(this.clock*3),.48+.07*Math.sin(this.clock*2+i),.19)}
   let count=0;for(const fx of state.effects){
    const age=1-fx.life/fx.maxLife,explosion=fx.kind==='explosion',shard=fx.kind==='shard';
+   // The viewmodel already paints Elias's flash; a near-camera world cloud obscures aiming.
+   if(fx.kind==='muzzle'&&Math.hypot(fx.x-p.x,fx.z-p.z)<.9)continue;
    if(explosion&&settings.quality==='high'&&(1-age)*32>this.blastLight.intensity){this.blastLight.visible=true;this.blastLight.intensity=(1-age)*32;this.blastLight.position.set(fx.x,fx.y,fx.z);}
    const total=explosion?24:shard?1:fx.kind==='muzzle'?5:7;
    for(let i=0;i<total&&count<192;i++){
@@ -410,12 +427,14 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
     const spread=explosion?.55:fx.kind==='smoke'?.4:fx.kind==='plasma'?.08:shard?.4:.22;
     const sx=(rnd(i+fx.x)-.5)*age*spread*5+(fx.dx??0)*age*.6,sz=(rnd(i+fx.z+13)-.5)*age*spread*5+(fx.dz??0)*age*.6;
     this.dummy.position.set(fx.x+sx,shard?Math.max(.04,fx.y-age*age*4):fx.y+(rnd(i+fx.z)-.2)*age*spread*3+(explosion?age*.4:0),fx.z+sz);
-    this.dummy.rotation.set(shard?age*9:0,age*i*.2,shard?age*7:0);
+    this.dummy.quaternion.copy(this.camera.quaternion);this.dummy.rotateZ(shard?age*7+i*.9:(rnd(i+fx.x)*2-1)*.8);
     const size=explosion?(3.8+age*5)*(1-age*.76):fx.kind==='smoke'?(1.5+age*5):Math.max(.25,1-age);
-    this.dummy.scale.set(size,shard?size*.23:size,size);this.dummy.updateMatrix();this.effectMesh.setMatrixAt(count,this.dummy.matrix);this.effectMesh.setColorAt(count,new THREE.Color(c));count++;
+    this.dummy.scale.set(size,shard?size*.45:size,1);this.dummy.updateMatrix();this.effectMesh.setMatrixAt(count,this.dummy.matrix);this.effectMesh.setColorAt(count,new THREE.Color(c));
+    this.effectTiles.setX(count,explosion?2:fx.kind==='smoke'?3:fx.kind==='plasma'?4:fx.kind==='blood'?5:shard?6:fx.kind==='muzzle'?1:0);
+    this.effectAlpha.setX(count,fx.kind==='smoke'?Math.max(0,1-age):Math.min(1,(1-age)*3));count++;
    }
   }
-  this.effectMesh.count=count;this.effectMesh.instanceMatrix.needsUpdate=true;if(this.effectMesh.instanceColor)this.effectMesh.instanceColor.needsUpdate=true;
+  this.effectMesh.count=count;this.effectMesh.instanceMatrix.needsUpdate=true;this.effectTiles.needsUpdate=this.effectAlpha.needsUpdate=true;if(this.effectMesh.instanceColor)this.effectMesh.instanceColor.needsUpdate=true;
   this.atmosphere.update(state,this.camera,this.clock,settings);
   this.renderer.render(this.scene,this.camera);
  }

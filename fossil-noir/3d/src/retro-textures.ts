@@ -13,7 +13,7 @@ function finish(canvas:HTMLCanvasElement,repeat=false):THREE.CanvasTexture {
 /** Hand-painted pixel materials: small repeating tiles, deliberate wear and relief. */
 export function createRetroTexture(kind:string):THREE.CanvasTexture {
  const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d')!;
- const palettes:Record<string,string[]>={brick:['#48434c','#63585e','#292c35'],metal:['#454c52','#82908d','#222e35'],concrete:['#77776c','#a6a190','#484c49'],crate:['#696047','#988457','#30342c'],floor:['#303b3b','#515952','#19292b'],labfloor:['#52625f','#839488','#2a4143'],road:['#45464b','#777971','#292c34'],ceiling:['#2c3a3a','#53635b','#142628'],door:['#3d5149','#7d8e77','#182b29'],fuel:['#954732','#c87647','#4d302b']};
+ const palettes:Record<string,string[]>={brick:['#48434c','#63585e','#292c35'],metal:['#626b6e','#b3b9b1','#343d45'],concrete:['#77776c','#a6a190','#484c49'],crate:['#696047','#988457','#30342c'],floor:['#46514f','#7e877b','#283338'],labfloor:['#52625f','#839488','#2a4143'],road:['#686a68','#a09f94','#424951'],ceiling:['#2c3a3a','#53635b','#142628'],door:['#3d5149','#7d8e77','#182b29'],fuel:['#954732','#c87647','#4d302b']};
  const p=palettes[kind]??palettes.metal;
  const rect=(color:string,x:number,y:number,w:number,h:number)=>{g.fillStyle=color;g.fillRect(x,y,w,h)};
  const line=(color:string,points:number[],width=1)=>{g.strokeStyle=color;g.lineWidth=width;g.beginPath();g.moveTo(points[0],points[1]);for(let i=2;i<points.length;i+=2)g.lineTo(points[i],points[i+1]);g.stroke()};
@@ -44,12 +44,17 @@ export function createRetroTexture(kind:string):THREE.CanvasTexture {
  }else if(['metal','ceiling','door'].includes(kind)){
   for(let row=0;row<2;row++)for(let col=0;col<2;col++){
    const x=col*64,y=row*64;
-   rect(p[2],x,y,64,3);rect(p[2],x,y,3,64);rect(p[1],x+3,y+3,59,1);rect('#445d51',x+3,y+4,1,57);
+   rect(p[2],x,y,64,3);rect(p[2],x,y,3,64);rect(p[1],x+3,y+3,59,1);rect('#8c9690',x+3,y+4,1,57);
+   for(let i=0;i<46;i++){
+    const xx=x+5+(noise(i+col*47+row*97)*51|0),yy=y+5+(noise(i+138)*52|0);
+    g.globalAlpha=.12+noise(i+8)*.18;rect(i%3?p[2]:p[1],xx,yy,1+(noise(i+77)*9|0),1);
+   }g.globalAlpha=1;
+   rect(p[1],x+5,y+5,55,1);rect('#89968f',x+4,y+7,1,38);rect(p[2],x+59,y+8,2,47);
    for(const sx of [7,55])for(const sy of [7,55])rivet(x+sx,y+sy);
    for(let i=0;i<7;i++){const xx=x+10+noise(i+row*14+col*7)*42|0,yy=y+13+i*6;rect('#263d38',xx,yy,10,1);rect('#748077',xx+2,yy+1,5,1)}
    rect('#7e6643',x+3,y+48,3,12);rect('#553f2b',x+6,y+55,6,4);
    if(kind==='ceiling'||(kind==='metal'&&row===1&&col===1)){
-    rect('#1a2d2e',x+17,y+19,31,27);for(let sy=21;sy<45;sy+=4){rect('#0e2226',x+20,y+sy-y,25,2);rect('#667b6a',x+20,y+sy-y+2,25,1)}
+    rect('#1a2d2e',x+17,y+19,31,27);for(let sy=21;sy<45;sy+=4){rect('#16252b',x+20,y+sy,25,2);rect('#83958b',x+20,y+sy+2,25,1)}
    }
   }
   if(kind==='door'){
@@ -78,10 +83,22 @@ export function createRetroTexture(kind:string):THREE.CanvasTexture {
   for(const x of [11,115])for(const y of [12,114]){rect('#273c3c',x,y,5,4);rect('#8b8c78',x,y,4,1)}
   for(let i=0;i<16;i++){g.globalAlpha=.15;rect('#1b3436',8+i*7,5,3,10+noise(i+4)*30)}g.globalAlpha=1;
  }else if(kind==='road'){
-  for(let i=0;i<450;i++){const x=noise(i+19)*128|0,y=noise(i+81)*128|0;rect(i%4===0?'#62655f':'#3a4549',x,y,1+(i%2),1)}
-  line('#101d25',[0,42,16,45,23,53,36,54,48,66,64,70,79,86,95,89,112,103,128,101],2);
-  line('#46514d',[0,40,16,43,24,51,36,52,48,64,64,68]);line('#14212a',[49,65,49,80,41,88,39,107,29,128]);
-  for(let i=0;i<5;i++){g.globalAlpha=.16;rect('#121e29',20+i*3,10+i*4,25-i*3,15)}g.globalAlpha=1;
+  // Coarse aggregate has a light-facing lip and dark socket, like a painted FPS tile.
+  // Fine multiscale wear replaces a repeated large black crack across every two metres.
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+   const coarse=noise((x>>3)*17+(y>>3)*271),fine=noise(x*19+y*131),v=90+coarse*22+fine*24;
+   const level=Math.round(v/5)*5;rect(`rgb(${level},${level+2},${level})`,x,y,1,1);
+  }
+  for(let i=0;i<720;i++){
+   const x=noise(i+19)*128|0,y=noise(i+81)*128|0,size=i%9===0?3:i%3===0?2:1;
+   rect(i%4===0?'#484d51':'#7b7e76',x,y,size,1);
+   if(size>1){rect('#99998c',x,y-1,size-1,1);rect('#4d5353',x+1,y+1,size,1)}
+  }
+  for(let i=0;i<27;i++){g.globalAlpha=.09;rect(i%2?'#32414b':'#b1a998',noise(i+53)*128|0,noise(i+94)*128|0,3+(noise(i)*13|0),2+(noise(i+5)*7|0))}g.globalAlpha=1;
+  line('#3b4143',[97,57,95,62,99,66,96,73,103,78,102,84]);
+  line('#898b7f',[98,57,97,61,100,66,98,73,105,77]);
+  line('#41484a',[97,73,89,75,84,72,78,76]);
+  for(let i=0;i<7;i++){rect('#8b8c80',noise(i+34)*128|0,noise(i+65)*128|0,2,1)}
  }
  return finish(c,true);
 }

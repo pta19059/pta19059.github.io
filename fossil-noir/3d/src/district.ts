@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type {SetDressingAPI} from './set-dressing';
-import {createDistrictTexture,createDistrictPoster,type DistrictSurface,type DistrictPoster} from './district-textures';
+import {createDistrictTexture,createDistrictPoster,createDistrictInterior,createDistrictLandmark,type DistrictSurface,type DistrictPoster} from './district-textures';
 
 const noise=(n:number)=>{const t=Math.sin(n*137.63+9.31)*47815.129;return t-Math.floor(t)};
 
@@ -12,13 +12,20 @@ const noise=(n:number)=>{const t=Math.sin(n*137.63+9.31)*47815.129;return t-Math
  */
 export function buildDistrict(api:SetDressingAPI):void {
  const box=api.box.bind(api);
- const surface=(kind:DistrictSurface,color=0xffffff)=>new THREE.MeshLambertMaterial({map:createDistrictTexture(kind),color});
+ const surfaces=new Map<DistrictSurface,THREE.CanvasTexture>();
+ const surface=(kind:DistrictSurface,color=0xffffff)=>{
+  let map=surfaces.get(kind);if(!map){map=createDistrictTexture(kind);surfaces.set(kind,map)}
+  return new THREE.MeshLambertMaterial({map,color});
+ };
  const stucco=surface('stucco'),brick=surface('terracotta'),porcelain=surface('porcelain'),shutter=surface('shutter'),paving=surface('pavement');
- const cream=api.mat(0xd0b88e),chalk=api.mat(0xceccb7),oxide=api.mat(0x9a573e),claret=api.mat(0x663648),olive=api.mat(0x7e8063);
- const violet=api.mat(0x51425f),blue=api.mat(0x577387),teal=api.mat(0x3a7775),steel=api.mat(0x667579),iron=api.mat(0x26333b),black=api.mat(0x14202b);
+ // Weathered stone and pigment keep broad facade planes textured too, rather
+ // than putting all the visual detail in trim over featureless flat colors.
+ const cream=surface('stone',0xf1ddba),chalk=surface('stone',0xe7e3d5),oxide=surface('paint',0xb37655),claret=surface('paint',0x9b7680),olive=surface('paint',0xa8aa83);
+ const violet=surface('paint',0x847987),blue=surface('paint',0x90a0a4),teal=surface('paint',0x739795),steel=api.mat(0x667579),iron=api.mat(0x26333b),black=api.mat(0x14202b);
  const windowDark=api.mat(0x112634),windowWarm=api.mat(0x3c3832,0x1e1608),windowCool=api.mat(0x243c45,0x102a31);
  const amber=api.basic(0xffbf65),pink=api.basic(0xf07eaa),cyan=api.basic(0x74c6db),mint=api.basic(0x91d3b1),warmWindow=api.basic(0xb9ac79),coolWindow=api.basic(0x638c98);
  const posterMaterials=new Map<DistrictPoster,THREE.Material>();
+ const interiorMaterials=new Map<string,THREE.Material>();
  const poster=(kind:DistrictPoster,side:number,z:number,y=2.1,w=1.38,h=2.08)=>{
   let material=posterMaterials.get(kind);
   if(!material){material=new THREE.MeshBasicMaterial({map:createDistrictPoster(kind)});posterMaterials.set(kind,material)}
@@ -40,15 +47,13 @@ export function buildDistrict(api:SetDressingAPI):void {
   for(const dz of [-length/2-.065,length/2+.065])box(side*12.746,y,z+dz,.15,h+.22,.13,iron);
   for(const yy of [1.07,3.37])box(side*12.735,yy,z,.17,.13,length+.25,chalk);
   box(side*12.746,.89,z,.13,.19,length+.23,iron);
-  // Interiors are illustrative relief within the old solid shop walls.
-  box(side*12.817,1.39,z,.027,.28,length-.27,accent);
-  box(side*12.789,1.57,z,.04,.045,length-.21,cream);
-  for(let k=0;k<4;k++){
-   const p=z-length*.35+k*length*.23;
-   box(side*12.805,2.08,p,.033,.45,.17,k%2?claret:olive);
-   box(side*12.779,2.36,p,.026,.052,.24,accent);
-  }
-  box(side*12.807,2.9,z,.045,.037,length-.3,accent);
+  // Painted perspective supplies a full dim shop interior behind actual glass:
+  // shelves, crockery, diner menu and stacked record sleeves, without opening
+  // an untraversable room through the original solid collision boundary.
+  const kind=side<0?'diner':'records';let display=interiorMaterials.get(kind);
+  if(!display){display=new THREE.MeshBasicMaterial({map:createDistrictInterior(kind)});interiorMaterials.set(kind,display)}
+  api.addGeometry(new THREE.PlaneGeometry(length-.04,h-.045),display,side*12.828,y,z,0,-side*Math.PI/2);
+  box(side*12.789,1.16,z,.04,.05,length-.21,cream);
   if(!breakable){
    for(let k=1;k<3;k++)box(side*12.701,y,z-length/2+k*length/3,.055,h,.045,steel);
    // Small flat reflected highlights keep the illustrated view unmistakably glass.
@@ -71,14 +76,20 @@ export function buildDistrict(api:SetDressingAPI):void {
   box(side*12.566,y+h/2+.084,z,.065,.048,width+.21,chalk);
   api.sign(text,side*12.553,y,z,width,h,-side*Math.PI/2,fg,bg);
  };
- const projectingSign=(side:number,z:number,text:string,fg:string,bg:string,w=1.38,h=2.1)=>{
+ const landmark=new THREE.MeshBasicMaterial({map:createDistrictLandmark()});
+ const projectingSign=(side:number,z:number,text:string,fg:string,bg:string,w=1.38,h=2.1,pictorial=false)=>{
   const x=side*11.77,y=4.8;
   box(side*12.25,6.01,z,1.35,.1,.11,iron);
   box(side*12.88,5.75,z,.14,.65,.15,steel);
   box(x,y,z,w+.15,h+.15,.18,iron);
   box(x,y+h/2+.1,z,w+.25,.06,.24,chalk);
-  api.sign(text,x,y,z+.105,w,h,0,fg,bg);
-  api.sign(text,x,y,z-.105,w,h,Math.PI,fg,bg);
+  if(pictorial){
+   api.addGeometry(new THREE.PlaneGeometry(w,h),landmark,x,y,z+.105);
+   api.addGeometry(new THREE.PlaneGeometry(w,h),landmark,x,y,z-.105,0,Math.PI);
+  }else{
+   api.sign(text,x,y,z+.105,w,h,0,fg,bg);
+   api.sign(text,x,y,z-.105,w,h,Math.PI,fg,bg);
+  }
  };
 
  // WEST: a late-night diner with pale ceramic and terracotta; its breakable
@@ -98,7 +109,7 @@ export function buildDistrict(api:SetDressingAPI):void {
  signFrame(-1,.05,'VESPER / NIGHT DINER',5.65,'#ffcc79','#442b30');
  awning(-1,.03,6.2,oxide,cream);
  cornice(-1,.1,6.5,oxide,6.49);
- projectingSign(-1,2.57,'V / 24 H','#ffd187','#47302e',1.05,1.88);
+ projectingSign(-1,2.57,'VESPER / NIGHT DINER','#ffd187','#47302e',1.75,2.38,true);
  // Small upper hotel lights, paired sash frames and stepped bay relief.
  for(const z of [-1.7,1.65]){
   box(-12.885,5.47,z,.08,1.18,1.23,windowDark);
@@ -130,7 +141,7 @@ export function buildDistrict(api:SetDressingAPI):void {
  for(const z of [-9.94,-13.65,-17.58])pilaster(-1,z,6.9,oxide);
  box(-12.845,2.22,-15.56,.068,2.14,2.99,shutter);
  for(const dz of [-1.53,1.53])box(-12.778,2.22,-15.56+dz,.13,2.33,.14,claret);
- poster('vesper',-1,-11.65,2.17,2.16,2.99);
+ poster('vesper',-1,-11.65,2.23,2.55,3.2);
  signFrame(-1,-13.77,'VESPER PICTURE HOUSE',6.9,'#e3c389','#332b30',4.6,.77);
  awning(-1,-13.77,7.1,claret,cream);
  cornice(-1,-13.77,7.55,oxide,6.95);

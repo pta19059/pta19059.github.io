@@ -1,15 +1,18 @@
 import type {GameState, WeaponId} from './types';
 
-/** Original, hand-drawn procedural sprites. Half-unit details are native 640×400 pixels. */
+/** Original 320×200 pixel-painted sprites with cached firing and mechanical animation. */
 type Point = readonly [number, number];
+const PIXEL_STEEL=['#0e1114','#24282c','#3d454a','#59636a','#7c8b90','#a6b5b7','#c7d1c9','#e2e4d5'];
+const PIXEL_BLUE=['#0c1419','#202d37','#3a4a55','#566a73','#768b91','#9eafb0','#c2cfc8','#e2e8d9'];
 const STEEL = ['#151b20','#2d3b43','#465761','#687b84','#96a7ad','#ced5ce'];
 type SmokeParticle = {age:number;life:number;x:number;y:number;vx:number;vy:number;size:number;variant:number;green:boolean};
 type CasingParticle = {age:number;weapon:string;x:number;y:number;vx:number;vy:number;spin:number};
-const MUZZLES:Record<string,Point>={revolver:[159,119],shotgun:[159,117],plasma:[160,119],machinegun:[158,116]};
+const MUZZLES:Record<string,Point>={revolver:[159,128],shotgun:[158,130],plasma:[158,128],machinegun:[158,127]};
 
 export class Viewmodel {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly sprites = new Map<string, HTMLCanvasElement>();
+  private readonly parts = new Map<string, HTMLCanvasElement>();
   private current: string = 'fist';
   private next: string = 'fist';
   private switchTime = 0;
@@ -41,14 +44,16 @@ export class Viewmodel {
     this.ctx = ctx;
     ctx.imageSmoothingEnabled = false;
     ctx.setTransform(2, 0, 0, 2, 0, 0);
+    this.cacheMechanicalParts();
     for (const weapon of ['fist','revolver','shotgun','plasma','machinegun']) {
       const sprite = document.createElement('canvas');
-      sprite.width = 640;
-      sprite.height = 400;
+      sprite.width = 320;
+      sprite.height = 200;
       const s = sprite.getContext('2d')!;
       s.imageSmoothingEnabled = false;
-      s.setTransform(2, 0, 0, 2, 0, 0);
+      s.setTransform(1, 0, 0, 1, 0, 0);
       this.paintWeapon(s, weapon);
+      this.crispSprite(s,sprite.width,sprite.height);
       this.sprites.set(weapon, sprite);
     }
     this.cacheFiringEffects();
@@ -148,8 +153,9 @@ export class Viewmodel {
     this.paintSmoke(c);
     if (p.reload > 0) this.paintReload(c, this.current, reloadProgress);
     if (this.flash > 0 && p.reload <= 0) this.paintFlash(c, this.current);
-    if (this.current === 'shotgun' && this.shotAge < 0.48 && this.shotAge > 0.12 && p.reload <= 0) {
-      this.paintPumpHand(c, Math.sin((this.shotAge - 0.12) / 0.36 * Math.PI) * 8);
+    if (this.current === 'shotgun' && p.reload <= 0) {
+      const pumping = this.shotAge < .48 && this.shotAge > .12;
+      this.paintPumpHand(c,pumping ? Math.sin((this.shotAge-.12)/.36*Math.PI)*8 : 0);
     }
     c.restore();
     this.paintCasings(c);
@@ -274,309 +280,219 @@ export class Viewmodel {
     c.restore();
   }
 
-  private arm(c:CanvasRenderingContext2D, gripX=204, gripY=165):void {
-    // Heavy detective coat surrounds a segmented titanium forearm.
-    const coat:Point[]=[[266,184],[319,199],[326,217],[258,213],[240,195]];
-    this.poly(c,coat,'#141619');
-    this.poly(c,[[270,188],[319,203],[319,211],[264,201],[248,189]],'#2b3031');
-    this.line(c,[277,191],[314,204],'#484f4b',2);
-    const arm:Point[]=[[gripX+7,gripY+13],[gripX+24,gripY+8],[274,181],[280,197],[258,209],[gripX+4,gripY+27]];
-    this.poly(c,arm,STEEL[2]);
-    this.poly(c,[[gripX+13,gripY+13],[gripX+24,gripY+11],[267,184],[271,190],[257,196],[gripX+12,gripY+24]],STEEL[3]);
-    this.poly(c,[[gripX+12,gripY+13],[gripX+24,gripY+11],[267,184],[260,185],[gripX+16,gripY+18]],STEEL[5]);
-    this.poly(c,[[gripX+14,gripY+25],[258,199],[275,191],[277,198],[259,205]],STEEL[0]);
-    this.scratches(c,arm,773,100);
-    // Parallel hydraulic pistons: bright rods inside black housings.
-    this.line(c,[gripX+20,gripY+22],[259,193],'#0b151b',5);
-    this.line(c,[gripX+20,gripY+22],[259,193],'#9eaeb0',2);
-    this.line(c,[gripX+24,gripY+28],[258,201],'#0b151b',5);
-    this.line(c,[gripX+24,gripY+28],[258,201],'#776b47',2);
-    this.poly(c,[[258,185],[266,182],[277,190],[274,200],[266,202],[265,192]],'#30383c');
-    this.bolt(c,270,191); this.bolt(c,254,187);
-    c.fillStyle='#28d989';c.fillRect(253,190,3,2); c.fillRect(257,191,2,2);
-    this.line(c,[274,187],[278,197],'#afa17b',2);
-    // Small exposed hardware now resolves at one native pixel, rather than
-    // simply enlarging the old coarse sprite.
-    this.inset(c,[[239,181],[253,183],[258,189],[247,193],[238,187]],'#31434b');
-    this.machining(c,arm,7133,145);
-    this.line(c,[241,182],[251,184],'#ced4bd',.5);
-    this.line(c,[240,188],[247,192],'#14202c',.5);
-    this.screw(c,241,184);this.screw(c,251.5,187.5,true);this.screw(c,261.5,194.5);
-    this.etch(c,'VANE-09',244,184,'#b9c7b9',.28);
-    this.wire(c,[[gripX+17,gripY+28],[238,195],[247,198],[254,197]],'#ac724c',1);
-    this.wire(c,[[gripX+19,gripY+30],[240,198],[248,201],[255,200]],'#527b82',.5);
-    // Machined piston collars and knurled wrist ring.
-    for(let i=0;i<6;i++) {
-      this.line(c,[257+i*.8,191-i*.3],[258+i*.8,195-i*.3],i%2?'#192b32':'#afbcae',.5);
-      this.line(c,[270+i*.6,185+i*.6],[272+i*.6,187+i*.6],i%2?'#b7ba99':'#2f3431',.5);
-    }
-    for(let i=0;i<4;i++) {c.fillStyle='#111e25';c.fillRect(263+i*1.5,187+i*.5,1,.5);}
-    this.line(c,[gripX+21,gripY+20],[254,188],'#f2efce',.5);
-    this.line(c,[gripX+21,gripY+21],[255,190],'#303c42',.5);
-    c.fillStyle='#0a191b';c.fillRect(251,189,8,3);
-    for(let i=0;i<4;i++){c.fillStyle=i===3?'#6e7150':'#7ef4af';c.fillRect(252+i*1.5,190,1,1);}
-    this.line(c,[276,192],[279,196],'#f0d7a4',.5);
-    this.line(c,[246,189],[248.5,188.5],'#111b20',.5);
-    this.line(c,[246,189.5],[248,189],'#bfcbb1',.5);
-    // Sparse stitching and folds in the detective's battered coat.
-    for(let i=0;i<11;i++)this.line(c,[283+i*2.5,193+i*.75],[283.5+i*2.5,194+i*.75],'#9b96784d',.5);
-    this.line(c,[286,197],[310,206],'#080d13',.5);
-    this.line(c,[291,199],[309,205],'#66706a',.5);
-    this.hand(c,gripX,gripY);
+  private arm(c:CanvasRenderingContext2D,gripX=247,gripY=186):void {
+    c.drawImage(this.parts.get('mount-arm')!,Math.round(gripX-247),Math.round(gripY-186),320,200);
   }
 
   private hand(c:CanvasRenderingContext2D,x:number,y:number):void {
-    this.poly(c,[[x-14,y-5],[x-6,y-12],[x+9,y-10],[x+19,y],[x+21,y+14],[x+12,y+22],[x-3,y+18],[x-14,y+9]],'#293841');
-    this.poly(c,[[x-12,y-5],[x-6,y-10],[x+6,y-8],[x+12,y],[x+9,y+10],[x-7,y+7]],'#65767b');
+    c.drawImage(this.parts.get('hand')!,Math.round(x-20),Math.round(y-16),56,52);
+  }
+
+  /** Raster paint: broad form shading with a small fixed palette, ordered
+   * dither transitions and irregular wear. It is only used while caching. */
+  private pixelFace(c:CanvasRenderingContext2D,points:readonly Point[],palette:readonly string[],seed:number,brightness=.5,contrast=.5):void {
+    const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
+    const x0=Math.floor(Math.min(...xs)),x1=Math.ceil(Math.max(...xs)),y0=Math.floor(Math.min(...ys)),y1=Math.ceil(Math.max(...ys));
+    c.save();c.beginPath();c.moveTo(...points[0]);for(const point of points.slice(1))c.lineTo(...point);c.closePath();c.clip();
+    const dither=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++) {
+      const n=((x*73856093)^(y*19349663)^seed)>>>0;
+      const t=(y-y0)/Math.max(1,y1-y0);
+      const patch=Math.sin((x+seed%41)*.14)*Math.cos((y+seed%29)*.12);
+      const reflection=Math.max(0,Math.sin((x-x0)/Math.max(1,x1-x0)*6+seed%4))*(1-t)*.07;
+      const shine=brightness*.83+contrast*(.36-t*.78)+patch*.035+reflection+(n%23-11)*.0007;
+      const value=Math.max(0,Math.min(palette.length-1.01,shine*(palette.length-1)));
+      let tone=Math.round(value);
+      const lower=Math.floor(value),fraction=value-lower;
+      // Clean, broad painted highlights alternate with small transition patches.
+      // Dither is a material detail, not a uniform checker coating.
+      if(fraction>.34 && fraction<.66 && patch<.1)tone=lower+(fraction>dither[(x&3)+((y&3)<<2)]/16?1:0);
+      // Painted chips replace a few pixels; no continuous white outline.
+      if(n%137===0)tone=Math.min(palette.length-1,tone+2);
+      if(n%149===0)tone=Math.max(0,tone-2);
+      c.fillStyle=palette[tone];c.fillRect(x,y,1,1);
+    }
+    c.restore();
+  }
+
+  private crispSprite(c:CanvasRenderingContext2D,width:number,height:number):void {
+    const pixels=c.getImageData(0,0,width,height);
+    for(let i=0;i<pixels.data.length;i+=4)pixels.data[i+3]=pixels.data[i+3]<160?0:255;
+    c.putImageData(pixels,0,0);
+  }
+
+  private metalBolt(c:CanvasRenderingContext2D,x:number,y:number):void {
+    c.fillStyle='#151b1b';c.fillRect(x-2,y-2,5,5);
+    c.fillStyle='#9b9e89';c.fillRect(x-1,y-1,3,3);
+    c.fillStyle='#d1d2b4';c.fillRect(x-1,y-1,2,1);
+    c.fillStyle='#414b48';c.fillRect(x,y,2,2);
+  }
+
+  private paintArmSprite(c:CanvasRenderingContext2D,x:number,y:number):void {
+    const coat=['#080d10','#11191c','#1e282a','#303a37','#465048'];
+    this.pixelFace(c,[[x+30,y+7],[x+52,y+5],[286,180],[319,186],[330,217],[265,217],[x+27,y+37]],coat,294,.34,.22);
+    this.pixelFace(c,[[x+14,y+11],[x+33,y+5],[276,179],[294,200],[273,211],[x+8,y+32]],PIXEL_BLUE,642,.37,.4);
+    this.pixelFace(c,[[x+19,y+12],[x+33,y+8],[273,179],[276,186],[x+18,y+28]],PIXEL_STEEL,892,.7,.4);
+    this.pixelFace(c,[[x+15,y+28],[275,196],[289,194],[287,204],[273,209],[x+14,y+35]],PIXEL_STEEL,34,.28,.3);
+    // Twin hydraulic housings, broad chrome bands and dark gaps.
+    this.pixelFace(c,[[x+29,y+17],[x+33,y+12],[276,185],[276,192],[270,195]],PIXEL_STEEL,507,.73,.65);
+    this.pixelFace(c,[[x+26,y+27],[x+30,y+22],[273,195],[273,201],[269,203]],PIXEL_STEEL,508,.45,.5);
     for(let i=0;i<4;i++) {
-      const fx=x-11+i*6,fy=y+i*2;
-      this.poly(c,[[fx,fy],[fx+4,fy-2],[fx+8,fy+3],[fx+7,fy+10],[fx+3,fy+12],[fx-1,fy+7]],i%2?'#839391':'#61747a');
-      this.line(c,[fx+1,fy+5],[fx+6,fy+3],'#182730',2);
-      c.fillStyle='#c0c8bb';c.fillRect(fx+1,fy,3,2);
-      this.line(c,[fx+1,fy+.5],[fx+4.5,fy-1],'#e0e4c8',.5);
-      this.line(c,[fx+1.5,fy+6.5],[fx+5,fy+5],'#afc0b6',.5);
-      this.line(c,[fx+1,fy+9],[fx+5.5,fy+8],'#263a44',.5);
-      this.screw(c,fx+3,fy+7);
-      c.fillStyle='#233d42';c.fillRect(fx+3.5,fy+.5,.5,2);
-      c.fillStyle='#9e8155';c.fillRect(fx+6,fy+4,.5,3);
-      c.fillStyle='#f3e2b6';c.fillRect(fx+6,fy+4,.5,.5);
+      const px=248+i*5,py=185+i*2;
+      c.fillStyle='#152228';c.fillRect(px,py,4,6);
+      c.fillStyle='#77958c';c.fillRect(px,py,3,1);
+      c.fillStyle='#435954';c.fillRect(px,py+4,3,1);
     }
-    this.poly(c,[[x+12,y-2],[x+18,y-2],[x+23,y+6],[x+18,y+13],[x+13,y+8]],'#7e9195');
-    this.bolt(c,x+14,y+15);
-    this.inset(c,[[x-9,y-7],[x-3,y-9],[x+4,y-5],[x+5,y-1],[x-4,y+2],[x-10,y-1]],'#41535b');
-    this.screw(c,x-6,y-4,true);this.screw(c,x+1,y-3);
-    this.line(c,[x+15,y],[x+20,y+6],'#cfdbcd',.5);
-    this.line(c,[x+17,y+8],[x+20,y+6],'#243b43',.5);
-    this.machining(c,[[x-12,y-5],[x+17,y],[x+20,y+13],[x-4,y+17]],139,30);
+    this.metalBolt(c,277,194);this.metalBolt(c,265,188);
+    c.fillStyle='#1d3029';c.fillRect(259,190,10,4);
+    for(let i=0;i<3;i++){c.fillStyle='#9acc83';c.fillRect(260+i*3,191,2,1);}
+    // Battered coat has painted seams instead of an enclosing comic stroke.
+    c.fillStyle='#4b5044';c.fillRect(298,194,4,1);c.fillRect(304,197,5,1);
+    c.fillStyle='#111c1f';c.fillRect(289,198,4,2);c.fillRect(307,203,5,2);
   }
 
-  private paintWeapon(c:CanvasRenderingContext2D, weapon:string):void {
+  private cacheMechanicalParts():void {
+    const hand=document.createElement('canvas');hand.width=56;hand.height=52;
+    const h=hand.getContext('2d')!;
+    this.pixelFace(h,[[4,13],[12,4],[31,4],[47,18],[47,37],[34,47],[15,44],[4,31]],PIXEL_BLUE,544,.37,.42);
+    this.pixelFace(h,[[8,14],[14,7],[29,7],[38,15],[34,28],[14,25]],PIXEL_STEEL,122,.64,.47);
+    for(let i=0;i<4;i++) {
+      const x=8+i*8,y=20+i*2;
+      this.pixelFace(h,[[x,y],[x+4,y-3],[x+10,y],[x+11,y+9],[x+7,y+14],[x+1,y+12],[x-1,y+5]],PIXEL_STEEL,719+i,.59,.57);
+      h.fillStyle='#152225';h.fillRect(x+2,y+6,7,2);
+      h.fillStyle='#a6b199';h.fillRect(x+2,y+5,5,1);
+      h.fillStyle='#405047';h.fillRect(x+2,y+10,5,1);
+      h.fillStyle='#c9c6a4';h.fillRect(x+3,y,3,1);
+      h.fillStyle='#263c3d';h.fillRect(x+7,y+3,2,2);
+    }
+    this.pixelFace(h,[[37,12],[43,11],[51,20],[47,30],[39,27],[35,18]],PIXEL_BLUE,905,.67,.5);
+    this.metalBolt(h,37,37);this.metalBolt(h,15,14);
+    h.fillStyle='#c09957';h.fillRect(41,33,2,5);
+    h.fillStyle='#e4c883';h.fillRect(41,33,1,2);
+    this.crispSprite(h,56,52);this.parts.set('hand',hand);
+    const pump=document.createElement('canvas');pump.width=320;pump.height=200;
+    const p=pump.getContext('2d')!;
+    this.pixelFace(p,[[122,207],[137,189],[155,166],[171,159],[189,169],[193,181],[172,190],[149,212]],PIXEL_BLUE,902,.5,.5);
+    for(let i=0;i<4;i++) {
+      const x=164+i*5,y=162+i*3;
+      this.pixelFace(p,[[x,y],[x+7,y],[x+12,y+5],[x+10,y+13],[x+4,y+15],[x-2,y+8]],PIXEL_STEEL,177+i,.63,.65);
+      p.fillStyle='#1a2526';p.fillRect(x+2,y+7,7,2);p.fillStyle='#acb59c';p.fillRect(x+2,y+6,6,1);
+    }
+    this.metalBolt(p,151,187);this.crispSprite(p,320,200);this.parts.set('pump',pump);
+    const mount=document.createElement('canvas');mount.width=320;mount.height=200;
+    const m=mount.getContext('2d')!;this.paintArmSprite(m,247,186);this.hand(m,247,186);
+    this.crispSprite(m,320,200);this.parts.set('mount-arm',mount);
+    const cylinder=document.createElement('canvas');cylinder.width=cylinder.height=36;
+    const cy=cylinder.getContext('2d')!;
+    this.pixelFace(cy,[[4,10],[14,3],[27,6],[34,14],[32,27],[21,33],[8,29],[2,19]],PIXEL_STEEL,309,.59,.85);
+    this.pixelFace(cy,[[4,10],[14,3],[27,6],[32,11],[22,13],[11,9]],PIXEL_STEEL,310,.83,.26);
+    this.crispSprite(cy,36,36);this.parts.set('reload-cylinder',cylinder);
+  }
+
+  private paintWeapon(c:CanvasRenderingContext2D,weapon:string):void {
     if(weapon==='fist') {
-      this.arm(c,195,172);
-      this.poly(c,[[181,164],[182,155],[189,148],[200,147],[217,156],[217,173],[207,184],[189,180]],'#61777e');
-      for(let i=0;i<4;i++) { c.fillStyle='#b9c1b5';c.fillRect(186+i*7,155+i*2,5,6);c.fillStyle='#243a41';c.fillRect(186+i*7,162+i*2,5,2); }
-      this.machining(c,[[181,164],[190,148],[199,148],[217,158],[211,178],[189,179]],228,100);
-      for(let i=0;i<4;i++){this.screw(c,188+i*7,157+i*2);this.line(c,[186+i*7,155+i*2],[190+i*7,155+i*2],'#e5e4c9',.5);}
-      this.etch(c,'VANE',193,170,'#b9cbc2',.25);
-      return;
+      this.paintArmSprite(c,200,174);this.hand(c,200,165);return;
     }
+    const grip=weapon==='revolver'?[224,179]:weapon==='shotgun'?[243,189]:weapon==='plasma'?[236,185]:[252,187];
+    this.paintArmSprite(c,grip[0],grip[1]);
     if(weapon==='revolver') {
-      this.arm(c,208,174);
-      this.poly(c,[[196,156],[211,158],[230,185],[223,199],[208,196],[191,169]],'#191b1a');
-      this.poly(c,[[204,166],[212,167],[224,186],[218,193],[212,187]],'#4b3626');
-      for(let i=0;i<5;i++) this.line(c,[210+i*2,175+i*3],[219+i,177+i*3],'#8a6d46');
-      this.poly(c,[[155,122],[164,119],[180,139],[198,153],[196,170],[181,168],[169,145]],STEEL[2]);
-      this.poly(c,[[156,121],[164,120],[183,143],[176,145]],STEEL[4]);
-      this.poly(c,[[164,123],[169,128],[183,149],[182,156],[173,147]],STEEL[0]);
-      this.line(c,[158,124],[177,148],STEEL[5],2);
-      this.poly(c,[[175,143],[190,141],[204,152],[204,166],[194,173],[181,169],[174,155]],'#4a585b');
-      this.poly(c,[[177,144],[189,142],[199,150],[186,153]],'#b4bbaf');
-      this.poly(c,[[179,154],[186,152],[192,157],[191,168],[184,168]],'#202b31');
-      this.poly(c,[[193,154],[200,152],[203,157],[201,167],[195,170]],'#222d32');
-      this.line(c,[185,154],[185,166],'#8b9690',2);this.line(c,[198,155],[198,166],'#77847c',2);
-      this.poly(c,[[163,120],[162,115],[157,116],[157,122]],'#1b2024');
-      c.fillStyle='#98f0c3';c.fillRect(158,115,3,1);
-      this.poly(c,[[197,149],[201,143],[206,145],[208,153]],'#728281');
-      this.poly(c,[[193,171],[197,184],[207,188],[212,181],[207,171]],'#11191c');
-      this.line(c,[197,173],[201,182],'#9faaa4',2);
-      this.scratches(c,[[174,142],[198,147],[203,164],[181,172]],129,45);
-      this.paintGunDetail(c,weapon);
-      this.hand(c,208,177);
-      this.bolt(c,192,150);
-      c.fillStyle='#a2ada1';c.fillRect(183,148,7,1);
+      // Broad .357 barrel shroud and foreshortened six-shot cylinder.
+      this.pixelFace(c,[[151,128],[157,122],[167,123],[190,143],[184,157],[174,153]],PIXEL_STEEL,729,.56,.7);
+      this.pixelFace(c,[[155,124],[161,121],[168,124],[190,143],[184,147],[173,140]],PIXEL_STEEL,623,.70,.32);
+      this.pixelFace(c,[[153,133],[159,135],[182,158],[185,167],[177,163],[164,148]],PIXEL_STEEL,122,.22,.34);
+      this.pixelFace(c,[[170,148],[177,138],[192,139],[214,153],[220,167],[212,179],[197,181],[180,174],[170,159]],PIXEL_STEEL,211,.47,.76);
+      this.pixelFace(c,[[176,140],[186,137],[195,141],[214,155],[205,159],[181,148]],PIXEL_STEEL,599,.72,.2);
+      for(let i=0;i<5;i++) {
+        const x=177+i*7,y=148+i*2;
+        this.pixelFace(c,[[x,y],[x+4,y-1],[x+8,y+3],[x+8,y+16],[x+4,y+20],[x+1,y+16]],PIXEL_STEEL,778+i,.48,.75);
+        c.fillStyle='#17221f';c.fillRect(x+6,y+5,2,10);
+        c.fillStyle='#d3c9a0';c.fillRect(x+2,y+1,2,1);
+      }
+      this.pixelFace(c,[[207,155],[223,159],[238,180],[237,198],[224,203],[207,184]],PIXEL_STEEL,975,.30,.55);
+      this.pixelFace(c,[[219,177],[230,179],[244,200],[232,209],[221,200],[215,184]],['#171715','#2c261e','#433825','#635337','#89734b','#b39560'],186,.56,.57);
+      // The gun points away: only the upper muzzle lip is visible past the
+      // shroud. A front-facing black circle would reverse the perspective.
+      this.pixelFace(c,[[151,126],[154,122],[162,121],[168,125],[166,130],[158,130],[152,128]],PIXEL_STEEL,64,.68,.38);
+      c.fillStyle='#a8b2aa';c.fillRect(154,123,5,1);
+      c.fillStyle='#3a474b';c.fillRect(155,129,7,1);
+      c.fillStyle='#364340';c.fillRect(157,118,5,4);c.fillStyle='#b4d397';c.fillRect(158,118,3,1);
+      c.fillStyle='#1a2726';c.fillRect(217,150,5,5);c.fillStyle='#adb29a';c.fillRect(217,150,4,1);
+      this.metalBolt(c,220,168);this.metalBolt(c,220,190);
+      this.hand(c,228,184);
     } else if(weapon==='shotgun') {
-      this.arm(c,222,186);
-      const gun:Point[]=[[154,120],[165,113],[183,136],[219,171],[240,192],[220,204],[186,170],[165,139]];
-      this.poly(c,gun,STEEL[1]);
-      this.poly(c,[[156,121],[163,116],[188,142],[219,174],[211,179],[181,145]],'#879698');
-      this.poly(c,[[155,122],[159,125],[191,161],[203,176],[199,181],[179,161]],'#17222a');
-      this.line(c,[160,122],[208,174],'#c3cabb',2);
-      this.poly(c,[[152,118],[156,114],[163,111],[167,115],[165,122],[158,125]],'#40545b');
-      this.poly(c,[[155,117],[159,115],[163,115],[163,120],[160,122],[156,121]],'#070c10');
-      this.line(c,[156,114],[163,112],'#b0bcb4',2);
-      this.poly(c,[[194,155],[213,171],[229,188],[220,198],[205,184],[187,166]],'#34454a');
-      this.poly(c,[[200,155],[218,171],[225,183],[218,187],[207,174],[194,163]],'#617378');
-      this.poly(c,[[208,170],[214,170],[221,178],[218,182],[212,177]],'#0c171e');
-      this.line(c,[209,171],[219,180],'#a9b6b3');
-      this.poly(c,[[175,144],[184,140],[203,159],[196,171],[187,169],[174,155]],'#564939');
-      for(let i=0;i<6;i++) this.line(c,[179+i*3,146+i*2],[181+i*3,157+i*2],i%2?'#b09562':'#282925',2);
-      this.poly(c,[[227,187],[240,191],[254,212],[227,213],[216,197]],'#171c1b');
-      this.scratches(c,gun,448,100);this.bolt(c,207,164);this.bolt(c,223,186);
-      this.paintGunDetail(c,weapon);
-      this.paintPumpHand(c,0);
-      this.hand(c,225,184);
-    } else if(weapon==='plasma') {
-      this.arm(c,217,179);
-      const body:Point[]=[[150,122],[160,114],[170,119],[185,139],[215,150],[232,171],[233,193],[221,201],[198,180],[168,145]];
-      this.poly(c,body,'#263a3c');
-      this.poly(c,[[150,121],[159,116],[169,119],[183,139],[175,144],[160,131]],'#566f71');
-      this.poly(c,[[149,121],[151,115],[158,111],[166,113],[171,122],[162,129]],'#182624');
-      this.poly(c,[[153,117],[158,114],[165,116],[167,120],[160,125],[154,123]],'#030c09');
-      this.poly(c,[[157,117],[162,117],[164,120],[160,122],[157,121]],'#76f6ac');
-      this.poly(c,[[179,139],[190,134],[208,146],[223,164],[213,174],[196,164]],'#668085');
-      this.poly(c,[[180,140],[189,136],[207,148],[204,155],[192,154]],'#aac0b5');
-      this.poly(c,[[179,151],[191,147],[212,169],[207,180],[196,175]],'#101b1d');
-      this.poly(c,[[185,151],[191,151],[205,167],[202,173],[198,170]],'#16714d');
-      for(let i=0;i<5;i++) this.line(c,[185+i*4,149+i*4],[181+i*4,153+i*4],'#86f8b4',2);
-      this.poly(c,[[205,150],[213,150],[232,169],[231,187],[224,190],[211,175]],'#314b50');
-      this.poly(c,[[211,153],[215,153],[226,165],[226,174],[220,173]],'#092522');
-      c.fillStyle='#84fbbe';c.fillRect(215,158,4,3);c.fillRect(220,164,3,3);
-      this.poly(c,[[211,180],[220,177],[234,193],[231,205],[221,205],[209,192]],'#172424');
-      this.scratches(c,body,137,85);this.bolt(c,205,145);this.bolt(c,229,178);
-      this.paintGunDetail(c,weapon);
-      this.hand(c,215,181);
-    } else {
-      this.arm(c,229,186);
-      const body:Point[]=[[148,118],[158,109],[168,114],[178,134],[212,153],[240,178],[255,201],[222,211],[187,175],[160,145]];
-      this.poly(c,body,'#222b2e');
-      this.poly(c,[[149,118],[157,112],[164,115],[191,151],[186,159],[173,146]],'#718184');
-      this.poly(c,[[156,127],[162,120],[199,156],[193,166],[184,159]],'#3a4c51');
-      this.poly(c,[[147,117],[150,111],[157,107],[165,111],[171,120],[163,130],[154,129]],'#3f525b');
-      for(const [x,y] of [[153,115],[160,114],[157,122],[164,120]]) {
-        c.fillStyle='#030a0e';c.fillRect(x-2,y-2,4,4);c.fillStyle='#8da09b';c.fillRect(x-2,y-3,4,1);
-      }
-      for(let i=0;i<3;i++) this.line(c,[156+i*4,123-i*2],[187+i*5,159-i*2],i%2?'#b0b8ad':'#11191e',2);
-      this.poly(c,[[186,153],[198,146],[215,154],[238,175],[243,193],[228,204],[207,188],[186,167]],'#405255');
-      this.poly(c,[[189,153],[198,150],[215,158],[229,173],[221,177],[204,163]],'#91a09b');
-      this.poly(c,[[189,160],[205,164],[227,182],[228,198],[214,192],[194,174]],'#1c2b31');
-      for(let i=0;i<4;i++) this.poly(c,[[193+i*5,162+i*4],[197+i*5,163+i*4],[203+i*5,173+i*4],[199+i*5,174+i*4]],'#070f13');
-      this.poly(c,[[211,164],[220,160],[230,168],[230,176],[222,177]],'#364747');
-      this.poly(c,[[218,161],[216,151],[221,147],[230,151],[234,157],[230,161]],'#586b6b');
-      this.poly(c,[[219,156],[221,151],[227,152],[229,157]],'#070f15');
-      // An ammunition belt fed from the right with alternating brass rounds.
-      this.poly(c,[[236,169],[263,174],[280,182],[277,194],[249,185],[237,181]],'#14191b');
-      for(let i=0;i<8;i++) {
-        const x=240+i*5,y=174+i*1.7;
-        this.poly(c,[[x,y],[x+4,y+1],[x+3,y+12],[x,y+14],[x-2,y+11]],i%2?'#846733':'#a68b4c');
-        c.fillStyle='#d0b471';c.fillRect(x,y+1,2,7);c.fillStyle='#382e23';c.fillRect(x-1,y+9,4,2);
-      }
-      this.scratches(c,body,1985,140);this.bolt(c,205,158);this.bolt(c,235,185);
-      this.paintGunDetail(c,weapon);
-      this.hand(c,232,185);
-    }
-  }
-
-  private paintGunDetail(c:CanvasRenderingContext2D,weapon:string):void {
-    if(weapon==='revolver') {
-      this.line(c,[156.5,122.5],[176.5,145.5],'#eff0d1',.5);
-      this.line(c,[162,122.5],[180,144],'#566570',.5);
-      this.line(c,[164,124.5],[181,146.5],'#111b23',.5);
+      // Wide ribbed pump, twin tubular profiles and a heavy squared breech.
+      this.pixelFace(c,[[146,132],[153,121],[168,122],[210,162],[202,179],[183,165],[160,146]],PIXEL_BLUE,677,.41,.73);
+      this.pixelFace(c,[[151,124],[160,121],[169,126],[211,163],[203,169],[176,142]],PIXEL_STEEL,79,.66,.37);
+      this.pixelFace(c,[[151,136],[158,137],[198,175],[197,184],[183,174]],PIXEL_BLUE,833,.22,.4);
+      this.pixelFace(c,[[179,145],[192,146],[222,174],[213,187],[200,186],[173,161]],['#1b1c17','#343025','#514731','#736345','#998259','#baa06c'],277,.55,.66);
       for(let i=0;i<7;i++) {
-        const x=163+i*2,y=127+i*2.25;
-        this.line(c,[x,y],[x+2,y-.5],'#263b41',.5);
-        this.line(c,[x+.5,y+.5],[x+2,y],'#c6d3c9',.5);
+        const x=178+i*4,y=148+i*3;
+        c.fillStyle='#302c20';c.fillRect(x,y,3,10);c.fillStyle='#a48b5d';c.fillRect(x+1,y,1,8);
       }
-      this.etch(c,'.357',166,133,'#32434a',.88);
-      // The cylinder has six distinctly faceted chambers and tiny cartridge rims.
-      for(let i=0;i<5;i++) {
-        const x=176.5+i*4.5,y=147+i*1.9;
-        this.poly(c,[[x,y],[x+2,y-.5],[x+4,y+3],[x+3,y+12],[x+1.5,y+13],[x,y+8]],i%2?'#5e7376':'#253842','');
-        this.line(c,[x+1,y+.5],[x+2,y+10],'#c2cbb3',.5);
-        this.line(c,[x+3,y+2],[x+3,y+11],'#121f2a',.5);
-        c.fillStyle='#d1ad61';c.fillRect(x+.5,y-1,1.5,1);
-        c.fillStyle='#f4dd90';c.fillRect(x+.5,y-1,.5,.5);
-      }
-      this.inset(c,[[184,168],[195,168],[199,171],[197,175],[187,172]],'#42535a');
-      this.screw(c,188.5,170);this.screw(c,197,167);
-      this.line(c,[178,145],[188,143],'#e9e6c3',.5);
-      this.line(c,[192,143.5],[200,149.5],'#e1d9b2',.5);
-      this.line(c,[197,147],[201,144],'#1c3038',.5);
-      for(let i=0;i<4;i++)this.line(c,[200+i*.9,146.5+i*.2],[202+i*.9,147+i*.2],'#303e45',.5);
-      this.gripTexture(c,[[204,166],[212,167],[224,186],[218,193],[212,187]]);
-      this.machining(c,[[171,137],[187,146],[204,161],[191,170]],1974,115);
-      this.etch(c,'VANE',194,166,'#c1b895',.15);
-      this.screw(c,215.5,183.5,true);
-    } else if(weapon==='shotgun') {
-      this.line(c,[157,115.5],[162.5,112.5],'#d1d7bb',.5);
-      this.poly(c,[[156,116],[160,114.5],[162.5,115.5],[161.5,118],[158,119.5]],'#17262d','');
-      this.line(c,[158,116],[161,115],'#64818b',.5);
-      // A ventilated heat shield and a toothed rail running along the barrel.
-      for(let i=0;i<11;i++) {
-        const x=164.5+i*2.6,y=122+i*2.8;
-        this.poly(c,[[x,y],[x+2.5,y+1.5],[x+3.5,y+4],[x+1,y+2.5]],'#13212b','');
-        this.line(c,[x+.5,y],[x+2.5,y+1.5],'#b3c4b5',.5);
-        this.line(c,[x+3,y+.5],[x+5,y+2.5],'#2d3941',.5);
-      }
-      this.line(c,[164,121],[191,149],'#eef0cf',.5);
-      this.line(c,[165,123],[194,154],'#52646d',.5);
-      this.inset(c,[[198,157],[206,164],[213,168],[210,172],[201,167],[195,162]],'#2c4148');
-      this.etch(c,'12 GA',198,160,'#c1cdb9',.79);
-      this.line(c,[208.5,171],[217,178],'#d3dbbf',.5);
-      this.line(c,[211,174],[216.5,178.5],'#1a292b',.5);
-      this.screw(c,199,157);this.screw(c,216,172);this.screw(c,223.5,189,true);
-      for(let i=0;i<8;i++) {
-        const x=177.5+i*2.5,y=144+i*2;
-        this.line(c,[x,y],[x+1.5,y+7.5],'#180f13',.5);
-        this.line(c,[x+.5,y],[x+2,y+7.5],'#c7aa6c',.5);
-      }
-      this.gripTexture(c,[[229,189],[239,193],[247,208],[229,209],[222,198]]);
-      this.machining(c,[[155,120],[164,116],[193,146],[226,179],[221,194],[179,156]],2529,165);
-      this.etch(c,'FN-12',216,183,'#b9c1ad',.8);
+      this.pixelFace(c,[[194,152],[213,151],[240,173],[265,201],[240,215],[216,188],[198,176]],PIXEL_BLUE,988,.38,.65);
+      this.pixelFace(c,[[198,153],[211,151],[241,175],[239,185],[222,176]],PIXEL_STEEL,566,.65,.35);
+      this.pixelFace(c,[[210,172],[224,173],[249,196],[245,214],[230,212],[211,191]],PIXEL_BLUE,975,.22,.5);
+      this.pixelFace(c,[[147,129],[151,123],[160,122],[167,126],[168,130],[160,132],[152,131]],PIXEL_BLUE,226,.64,.42);
+      c.fillStyle='#bac5b7';c.fillRect(151,124,5,1);c.fillRect(160,126,4,1);
+      c.fillStyle='#39494e';c.fillRect(152,131,9,1);
+      c.fillStyle='#25363c';c.fillRect(157,119,3,4);c.fillStyle='#c1c9af';c.fillRect(157,119,2,1);
+      for(let i=0;i<8;i++){c.fillStyle='#1b2829';c.fillRect(168+i*4,134+i*3,3,4);}
+      this.poly(c,[[214,162],[220,162],[232,174],[229,179],[218,170]],'#101c20','');
+      c.fillStyle='#a2aea0';c.fillRect(217,163,3,1);
+      this.metalBolt(c,225,170);this.metalBolt(c,241,187);
+      this.hand(c,242,190);
     } else if(weapon==='plasma') {
-      // Copper wound power coils with ceramic insulation around a green core.
-      for(let i=0;i<9;i++) {
-        const x=183+i*2.45,y=149+i*2.5;
-        this.line(c,[x,y],[x-3.5,y+4],'#161913',2);
-        this.line(c,[x,y],[x-3.5,y+4],'#c49657',1);
-        this.line(c,[x,y],[x-2,y+2],'#f0d392',.5);
-        c.fillStyle='#3e7651';c.fillRect(x-1,y+2.5,.5,1);
+      // Large ceramic emitter shroud and copper-wound exposed power cell.
+      this.pixelFace(c,[[142,128],[151,116],[170,119],[191,140],[186,155],[167,157],[148,140]],PIXEL_BLUE,922,.43,.6);
+      this.pixelFace(c,[[148,119],[154,114],[168,119],[191,140],[181,145],[168,136]],PIXEL_STEEL,110,.65,.37);
+      this.pixelFace(c,[[163,139],[188,135],[219,150],[254,185],[251,210],[229,215],[196,184],[173,165]],PIXEL_BLUE,436,.36,.72);
+      this.pixelFace(c,[[177,139],[190,136],[217,151],[225,163],[213,167],[190,155]],PIXEL_STEEL,788,.60,.43);
+      this.pixelFace(c,[[210,157],[227,154],[253,179],[261,201],[247,213],[229,198],[217,183]],PIXEL_BLUE,651,.27,.72);
+      this.poly(c,[[174,151],[185,144],[219,175],[212,189],[197,180]],'#13251e','');
+      for(let i=0;i<7;i++) {
+        const x=178+i*4,y=148+i*4;
+        this.pixelFace(c,[[x,y],[x+3,y-1],[x+10,y+5],[x+7,y+11],[x+2,y+9],[x-3,y+4]],['#2e2619','#514224','#7c6336','#a68b4d','#d3b974','#f2d895'],202+i,.57,.56);
+        c.fillStyle='#58b875';c.fillRect(x+2,y+4,3,2);c.fillStyle='#b8e699';c.fillRect(x+2,y+4,1,1);
       }
-      this.wire(c,[[184,141],[192,138],[205,144],[216,154],[220,162]],'#a46945',1.5);
-      this.wire(c,[[181,144],[189,143],[204,150],[214,160]],'#254d5a',.5);
-      this.inset(c,[[189,136],[202,143],[205,148],[198,148],[188,141]],'#394f57');
-      this.etch(c,'ION-X3',190,139,'#d2d9b9',.51);
-      this.line(c,[180,140],[188,136],'#e5ebcf',.5);
-      this.line(c,[197,141],[206,147],'#e0e1c0',.5);
-      for(let i=0;i<5;i++) {
-        const x=208+i*2,y=153+i*2.2;
-        this.poly(c,[[x,y],[x+2,y],[x+5,y+3],[x+3,y+3]],'#0b2329','');
-        this.line(c,[x+.5,y+.5],[x+3,y+2],'#91b8a1',.5);
-      }
-      this.inset(c,[[220,166],[226,169],[229,177],[225,181],[220,175]],'#293d42');
-      this.screw(c,222,169,true);this.screw(c,226.5,176);
-      this.line(c,[155,117],[158,114.5],'#aeffd3',.5);
-      this.line(c,[165,116.5],[168,122],'#549878',.5);
-      c.fillStyle='#ccfadc';c.fillRect(156.5,119,1,.5);
-      this.gripTexture(c,[[215,182],[221,179],[230,194],[226,203],[218,197]]);
-      this.machining(c,[[172,133],[190,135],[211,149],[233,173],[224,190],[196,161]],186,165);
-      this.etch(c,'CAUTION',199,173,'#969972',.74);
+      this.poly(c,[[144,123],[151,116],[163,117],[173,123],[175,134],[166,140],[153,140],[143,133]],'#485f57','');
+      this.poly(c,[[149,126],[154,121],[163,121],[170,127],[166,134],[156,135],[149,131]],'#142b24','');
+      c.fillStyle='#429b65';c.fillRect(153,124,11,8);c.fillStyle='#95e3a4';c.fillRect(156,125,6,4);c.fillStyle='#d6f3b8';c.fillRect(158,126,3,2);
+      // Bolted emitter cage, with ceramic caps and disconnected painted chips.
+      for(const [x,y] of [[145,126],[152,117],[168,121],[169,133]])this.metalBolt(c,x,y);
+      this.poly(c,[[217,157],[224,157],[235,169],[233,179],[225,177]],'#16382b','');
+      c.fillStyle='#76d58e';c.fillRect(219,161,4,2);c.fillRect(225,168,3,3);
+      this.metalBolt(c,242,181);this.metalBolt(c,226,194);
+      this.hand(c,240,190);
     } else {
-      // Four muzzle rings, each with worn chamfers around a black bore.
-      for(const [x,y] of [[153,115],[160,114],[157,122],[164,120]]) {
-        this.line(c,[x-2,y-1.5],[x+1.5,y-1.5],'#c6d2c1',.5);
-        this.line(c,[x-2,y-1],[x-2,y+1],'#708a8f',.5);
-        this.line(c,[x+1.5,y-.5],[x+1.5,y+1.5],'#17232e',.5);
-        c.fillStyle='#2b414b';c.fillRect(x-.5,y+.5,1,.5);
+      // A substantial four-barrel block, ventilated receiver and linked brass belt.
+      this.pixelFace(c,[[142,128],[147,116],[163,112],[177,122],[194,145],[189,161],[171,159],[151,143]],PIXEL_BLUE,833,.35,.76);
+      this.pixelFace(c,[[149,116],[162,112],[174,121],[195,145],[185,149],[162,129]],PIXEL_STEEL,945,.60,.42);
+      this.pixelFace(c,[[162,138],[173,132],[211,165],[208,178],[194,176]],PIXEL_STEEL,588,.40,.78);
+      this.pixelFace(c,[[179,148],[197,138],[222,148],[252,177],[278,202],[258,218],[233,207],[193,181],[181,165]],PIXEL_BLUE,175,.33,.6);
+      this.pixelFace(c,[[187,147],[198,142],[224,153],[246,171],[244,180],[222,171]],PIXEL_STEEL,875,.59,.38);
+      this.pixelFace(c,[[192,168],[218,170],[245,192],[250,214],[234,215],[202,188]],PIXEL_BLUE,664,.20,.47);
+      this.pixelFace(c,[[140,124],[145,115],[158,112],[170,117],[178,128],[174,138],[160,146],[146,139]],PIXEL_BLUE,78,.31,.5);
+      // Foreshortened upper barrel ribs; the bores face into the street.
+      for(const [x,y] of [[147,120],[157,117],[150,131],[162,129]]) {
+        this.pixelFace(c,[[x,y],[x+3,y-3],[x+8,y+2],[x+22,y+21],[x+21,y+26],[x+16,y+22]],PIXEL_STEEL,902+x,.43,.46);
+        c.fillStyle='#bac5b5';c.fillRect(x+1,y-1,3,1);
+        c.fillStyle='#31464b';c.fillRect(x+3,y+4,2,2);
       }
-      for(let i=0;i<8;i++) {
-        const x=166+i*2.5,y=129+i*2.7;
-        this.poly(c,[[x,y],[x+2,y-1],[x+4,y+2],[x+2,y+3]],'#0b141c','');
-        this.line(c,[x,y],[x+1.5,y-.5],'#c5d0b5',.5);
-        this.line(c,[x+2,y+3],[x+3.5,y+2],'#4e6a6c',.5);
+      c.fillStyle='#25353c';c.fillRect(157,109,4,6);c.fillStyle='#c4ccaf';c.fillRect(158,109,2,1);
+      for(let i=0;i<7;i++) {
+        const x=190+i*5,y=161+i*3;
+        c.fillStyle='#1c2828';c.fillRect(x,y,4,8);c.fillStyle='#91a18e';c.fillRect(x,y-1,4,1);
       }
-      this.line(c,[153,124],[178,153],'#e3e6c2',.5);
-      this.line(c,[165,127],[192,155],'#566e72',.5);
-      this.inset(c,[[198,150],[209,155],[218,164],[214,169],[203,160],[195,155]],'#556a6c');
-      this.etch(c,'M-60',200,153,'#d5d7b5',.64);
-      this.line(c,[206,160],[216,168],'#152930',.5);
-      for(let i=0;i<4;i++) {
-        const x=193.5+i*5,y=163+i*4;
-        this.line(c,[x,y],[x+3,y+7],'#5b7378',.5);
-        this.line(c,[x+4,y+2],[x+6,y+8],'#a2b8a850',.5);
+      this.poly(c,[[218,151],[227,151],[237,161],[234,169],[223,164]],'#182b2b','');
+      this.pixelFace(c,[[223,144],[231,146],[237,154],[237,159],[231,157],[226,152]],PIXEL_STEEL,387,.58,.46);
+      this.pixelFace(c,[[238,169],[259,169],[294,184],[292,207],[255,194],[238,181]],PIXEL_STEEL,382,.24,.25);
+      for(let i=0;i<9;i++) {
+        const x=243+i*6,y=172+i*2;
+        this.pixelFace(c,[[x,y],[x+3,y-1],[x+6,y+4],[x+6,y+14],[x+3,y+17],[x,y+14]],['#423719','#68552a','#967a3a','#bfa05a','#dfc481','#f3de9c'],376+i,.61,.65);
+        c.fillStyle='#534e34';c.fillRect(x,y+10,6,2);c.fillStyle='#baaa70';c.fillRect(x,y+13,4,1);
       }
-      this.screw(c,199,153);this.screw(c,218.5,166.5);this.screw(c,233,178,true);
-      for(let i=0;i<8;i++) {
-        const x=240+i*5,y=174+i*1.7;
-        c.fillStyle='#eee0a1';c.fillRect(x+.5,y+1,.5,7);
-        c.fillStyle='#614e2b';c.fillRect(x+2,y+1,.5,7);
-        this.line(c,[x-1,y+10],[x+2,y+10],'#f6d080',.5);
-        this.line(c,[x-1,y+12],[x+2,y+12],'#2e2822',.5);
-        this.screw(c,x+2.5,y+9);
-      }
-      this.wire(c,[[236,183],[244,190],[256,191]],'#687c78',.5);
-      this.gripTexture(c,[[226,189],[238,187],[249,201],[239,208],[228,204]]);
-      this.machining(c,[[162,128],[182,145],[210,149],[238,175],[242,194],[212,188]],6509,190);
-      this.etch(c,'FOSSIL',205,179,'#90a399',.72);
+      this.metalBolt(c,240,178);this.metalBolt(c,248,200);
+      this.hand(c,253,193);
     }
   }
 
@@ -600,30 +516,14 @@ export class Viewmodel {
   }
 
   private paintPumpHand(c:CanvasRenderingContext2D,offset:number):void {
-    c.save();c.translate(Math.round(offset*0.8),Math.round(offset));
-    this.poly(c,[[124,205],[145,181],[162,162],[174,159],[191,171],[190,182],[171,187],[153,212]],'#1a2226');
-    this.poly(c,[[139,199],[160,174],[172,168],[180,176],[169,187],[154,204]],'#74858a');
-    this.line(c,[143,195],[163,174],'#c3ccc3',2);
-    for(let i=0;i<4;i++) {
-      this.poly(c,[[166+i*4,161+i*2],[173+i*4,163+i*2],[176+i*4,169+i*2],[173+i*4,174+i*2],[166+i*4,169+i*2]],i%2?'#9aaba4':'#576c75');
-      this.line(c,[170+i*4,166+i*2],[175+i*4,168+i*2],'#1c2c34',2);
-      this.line(c,[167+i*4,162+i*2],[172+i*4,164+i*2],'#e2e6c8',.5);
-      this.screw(c,170+i*4,166+i*2);
-      c.fillStyle='#9c7747';c.fillRect(174+i*4,169+i*2,.5,2);
-    }
-    this.bolt(c,154,187);
-    this.inset(c,[[145,190],[151,181],[158,176],[162,180],[155,186],[148,194]],'#4a626b');
-    this.wire(c,[[143,196],[151,189],[156,186]],'#a1744a',.5);
-    this.machining(c,[[139,199],[160,174],[172,168],[180,176],[169,187],[154,204]],271,60);
-    this.etch(c,'09',148,187,'#d0d6bb',-.81);
-    c.restore();
+    c.drawImage(this.parts.get('pump')!,Math.round(offset*.8),Math.round(offset),320,200);
   }
 
   private paintPlasmaPulse(c:CanvasRenderingContext2D,time:number,reload:boolean):void {
     if(reload)return;
     c.fillStyle=Math.sin(time*9)>0?'#c4ffe1':'#49dc95';
     c.fillRect(215,158,4,2);c.fillRect(221,165,2,2);
-    c.fillRect(158,117,3,3);
+    c.fillRect(158,126,3,3);
     const charge=1-Math.min(1,this.shotAge/.32);
     for(let i=0;i<5;i++) {
       const bright=charge>.05 || Math.sin(time*7-i*.9)>.4;
@@ -638,13 +538,11 @@ export class Viewmodel {
   private paintReload(c:CanvasRenderingContext2D,weapon:string,progress:number):void {
     const wave=Math.sin(progress*Math.PI);
     if(weapon==='revolver') {
-      const x=171-Math.round(wave*12),y=158+Math.round(wave*10);
-      this.poly(c,[[x-8,y-5],[x+5,y-8],[x+12,y],[x+10,y+13],[x-3,y+15],[x-11,y+5]],'#687b7d');
-      this.line(c,[x-8,y-5],[x+4,y-7],'#dfe4c1',.5);
-      this.line(c,[x+9,y+2],[x+8,y+11],'#1c353d',.5);
+      const x=185-Math.round(wave*12),y=160+Math.round(wave*10);
+      c.drawImage(this.parts.get('reload-cylinder')!,x-18,y-17,36,36);
       for(let i=0;i<6;i++) {
         const a=i*Math.PI/3+progress*5;
-        const cx=Math.round(x+Math.cos(a)*6),cy=Math.round(y+Math.sin(a)*6);
+        const cx=Math.round(x+Math.cos(a)*9),cy=Math.round(y+Math.sin(a)*9);
         c.fillStyle=progress>0.45?'#c2a254':'#0b151a';
         c.fillRect(cx-2,cy-2,4,4);
         c.fillStyle=progress>0.45?'#fae5a2':'#5f777e';c.fillRect(cx-1.5,cy-2,2,.5);
@@ -786,9 +684,9 @@ export class Viewmodel {
     const cycle=Math.max(0,1-this.shotAge/.16);
     if(weapon==='revolver' && cycle>0) {
       const lift=Math.round(cycle*4);
-      this.poly(c,[[198,148],[199,142+lift],[203,141+lift],[207,145+lift],[207,150]],'#37474b');
-      this.line(c,[199,143+lift],[203,142+lift],'#c8d1b8',.5);
-      c.fillStyle='#141f27';c.fillRect(199,149,6,1.5);
+      this.poly(c,[[216,155],[217,149+lift],[221,148+lift],[225,152+lift],[225,157]],'#37474b');
+      this.line(c,[217,150+lift],[221,149+lift],'#c8d1b8',.5);
+      c.fillStyle='#141f27';c.fillRect(217,156,6,1.5);
     } else if(weapon==='machinegun') {
       const back=Math.round(cycle*3);
       c.fillStyle='#07151b';c.fillRect(218,151,12,8);
@@ -800,7 +698,7 @@ export class Viewmodel {
     if(this.flash<=0)return;
     const color=weapon==='plasma'?'#a5ffd2':'#ffe0a2';
     c.save();c.globalAlpha=.55;
-    this.line(c,[163,123],[178,141],color,1);
+    this.line(c,[165,131],[179,142],color,1);
     this.line(c,[182,146],[193,148],color,.5);
     this.line(c,[220,176],[229,183],color,.5);
     c.fillStyle=color;c.fillRect(223,182,2,.5);c.fillRect(231,186,1,.5);

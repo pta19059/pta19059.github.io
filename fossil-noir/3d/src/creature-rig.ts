@@ -48,19 +48,19 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
   const m=new THREE.Mesh(geometry,material(color,emissive));m.position.set(...pos);parent.add(m);return m;
  };
  const box=(p:THREE.Group,pos:Point,size:Point,color:number,emissive=0)=>mesh(p,new THREE.BoxGeometry(...size),color,pos,emissive);
- const oval=(p:THREE.Group,pos:Point,size:Point,color:number)=>{const m=mesh(p,new THREE.SphereGeometry(1,8,5),color,pos);m.scale.set(...size);return m};
+ const oval=(p:THREE.Group,pos:Point,size:Point,color:number)=>{const m=mesh(p,new THREE.SphereGeometry(1,10,6),color,pos);m.scale.set(...size);return m};
  const segment=(p:THREE.Group,a:Point,b:Point,r1:number,r2:number,color:number,sides=7)=>{
   const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),delta=end.sub(start),m=mesh(p,new THREE.CylinderGeometry(r2,r1,delta.length(),sides,1),color);
   m.position.copy(start).addScaledVector(delta,.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());return m;
  };
  const cone=(p:THREE.Group,pos:Point,radius:number,length:number,color:number,rx=0,rz=0)=>{const m=mesh(p,new THREE.ConeGeometry(radius,length,5),color,pos);m.rotation.set(rx,0,rz);return m};
  const joint=(parent:THREE.Group,pos:Point)=>{const group=new THREE.Group();group.position.set(...pos);parent.add(group);return group};
- // Eight-sided taper profiles give skulls and torsos designed silhouettes without smooth modern meshes.
+ // Ten-sided taper profiles retain the retro polygon budget without a faceted skull silhouette.
  const profile=(p:THREE.Group,rings:{z:number;y:number;x:number;h:number}[],color:number)=>{
-  const positions:number[]=[],uv:number[]=[],indices:number[]=[];
-  for(let j=0;j<rings.length;j++)for(let i=0;i<8;i++){const a=i*TAU/8,r=rings[j];positions.push(Math.cos(a)*r.x,r.y+Math.sin(a)*r.h,r.z);uv.push(i/8,j/(rings.length-1))}
-  for(let j=0;j<rings.length-1;j++)for(let i=0;i<8;i++){const a=j*8+i,b=j*8+(i+1)%8,c=a+8,d=b+8;indices.push(a,c,b,b,c,d)}
-  for(let i=1;i<7;i++){indices.push(0,i,i+1);const o=(rings.length-1)*8;indices.push(o,o+i+1,o+i)}
+  const positions:number[]=[],uv:number[]=[],indices:number[]=[],sides=10;
+  for(let j=0;j<rings.length;j++)for(let i=0;i<sides;i++){const a=i*TAU/sides,r=rings[j];positions.push(Math.cos(a)*r.x,r.y+Math.sin(a)*r.h,r.z);uv.push(i/sides,j/(rings.length-1))}
+  for(let j=0;j<rings.length-1;j++)for(let i=0;i<sides;i++){const a=j*sides+i,b=j*sides+(i+1)%sides,c=a+sides,d=b+sides;indices.push(a,c,b,b,c,d)}
+  for(let i=1;i<sides-1;i++){indices.push(0,i,i+1);const o=(rings.length-1)*sides;indices.push(o,o+i+1,o+i)}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return mesh(p,g,color);
  };
 
@@ -83,25 +83,25 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
   profile(jaw,[{z:0,y:-.035,x:.115,h:.036},{z:-.24,y:-.061,x:.102,h:.035},{z:-.6,y:-.056,x:.071,h:.028},{z:-.69,y:-.049,x:.05,h:.025}],belly);
   for(const side of [-1,1]){
    const brow=oval(head,[side*.146,.092,-.085],[.052,.035,.12],skin);brow.rotation.z=side*.24;
-   oval(head,[side*.16,.055,-.128],[.018,.032,.036],dark);
-   box(head,[side*.172,.056,-.135],[.009,.018,.029],mount?0xe8bf70:0xefb961,0x422400);
-   box(head,[side*.179,.056,-.141],[.004,.018,.008],dark);
+   oval(head,[side*.161,.055,-.128],[.023,.042,.046],dark);
+   box(head,[side*.178,.056,-.135],[.012,.027,.041],mount?0xffd99a:0xf6c57d,0x523108);
+   box(head,[side*.186,.056,-.141],[.005,.026,.01],dark);
    oval(head,[side*.059,.01,-.586],[.017,.012,.022],dark);
    for(let i=0;i<6;i++){
     const z=-.2-i*.064,x=side*(.102-i*.006);
-    cone(head,[x,-.105,z],.015,.063+(i%2)*.012,bone,Math.PI);
-    cone(jaw,[x*.93,-.012,z-.06],.013,.049,bone);
+    cone(head,[x,-.105,z],.019,.072+(i%2)*.012,bone,Math.PI);
+    cone(jaw,[x*.93,-.012,z-.06],.016,.055,bone);
    }
    // Large haunches belong to the thigh joint, so their silhouette compresses with each step.
    const hip=joint(pelvis,[side*.267,0,.19]),knee=joint(hip,[0,-.5,0]),hock=joint(knee,[0,-.55,0]),foot=joint(hock,[0,-.28,0]);
    oval(hip,[0,-.145,0],[.19,.265,.23],skin);segment(hip,[0,-.05,0],[0,-.5,0],.15,.075,skin);
-   oval(knee,[0,-.015,0],[.079,.085,.085],belly);segment(knee,[0,-.02,0],[0,-.55,0],.076,.039,belly);
-   segment(hock,[0,0,0],[0,-.28,0],.04,.033,skin);
-   oval(foot,[0,.035,-.08],[.093,.055,.13],skin);
+   oval(knee,[0,-.015,0],[.091,.09,.095],belly);segment(knee,[0,-.02,0],[0,-.55,0],.085,.046,belly);
+   segment(hock,[0,0,0],[0,-.28,0],.046,.039,skin);
+   oval(foot,[0,.035,-.08],[.107,.063,.139],belly);
    for(let toe=-1;toe<=1;toe++){
     const tx=toe*.056;
-    segment(foot,[tx,.035,-.035],[tx*1.35,.022,-.225],.028,.019,skin,5);
-    segment(foot,[tx*1.35,.023,-.22],[tx*1.48,.024,-.295],.026,.002,bone,5);
+    segment(foot,[tx,.035,-.035],[tx*1.35,.022,-.225],.032,.023,belly,5);
+    segment(foot,[tx*1.35,.023,-.22],[tx*1.48,.024,-.295],.03,.002,bone,5);
    }
    // The inner second toe is held clear of the floor, with a hooked sickle claw.
    segment(foot,[-side*.08,.068,-.025],[-side*.104,.128,-.12],.031,.023,skin,5);
@@ -109,7 +109,7 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
    segment(foot,[-side*.106,.152,-.2],[-side*.105,.073,-.254],.026,.002,bone,5);
    rig.legs.push({hip,knee,hock,foot,side,upper:.5,lower:.55,metatarsal:.28,anchor:new THREE.Vector2(),swingStart:new THREE.Vector2(),worldFoot:new THREE.Vector2(),height:0,previous:0,initialized:false});
    const upper=joint(chest,[side*.23,.055,-.415]),lower=joint(upper,[0,-.22,0]);
-   segment(upper,[0,0,0],[0,-.22,0],.052,.036,skin);segment(lower,[0,0,0],[0,-.21,0],.036,.028,skin);
+   segment(upper,[0,0,0],[0,-.22,0],.061,.043,skin);segment(lower,[0,0,0],[0,-.21,0],.043,.033,belly);
    for(let i=-1;i<=1;i++){segment(lower,[i*.029,-.205,0],[i*.038,-.265,-.08],.016,.011,skin,5);segment(lower,[i*.038,-.265,-.08],[i*.04,-.29,-.11],.018,.001,bone,5)}
    rig.arms.push({upper,lower,side});
    for(let i=0;i<5;i++){const band=oval(pelvis,[side*.293,.2-i*.015,-.28+i*.18],[.027,.13,.053],dark);band.rotation.z=side*.28}
@@ -119,6 +119,7 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
   const lengths=[.48,.47,.46,.45],radii=[.164,.123,.079,.04,.008];
   for(let i=0;i<lengths.length;i++){
    rig.tail.push(parent);segment(parent,[0,0,0],[0,-.025,lengths[i]],radii[i],radii[i+1],skin,8);
+   segment(parent,[0,-radii[i]*.66,0],[0,-.025-radii[i+1]*.66,lengths[i]],radii[i]*.56,radii[i+1]*.56,belly,6);
    parent=joint(parent,[0,-.025,lengths[i]]);
   }
   if(mount){
@@ -135,17 +136,22 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
   jaw.position.set(0,-.062,-.012);
   if(soldier){
    for(const side of [-1,1]){
-    oval(chest,[side*.135,.47,-.174],[.164,.219,.1],armor);box(chest,[side*.165,.098,-.185],[.14,.19,.085],armor);
+    const breastplate=box(chest,[side*.135,.47,-.174],[.267,.35,.13],armor);breastplate.rotation.z=-side*.075;
+    box(chest,[side*.165,.098,-.185],[.14,.19,.085],armor);
     box(pelvis,[side*.245,.015,-.185],[.13,.16,.1],dark);
    }
    for(let i=0;i<3;i++)box(chest,[0,.28-i*.065,-.206],[.32,.045,.065],armor);
    box(chest,[0,.44,-.266],[.065,.22,.046],bone);box(pelvis,[0,.015,-.03],[.59,.07,.39],dark);box(pelvis,[0,.025,-.23],[.082,.06,.024],bone);
    box(chest,[0,.38,.258],[.31,.43,.17],dark);box(chest,[0,.48,.356],[.2,.24,.042],armor);
-   oval(head,[0,.06,.007],[.18,.2,.187],armor);box(head,[0,.014,-.16],[.255,.065,.026],dark);
+   oval(head,[0,.083,.026],[.18,.174,.187],armor);box(head,[0,.014,-.16],[.255,.065,.026],dark);
+   box(head,[0,.054,-.171],[.257,.016,.025],bone);
    box(head,[0,.021,-.18],[.216,.024,.01],0xe5b66b,0x553713);
    box(head,[.073,.021,-.189],[.036,.029,.009],0xffd68a,0x594019);
-   oval(head,[0,-.086,-.134],[.104,.06,.075],dark);
-   for(const side of [-1,1]){segment(head,[side*.078,-.087,-.149],[side*.078,-.087,-.21],.033,.031,bone);oval(head,[side*.179,.03,.007],[.025,.072,.064],dark)}
+   oval(head,[0,-.118,-.143],[.089,.045,.059],dark);
+   for(const side of [-1,1]){
+    oval(head,[side*.086,-.046,-.151],[.04,.052,.042],skin);
+    segment(head,[side*.078,-.105,-.149],[side*.078,-.105,-.21],.03,.028,bone);oval(head,[side*.179,.03,.007],[.025,.072,.064],dark);
+   }
    segment(head,[.15,.15,.034],[.15,.32,.034],.009,.007,dark,5);
    box(chest,[-.136,.51,-.268],[.052,.053,.012],0xf1c489);
   }else{
@@ -156,10 +162,17 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
    box(chest,[width*.82,.43,.042],[.14,.26,.27],armor);box(chest,[.055,.47,.239],[.19,.3,.08],0x788375);
    for(let i=0;i<4;i++)box(chest,[.053,.58-i*.062,.287],[.15,.023,.02],i===0?0x79b597:dark,i===0?0x163526:0);
    oval(head,[-.053,.029,-.107],[.09,.07,.09],skin);oval(head,[.083,.027,-.103],[.084,.08,.072],armor);
-   for(const side of [-1,1]){oval(head,[side*.073,.047,-.144],[.052,.045,.022],dark);box(head,[side*.071,.04,-.168],[.018,.012,.008],0xd5ac65,0x331908)}
+   for(const side of [-1,1]){
+    oval(head,[side*.073,.047,-.144],[.055,.041,.025],dark);
+    oval(head,[side*.073,.086,-.13],[.074,.028,.047],skin);
+    oval(head,[side*.08,-.006,-.135],[.073,.047,.04],skin);
+    box(head,[side*.071,.04,-.173],[.029,.018,.01],0xf2cf94,0x472d16);
+   }
+   profile(head,[{z:-.118,y:.002,x:.035,h:.063},{z:-.183,y:-.003,x:.03,h:.046},{z:-.213,y:-.021,x:.026,h:.025}],skin);
+   for(const side of [-1,1])oval(head,[side*.018,-.033,-.207],[.013,.007,.01],dark);
    box(head,[0,-.069,-.142],[.126,.041,.03],dark);
    oval(jaw,[0,-.052,-.122],[.096,.045,.055],skin);
-   for(let i=0;i<5;i++){cone(head,[(i-2)*.021,-.084,-.163],.008,.037,bone,Math.PI);cone(jaw,[(i-2)*.021,-.017,-.153],.008,.028,bone)}
+   for(let i=0;i<5;i++){cone(head,[(i-2)*.024,-.084,-.163],.011,.044,bone,Math.PI);cone(jaw,[(i-2)*.024,-.017,-.153],.011,.036,bone)}
    if(brute){oval(chest,[-.36,.56,.035],[.25,.22,.27],armor);for(let i=0;i<3;i++)cone(chest,[-.36+i*.093,.76,.05],.035,.17-i*.018,bone,0,-.15)}
   }
   for(const side of [-1,1]){
