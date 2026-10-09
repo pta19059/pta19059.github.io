@@ -1,0 +1,13 @@
+{
+  "name": "fossil-noir-3d",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 4173",
+    "build": "tsc --noEmit && vite build && node scripts/package.mjs",
+    "test": "node --import tsx --test tests/*.test.ts"
+  },
+  "dependencies": { "three": "0.186.0" },
+  "devDependencies": { "@types/three": "0.183.1", "typescript": "5.9.3", "vite": "7.1.9", "tsx": "4.20.6" }
+}

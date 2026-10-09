@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+    <meta name="theme-color" content="#080d0a" />
+    <meta name="description" content="Fossil Noir 3D. A complete original retro first-person shooter: cybernetic enemies, mutated dinosaurs, and the neon-soaked streets of Vesper, 2091. Play in your browser." />
+    <title>Fossil Noir 3D — The Neon District</title>
+  </head>
+  <body>
+    <main id="game" aria-label="Fossil Noir 3D browser game">
+      <canvas id="world" aria-label="First-person game view" tabindex="0"></canvas>
+      <canvas id="weapon" aria-hidden="true"></canvas>
+      <div class="screen-treatment" aria-hidden="true"></div>
+      <div id="crosshair" class="crosshair" aria-hidden="true"><i></i><b></b></div>
+      <div id="status-top" class="status-top">
+        <div class="level-label"><span>01</span><div>THE NEON DISTRICT<small>VESPER CITY / 2091</small></div></div>
+        <div id="objective" class="objective">FIND YOUR REVOLVER</div>
+      </div>
+      <div id="message" class="game-message" aria-live="polite"></div>
+      <div id="interaction" class="interaction-hint"></div>
+      <footer id="hud" class="hud" aria-label="Player status">
+        <div class="hud-stat health-stat"><span>HEALTH</span><strong id="hud-health">100</strong><div class="meter"><i id="health-bar"></i></div></div>
+        <div class="hud-stat"><span>ARMOR</span><strong id="hud-armor">000</strong><div class="meter armor"><i id="armor-bar"></i></div></div>
+        <div class="detective-portrait" title="Elias Vane — private investigator">
+          <svg viewBox="0 0 32 32" role="img" aria-label="Elias Vane wearing a cowboy hat and an eyepatch" shape-rendering="crispEdges">
+            <path fill="#101b18" d="M0 0h32v32H0z"/><path fill="#393f3a" d="M11 1h12v3h2v6h4v3H3v-3h5V4h3z"/><path fill="#171a18" d="M7 8h20v3H5v2h25v-2h-3z"/><path fill="#b7a07e" d="M10 13h14v12H10zM8 15h2v6H8zM24 15h2v6h-2z"/><path fill="#7b6554" d="M11 22h12v5H11zM21 13h3v11h-3z"/><path fill="#151d19" d="M10 15h7v5h-7zM17 16h7v1h-7z"/><path fill="#acddaa" d="M20 17h2v1h-2z"/><path fill="#443d35" d="M13 22h8v2h-8zM15 25h4v2h-4z"/><path fill="#29302a" d="M7 26h7l3 3 3-3h5l4 6H3z"/><path fill="#939d88" d="M24 27h5v5h-5zM24 28h5v1h-5z"/><path fill="#5ae28b" d="M25 30h2v1h-2z"/>
+          </svg>
+          <span id="portrait-label">VANE</span>
+        </div>
+        <div class="hud-stat ammo-stat"><span>AMMO <small id="hud-weapon">REVOLVER</small></span><strong id="hud-ammo">00</strong><em id="hud-reserve">/ 000</em></div>
+        <div class="hud-inventory"><span id="hud-key" class="key-indicator">KEY <b>—</b></span><span>KILLS <b id="hud-kills">0 / 0</b></span><span id="hud-mode">ON FOOT</span></div>
+      </footer>
+      <div id="menu-overlay" class="menu-overlay"></div>
+      <div id="touch-controls" class="touch-controls" aria-label="Touch controls"></div>
+      <div class="rotate-tip">LANDSCAPE RECOMMENDED <span>Rotate your device for the full view</span></div>
+      <div id="error" class="error-banner" role="alert" hidden></div>
+    </main>
+    <noscript><div class="no-script">FOSSIL NOIR 3D needs JavaScript enabled to start the mission.</div></noscript>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
