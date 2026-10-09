@@ -57,6 +57,8 @@ Actual 3D geometry is rendered at 640×400 by default, with a 320×200 classic o
 
 Creatures use original pixel-painted hide, scarred skin, fabric and worn armor. Evidence threads, window blinds, a wall clock, sagging service cables, shop meters and covered laboratory specimens add further scene detail. Dithered contact shadows ground the characters; rain is confined to the outdoor street and steam rises at selected drains and vents. High effects quality enables rain and steam. Static wall hits leave up to 64 pixel scars, and defeated enemies leave textured blood stains; those marks reset with a new mission. These effects use fixed instance budgets and do not change combat or collision rules.
 
+Creature anatomy includes a horizontal raptor ribcage, muscular haunches, a tapered skull, an articulated jaw, digitigrade feet and a four-joint counterbalance tail. Humanoids have separate pelvis, chest, knee and elbow joints. Their gait follows actual collision-resolved travel, with planted stance feet, inverse kinematics, lifted swing feet and natural step cadence. Pursuit accelerates and brakes; turning follows the route and the tail reacts to a change in direction. Stationary creatures breathe without walking in place, attack poses follow real combat windups, and defeated creatures settle into a fallen pose. Smooth skin shading and stable animated vertices improve silhouettes while the world keeps its retro vertex wobble and nearest-filtered textures.
+
 Settings include mouse sensitivity, render resolution, graphics quality, volume and difficulty. Checkpoints and settings are browser-local, with defensive handling when storage is unavailable. WebGL2 hardware acceleration is required. Performance depends on the browser and GPU; 60 FPS is a target, not a measured guarantee.
 
 ## Source modules
@@ -67,7 +69,8 @@ Settings include mouse sensitivity, render resolution, graphics quality, volume 
 | `types.ts` | Shared state and input contracts |
 | `level.ts` | Level geometry, objects, progression and spawns |
 | `simulation.ts` | Movement, physics, weapons, AI and interactions |
-| `renderer.ts` | Three.js world, batched scenery and animated creature models |
+| `renderer.ts` | Three.js world, batched scenery and creature integration |
+| `creature-rig.ts` | Original creature anatomy, articulated gait, planted feet, attacks and death poses |
 | `retro-textures.ts` | Original pixel material tiles, case files, posters and stains |
 | `creature-textures.ts` | Original pixel hide, flesh, fabric and armor surfaces |
 | `set-dressing.ts` | Batched office, storefront and laboratory props |
@@ -81,7 +84,7 @@ Three.js is MIT licensed. Dependency versions and licenses are recorded by npm; 
 
 ## Validation
 
-The production build passes TypeScript compilation. Fourteen simulation tests cover weapons, reloads, AI, wall and door occlusion, physics, hazards, riding, keycard and elevator gates, checkpoint restoration, death and a complete input-only playthrough with all 20 enemies defeated.
+The automated suite covers weapons, reloads, AI, wall and door occlusion, physics, hazards, riding, keycard and elevator gates, checkpoint restoration, death and a complete input-only playthrough with all 20 enemies defeated. Creature checks additionally verify collision-resolved motion, stopping, attack synchronization, articulated knees, planted feet, pause, fresh-mission pose reset and geometry budgets.
 
 Chromium with software WebGL2 was used to inspect the office, street, security wing, laboratory, lift and all four weapons, with no JavaScript or shader errors. The compiled production page was separately served under `/fossil-noir/3d/`: both hashed assets returned HTTP 200, no TypeScript source was requested, Pointer Lock worked, movement collected the revolver and Escape paused the mission.
 

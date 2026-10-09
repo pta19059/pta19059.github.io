@@ -187,10 +187,109 @@ test('all enemy types pursue or attack, react to damage and die without continui
     for (let ticks = 0; enemy.alive && ticks < 300; ticks++) { aim(sim, enemy); sim.update(STEP, input({ fire: true, reload: sim.state.player.ammo.machinegun === 0 })); }
     assert.equal(enemy.alive, false, `${kind} can be killed`);
     assert.equal(enemy.health, 0);
+    assert.equal(enemy.speed, 0, `${kind} death clears gait speed`);
+    assert.equal(enemy.attack, 0, `${kind} death cancels the attack pose`);
+    assert.equal(Math.hypot(enemy.vx, enemy.vz), 0, `${kind} corpse has no movement momentum`);
     assert.equal(sim.state.kills, 1);
     const health = sim.state.player.health;
     advance(sim, 3);
     assert.equal(sim.state.player.health, health, `${kind} corpse cannot attack`);
+  }
+});
+
+test('enemy gait telemetry measures real travel, accelerates, and stays still while idle or aiming', () => {
+  const sim = arena({ enemies: [{ id: 'raptor', kind: 'raptor', x: 0, z: -8 }] });
+  const enemy = sim.state.enemies[0];
+  let travelled = 0, firstSpeed = 0;
+  for (let tick = 0; tick < 12; tick++) {
+    const previous = { x: enemy.x, z: enemy.z };
+    sim.update(STEP, input());
+    const moved = distance(previous, enemy);
+    travelled += moved;
+    assert.ok(Math.abs(enemy.speed - moved / STEP) < 1e-8, 'speed reflects collision-resolved displacement');
+    assert.ok(enemy.speed <= 3.6 * 0.88 + 1e-8, 'steering cannot exceed pursuit speed');
+    if (!tick) firstSpeed = enemy.speed;
+  }
+  assert.ok(firstSpeed > 0 && firstSpeed < enemy.speed, 'pursuit accelerates into its stride');
+  assert.ok(Math.abs(enemy.phase - travelled) < 1e-8, 'footfall distance accumulates only real travel');
+  assert.ok(Math.abs(Math.abs(enemy.heading) - Math.PI) < 1e-8, 'the creature faces its forward movement');
+
+  const hidden = arena({ walls: [{ x: 0, z: -2, w: 8, d: 0.5, h: 4, material: 'metal' }], enemies: [{ id: 'hidden', kind: 'mutant', x: 0, z: -5 }] });
+  advance(hidden, 1);
+  assert.equal(hidden.state.enemies[0].speed, 0);
+  assert.equal(hidden.state.enemies[0].phase, 0, 'an unaware enemy does not walk in place');
+  const soldier = arena({ enemies: [{ id: 'aiming', kind: 'soldier', x: 0, z: -5 }] });
+  advance(soldier, 0.5);
+  assert.equal(soldier.state.enemies[0].speed, 0);
+  assert.equal(soldier.state.enemies[0].phase, 0, 'stationary ranged aim does not advance its gait');
+
+  const braking = arena({ enemies: [{ id: 'braking', kind: 'raptor', x: 0, z: -2 }] });
+  const predator = braking.state.enemies[0];
+  predator.cooldown = 99;
+  advance(braking, 1);
+  assert.equal(predator.speed, 0, 'pursuit brakes to a complete stop inside the melee distance');
+  const stoppedPhase = predator.phase;
+  advance(braking, 0.3);
+  assert.equal(predator.phase, stoppedPhase, 'a stopped predator holds its footfall distance');
+
+  const slowed = arena({ enemies: [{ id: 'slowed', kind: 'raptor', x: 0, z: -8 }] });
+  const previous = { ...slowed.state.enemies[0] };
+  slowed.update(STEP, input({ slow: true }));
+  assert.ok(Math.abs(slowed.state.enemies[0].speed - distance(previous, slowed.state.enemies[0]) / STEP) < 1e-8, 'slow motion still reports actual frame speed');
+});
+
+test('melee attack pose follows actual windup, damage and recovery without walking in place', () => {
+  for (const kind of ['raptor', 'mutant', 'brute'] as const) {
+    const sim = arena({ enemies: [{ id: kind, kind, x: 0, z: -1 }] });
+    const enemy = sim.state.enemies[0];
+    enemy.cooldown = 0;
+    sim.update(0.01, input());
+    const initialAttack = enemy.attack;
+    assert.ok(initialAttack > 0 && initialAttack < 1);
+    assert.equal(sim.state.player.health, 100, `${kind} must telegraph before damage`);
+    let struck = false;
+    for (let tick = 0; tick < 40; tick++) {
+      sim.update(0.01, input());
+      assert.equal(enemy.speed, 0);
+      assert.equal(enemy.phase, 0, 'attack animation does not consume footfall distance');
+      if (sim.state.player.health < 100) {
+        assert.equal(enemy.attack, 1, `${kind} reaches strike pose on the damage frame`);
+        struck = true;
+        break;
+      }
+      assert.ok(enemy.attack >= initialAttack && enemy.attack < 1, `${kind} is winding up`);
+    }
+    assert.ok(struck, `${kind} must strike after its windup`);
+    advance(sim, 0.1);
+    assert.ok(enemy.attack > 0 && enemy.attack < 1, 'the strike recovers before returning to rest');
+    advance(sim, 0.2);
+    assert.equal(enemy.attack, 0);
+  }
+});
+
+test('pursuit faces its obstacle route and keeps enemy collision volumes separated', () => {
+  const sim = arena({ walls: [{ x: 0, z: -2.5, w: 2.6, d: 0.6, h: 4, material: 'metal' }], enemies: [{ id: 'route', kind: 'raptor', x: 0, z: -5 }] });
+  const enemy = sim.state.enemies[0];
+  enemy.alert = true;
+  let facingRoute = false;
+  for (let tick = 0; tick < 35; tick++) {
+    const previous = { x: enemy.x, z: enemy.z };
+    sim.update(STEP, input());
+    assert.ok(sim.canOccupy(enemy.x, enemy.z, 0.42), 'path steering respects walls and enemy radius');
+    const moved = distance(previous, enemy);
+    assert.ok(moved <= 3.6 * 0.88 * STEP + 1e-8, 'path following does not teleport');
+    if (moved > 0.001 && !sees(sim, enemy)) {
+      const movementHeading = Math.atan2(previous.x - enemy.x, previous.z - enemy.z);
+      const playerHeading = Math.atan2(enemy.x - sim.state.player.x, enemy.z - sim.state.player.z);
+      if (Math.cos(enemy.heading - movementHeading) > 0.94 && Math.cos(enemy.heading - playerHeading) < 0.85) facingRoute = true;
+    }
+  }
+  assert.ok(facingRoute, 'the creature follows its path rather than staring through the wall at Elias');
+
+  const pack = arena({ enemies: [{ id: 'left', kind: 'raptor', x: -0.6, z: -6 }, { id: 'right', kind: 'raptor', x: 0.6, z: -6 }] });
+  for (let tick = 0; tick < 40; tick++) {
+    pack.update(STEP, input());
+    assert.ok(distance(pack.state.enemies[0], pack.state.enemies[1]) >= 0.84 - 1e-5, 'predators cannot overlap during pursuit');
   }
 });
 
@@ -363,7 +462,7 @@ test('LEVEL 01 completes by walking, collecting weapons/keycard, fighting, unloc
 });
 
 test('keycard checkpoint restores progress; a full restart resets the original level', () => {
-  const sim = armedArena('revolver', { checkpoint: { x: 0, z: 0 }, pickups: [{ id: 'weapon', kind: 'revolver', x: 0, z: 0 }, { id: 'keycard', kind: 'keycard', x: 0, z: -1 }] });
+  const sim = armedArena('revolver', { checkpoint: { x: 0, z: 0 }, enemies: [{ id: 'checkpoint-moving', kind: 'raptor', x: 0, z: -8 }], pickups: [{ id: 'weapon', kind: 'revolver', x: 0, z: 0 }, { id: 'keycard', kind: 'keycard', x: 0, z: -1 }] });
   sim.update(STEP, input({ forward: 1 }));
   assert.equal(sim.state.checkpoint, true);
   const savedReserve = sim.state.player.reserve.revolver;
@@ -376,12 +475,14 @@ test('keycard checkpoint restores progress; a full restart resets the original l
   assert.ok(sim.state.player.owned.includes('revolver'));
   assert.equal(sim.state.player.reserve.revolver, savedReserve);
   assert.equal(distance(sim.state.player, sim.level.checkpoint), 0);
+  assert.ok(sim.state.enemies.every(e => e.speed === 0 && e.attack === 0 && e.vx === 0 && e.vz === 0), 'checkpoint restoration clears stale motion and attack poses');
   sim.restart(false);
   assert.equal(sim.state.player.keycard, false);
   assert.deepEqual(sim.state.player.owned, []);
   assert.equal(sim.state.checkpoint, false);
   assert.equal(sim.state.kills, 0);
   assert.ok(sim.state.pickups.every(p => !p.collected));
+  assert.ok(sim.state.enemies.every(e => e.heading === 0 && e.phase === 0 && e.speed === 0 && e.attack === 0), 'full restart resets the animation contract');
 });
 
 test('a fresh simulation can resume the persisted checkpoint baseline without trapping the player', () => {

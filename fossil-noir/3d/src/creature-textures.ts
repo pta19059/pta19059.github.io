@@ -3,32 +3,34 @@ import type {EnemyKind} from './types';
 
 /** Original pixel-painted surfaces, deterministic and independent of any game assets. */
 export function createCreatureTexture(kind:EnemyKind,color:number):THREE.CanvasTexture {
- const canvas=document.createElement('canvas');canvas.width=canvas.height=64;
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=kind==='raptor'?128:64;
+ const size=canvas.width;
  const ctx=canvas.getContext('2d')!;
  const r=(color>>16)&255,g=(color>>8)&255,b=color&255;
  const shade=(factor:number,offset=0)=>`rgb(${Math.max(0,Math.min(255,Math.round(r*factor+offset)))},${Math.max(0,Math.min(255,Math.round(g*factor+offset)))},${Math.max(0,Math.min(255,Math.round(b*factor+offset)))})`;
  const random=(n:number)=>{const value=Math.sin(n*127.13+color*.0017)*43758.5453;return value-Math.floor(value)};
  const pixel=(x:number,y:number,w:number,h:number,fill:string)=>{ctx.fillStyle=fill;ctx.fillRect(x,y,w,h)};
- ctx.fillStyle=shade(1);ctx.fillRect(0,0,64,64);
+ ctx.fillStyle=shade(kind==='raptor'?.94:1);ctx.fillRect(0,0,size,size);
  // Fine tonal variations stay pixel-sharp; larger motifs remain visible at the retro resolution.
- for(let i=0;i<340;i++)pixel(Math.floor(random(i)*64),Math.floor(random(i+431)*64),1+i%2,1,shade(.82+random(i+233)*.32));
+ for(let i=0;i<(kind==='raptor'?1300:340);i++)pixel(Math.floor(random(i)*size),Math.floor(random(i+431)*size),1+i%2,1,shade(.86+random(i+233)*.23));
  if(kind==='raptor'){
   const belly=color===0x9baf74||color===0xc4ae73;
   if(belly){
-   for(let y=0;y<64;y+=7){pixel(0,y,64,2,shade(.64));pixel(0,y+2,64,1,shade(1.16));for(let x=0;x<64;x+=16)pixel(x,y+3,1,4,shade(.8))}
+   // Subtle overlapping belly scutes instead of large, evenly spaced black stripes.
+   for(let y=0;y<size;y+=7){pixel(0,y,size,1,shade(.79));pixel(0,y+1,size,1,shade(1.04));for(let x=0;x<size;x+=15)pixel(x+(y%3),y+2,1,4,shade(.88))}
   }else{
-   for(let row=0;row<9;row++)for(let col=-1;col<9;col++){
-    const x=col*8+(row%2)*4,y=row*7,variation=.92+random(row*11+col+17)*.15;
-    pixel(x+1,y,5,1,shade(.63));pixel(x,y+1,7,1,shade(.75));pixel(x+1,y+2,5,4,shade(variation));pixel(x+2,y+2,3,1,shade(1.19));pixel(x+2,y+6,3,1,shade(.73));
+   // Irregular small scales sit inside broad olive mottling. The texture reads as hide,
+   // while the silhouette and lighting carry the anatomy at the game's low resolution.
+   for(let i=0;i<95;i++){
+    const x=random(i+341)*size|0,y=random(i+761)*size|0,w=4+(i%9),h=3+(i%6);
+    pixel(x,y,w,h,shade(i%3===0?.79:.99));pixel(x+2,y-1,w-3,1,shade(i%3===0?.84:1.02));
    }
-   // Broken dark tiger bands and olive flecks across the hide.
-   for(let y=4;y<64;y++){
-    const x=11+Math.floor(Math.sin(y*.14)*3);pixel(x,y,y%9<6?4:2,1,shade(.56));
-    const x2=43+Math.floor(Math.sin(y*.13+2)*4);if(y%15<11)pixel(x2,y,3,1,shade(.65));
+   for(let row=0;row<19;row++)for(let col=-1;col<19;col++){
+    const seed=row*29+col+73,x=col*7+(row%2)*3+(random(seed)*3|0),y=row*7+(random(seed+313)*3|0),w=3+(seed%3),h=3+(seed%2),variation=.88+random(seed+97)*.13;
+    pixel(x,y,w,1,shade(.77+random(seed+43)*.07));pixel(x-1,y+1,1,h,shade(.81));pixel(x,y+1,w,h,shade(variation));pixel(x+1,y+1,w-2,1,shade(1.05));pixel(x+1,y+h+1,w-1,1,shade(.84));
    }
-   for(let i=0;i<24;i++)pixel(random(i+911)*64|0,random(i+721)*64|0,2,2,shade(1.26));
-   // Three pale healed scratches; small enough to avoid reading as a repeated large decal.
-   for(let i=0;i<3;i++)for(let y=0;y<9;y++)pixel(26+i*3+Math.floor(y*.33),32+y,1,1,shade(1.34,8));
+   for(let i=0;i<64;i++)pixel(random(i+911)*size|0,random(i+721)*size|0,1,2,shade(1.08));
+   for(let i=0;i<3;i++)for(let y=0;y<13;y++)pixel(58+i*4+Math.floor(y*.25),69+y,1,1,shade(1.16,5));
   }
  }else if(kind==='soldier'){
   if(color===0xa18c70){

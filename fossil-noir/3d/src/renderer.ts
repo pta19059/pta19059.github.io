@@ -5,9 +5,9 @@ import {createRetroTexture,createDecal,type DecalKind} from './retro-textures';
 import {Atmosphere} from './atmosphere';
 import {buildSetDressing} from './set-dressing';
 import {createCreatureTexture} from './creature-textures';
+import {buildCreatureRig,updateCreatureRig,type CreatureRig} from './creature-rig';
 import type {EnemyKind,GameState,Settings,Wall,PickupKind} from './types';
 
-type MobVisual={root:THREE.Group;legs:THREE.Group[];arms:THREE.Group[];head:THREE.Group;tail?:THREE.Group;kind:EnemyKind;dead:boolean};
 const TAU=Math.PI*2;
 const rnd=(n:number)=>{const x=Math.sin(n*127.1+91.7)*43758.5453;return x-Math.floor(x)};
 
@@ -28,17 +28,21 @@ export class Renderer {
  private mats=new Map<string,THREE.Material>();
  private batches=new Map<THREE.Material,THREE.BufferGeometry[]>();
  private doorGroups=new Map<string,THREE.Group>();
- private enemyGroups=new Map<string,MobVisual>();
+ private enemyGroups=new Map<string,CreatureRig>();
  private pickupGroups=new Map<string,THREE.Group>();
  private lamps:THREE.Mesh[]=[];
  private hazmat:THREE.Mesh[]=[];
- private mountGroup:THREE.Group;
- private mountLegs:THREE.Group[]=[];
+ private mountRig:CreatureRig;
+ private mountHeading=-.7;
+ private lastMountPosition?:{x:number;z:number};
  private effectMesh:THREE.InstancedMesh;
  private effectMat:THREE.MeshBasicMaterial;
  private dummy=new THREE.Object3D();
  private snapGrid=new THREE.Vector2(160,100);
  private clock=0;
+ private cameraStride=0;
+ private cameraMotion=0;
+ private previousPlayer?:{x:number;z:number;time:number};
  private lastResolution='';
  private powerLamp?:THREE.Mesh;
  private lights:THREE.PointLight[]=[];
@@ -54,9 +58,9 @@ export class Renderer {
   for(const kind of ['brick','metal','concrete','crate','floor','labfloor','road','ceiling','door']){const m=new THREE.MeshLambertMaterial({map:createRetroTexture(kind)});this.retroMaterial(m);this.mats.set(kind,m)}
   this.buildLevel();this.flush();
   for(const d of LEVEL.doors)this.buildDoor(d);
-  for(const e of LEVEL.enemies){const mob=this.buildMob(e.kind);mob.root.position.set(e.x,0,e.z);this.enemyGroups.set(e.id,mob);this.scene.add(mob.root)}
+  for(const e of LEVEL.enemies){const mob=buildCreatureRig(e.kind,false,(color,emissive=0)=>this.creatureMaterial(e.kind,false,color,emissive));mob.root.position.set(e.x,0,e.z);this.enemyGroups.set(e.id,mob);this.scene.add(mob.root)}
   for(const p of LEVEL.pickups){const group=this.buildPickup(p.kind);group.position.set(p.x,.5,p.z);this.scene.add(group);this.pickupGroups.set(p.id,group)}
-  const mount=this.buildMob('raptor',true);this.mountGroup=mount.root;this.mountLegs=mount.legs;this.mountGroup.scale.setScalar(1.55);this.mountGroup.position.set(LEVEL.mount.x,0,LEVEL.mount.z);this.mountGroup.rotation.y=-.7;this.scene.add(this.mountGroup);
+  this.mountRig=buildCreatureRig('raptor',true,(color,emissive=0)=>this.creatureMaterial('raptor',true,color,emissive));this.mountRig.root.position.set(LEVEL.mount.x,0,LEVEL.mount.z);this.mountRig.root.rotation.y=this.mountHeading;this.scene.add(this.mountRig.root);
   this.effectMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.9});this.effectMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(.08,.08,.08),this.effectMat,128);this.effectMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.effectMesh.count=0;this.effectMesh.frustumCulled=false;this.scene.add(this.effectMesh);
   this.canvas.style.imageRendering='pixelated';
   this.atmosphere=new Atmosphere(this.scene);
@@ -305,22 +309,7 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   this.scene.add(group);this.doorGroups.set(d.id,group);
   const sx=horizontal?d.x:d.x-.3,sz=horizontal?d.z+.33:d.z;this.sign(d.label,sx,3.57,sz,horizontal?Math.min(d.w+1.4,5):2.4,.5,horizontal?0:-Math.PI/2,d.locked?'#ffb05d':'#8ccdaa');
  }
- /** Batch only the rigid parts of each pivot. Limbs retain their own animation groups. */
- private mergeMobParts(group:THREE.Group):void {
-  for(const child of [...group.children])if(child instanceof THREE.Group)this.mergeMobParts(child);
-  const batches=new Map<THREE.Material,THREE.Mesh[]>();
-  for(const child of group.children)if(child instanceof THREE.Mesh&&!Array.isArray(child.material)){
-   const list=batches.get(child.material)??[];list.push(child);batches.set(child.material,list);
-  }
-  for(const [material,meshes]of batches){
-   if(meshes.length<2)continue;
-   const geometries=meshes.map(mesh=>{mesh.updateMatrix();return mesh.geometry.clone().applyMatrix4(mesh.matrix)});
-   const merged=mergeGeometries(geometries,false);
-   if(merged){for(const mesh of meshes){group.remove(mesh);mesh.geometry.dispose()}group.add(new THREE.Mesh(merged,material))}
-   for(const geometry of geometries)geometry.dispose();
-  }
- }
- private creatureMaterial(kind:EnemyKind,mount:boolean,color:number):THREE.Material {
+ private creatureMaterial(kind:EnemyKind,mount:boolean,color:number,emissive=0):THREE.Material {
   // Mouths, teeth, eyes and small accents retain their clean silhouettes and emissive colors.
   const palettes:Record<EnemyKind,number[]>={
    raptor:[0x60794b,0x9baf74,0x958252,0xc4ae73],
@@ -328,191 +317,17 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
    mutant:[0x86965e,0x4e5d43,0x788375],
    brute:[0x9a6f64,0x7b383d,0x788375],
   };
-  if(!palettes[kind].includes(color))return this.mat(color);
-  const key=`creature-${kind}-${mount?'saddle':'enemy'}-${color}`;
+  const textured=palettes[kind].includes(color)&&!emissive;
+  const skin=[0x60794b,0x9baf74,0x958252,0xc4ae73,0xa18c70,0x86965e,0x9a6f64].includes(color);
+  const key=`creature-${kind}-${mount?'saddle':'enemy'}-${color}-${emissive}`;
   let material=this.mats.get(key);
-  if(!material){const painted=new THREE.MeshLambertMaterial({map:createCreatureTexture(kind,color),flatShading:true});this.retroMaterial(painted);material=painted;this.mats.set(key,material)}
+  if(!material){
+   const surface={color:textured?0xffffff:color,map:textured?createCreatureTexture(kind,color):undefined,emissive,flatShading:!skin};
+   material=kind==='soldier'&&textured&&!skin?new THREE.MeshPhongMaterial({...surface,shininess:14,specular:0x253030}):new THREE.MeshLambertMaterial(surface);
+   // Keep the world wobble, but preserve subpixel precision on animated joints and facial details.
+   this.mats.set(key,material);
+  }
   return material;
- }
- private buildMob(kind:EnemyKind,mount=false):MobVisual {
-  const root=new THREE.Group(),head=new THREE.Group(),legs:THREE.Group[]=[],arms:THREE.Group[]=[];
-  type Point=[number,number,number];
-  const surface=(color:number)=>this.creatureMaterial(kind,mount,color);
-  const box=(parent:THREE.Group,x:number,y:number,z:number,w:number,h:number,d:number,color:number,emissive=0)=>{
-   const mesh=this.localBox(parent,x,y,z,w,h,d,color,emissive);if(!emissive)mesh.material=surface(color);return mesh;
-  };
-  const poly=(parent:THREE.Group,x:number,y:number,z:number,sx:number,sy:number,sz:number,color:number)=>{
-   const mesh=this.mesh(new THREE.SphereGeometry(1,6,4),surface(color),x,y,z,parent);mesh.scale.set(sx,sy,sz);return mesh;
-  };
-  const segment=(parent:THREE.Group,a:Point,b:Point,r1:number,r2:number,color:number,sides=6)=>{
-   const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),direction=end.clone().sub(start),mid=start.clone().add(end).multiplyScalar(.5);
-   const mesh=this.mesh(new THREE.CylinderGeometry(r2,r1,direction.length(),sides),surface(color),mid.x,mid.y,mid.z,parent);
-   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());return mesh;
-  };
-  const tooth=(parent:THREE.Group,x:number,y:number,z:number,length:number,color:number,angle=0)=>{
-   const mesh=this.mesh(new THREE.ConeGeometry(length*.26,length,4),surface(color),x,y,z,parent);mesh.rotation.z=angle;return mesh;
-  };
-  if(kind==='raptor'){
-   const skin=mount?0x958252:0x60794b,bell=mount?0xc4ae73:0x9baf74,dark=mount?0x5b523b:0x354b38,bone=0xd4c9a0;
-   // Narrow chest, broad haunches and an S-shaped neck replace the old box torso.
-   poly(root,0,.94,.15,.38,.33,.65,skin);poly(root,0,.86,-.17,.28,.24,.44,bell);
-   poly(root,0,1.2,-.34,.26,.28,.3,skin);segment(root,[0,1.1,-.26],[0,1.47,-.6],.19,.14,skin);
-   head.position.set(0,1.47,-.6);root.add(head);
-   poly(head,0,.01,-.08,.18,.19,.29,skin);
-   // A long, tapered carnivore muzzle and separated mandible read as a raptor head-on.
-   segment(head,[0,-.015,-.19],[0,-.025,-.86],.143,.075,skin);
-   poly(head,0,-.26,-.52,.119,.054,.415,bell);
-   box(head,0,-.151,-.59,.2,.105,.64,dark);
-   box(head,0,-.201,-.59,.2,.025,.64,bell);
-   for(const side of [-1,1])tooth(head,side*.065,-.153,-.907,.166,bone,Math.PI);
-   for(const side of [-1,1]){
-    // Raised brow ridges, forward-facing pupils and dark nostrils remain readable at 320px.
-    const brow=poly(head,side*.144,.105,-.19,.067,.032,.12,dark);brow.rotation.z=side*.22;
-    const eye=box(head,side*.16,.062,-.249,.043,.039,.034,mount?0xf0d98b:0xff6142,0x5a1708);eye.rotation.y=side*.25;
-    box(head,side*.157,.062,-.271,.012,.034,.012,dark);
-    poly(head,side*.045,.031,-.832,.021,.016,.028,dark);
-    for(let i=0;i<4;i++)tooth(head,side*(.122-i*.011),-.147,-.4-i*.115,.078+(i%2)*.012,bone,Math.PI);
-    const leg=new THREE.Group();leg.position.set(side*.28,.78,.23);root.add(leg);legs.push(leg);
-    poly(leg,0,-.02,.02,.19,.29,.29,skin);segment(leg,[0,-.14,-.02],[0,-.4,.12],.115,.07,skin);
-    poly(leg,0,-.36,.1,.084,.085,.085,bell);segment(leg,[0,-.39,.1],[0,-.65,-.08],.065,.04,bell);
-    poly(leg,0,-.69,-.18,.125,.05,.2,dark);
-    for(let toe=-1;toe<=1;toe++){
-     segment(leg,[toe*.057,-.68,-.15],[toe*.077,-.69,-.35],.025,.014,skin,4);
-     segment(leg,[toe*.077,-.69,-.34],[toe*.077,-.7,-.43],.027,.001,bone,4);
-    }
-    // Raised sickle claw, characteristic of the district's mutated raptors.
-    segment(leg,[side*.09,-.62,-.15],[side*.12,-.55,-.3],.045,.008,bone,4);
-    const arm=new THREE.Group();arm.position.set(side*.29,1.11,-.42);root.add(arm);arms.push(arm);
-    segment(arm,[0,0,0],[side*.065,-.17,-.12],.055,.04,skin);
-    segment(arm,[side*.065,-.17,-.12],[side*.02,-.22,-.31],.04,.027,bell);
-    for(let i=0;i<3;i++)segment(arm,[side*.02+(i-1)*.027,-.22,-.29],[side*.02+(i-1)*.035,-.27,-.4],.021,.001,bone,4);
-    // Dark flank bands and actual geometric scale plates, rather than a plain green body.
-    for(let i=0;i<5;i++){
-     const band=poly(root,side*(.27+.035*Math.sin(i)),1.03-i*.035,-.31+i*.18,.055,.16,.065,dark);band.rotation.z=side*.23;
-     const scale=poly(root,side*.32,.88,-.2+i*.16,.032,.05,.07,bell);scale.rotation.z=side*.5;
-    }
-   }
-   const tail=new THREE.Group();tail.position.set(0,1.02,.6);root.add(tail);
-   for(let i=0;i<5;i++){
-    const a:Point=[Math.sin(i*.45)*.09,-i*.075,i*.31],b:Point=[Math.sin((i+1)*.45)*.09,-(i+1)*.075,(i+1)*.31];
-    segment(tail,a,b,.19-i*.034,Math.max(.005,.155-i*.034),skin);
-    if(i<4)poly(tail,a[0],a[1]+.115-i*.02,a[2]+.15,.05,.095-i*.012,.07,dark);
-   }
-   for(let i=0;i<7;i++){
-    const spine=tooth(root,0,1.24-i*.025,-.13+i*.14,.18-i*.007,dark);spine.rotation.x=.25;
-   }
-   if(mount){
-    box(root,0,1.26,.05,.58,.14,.6,0x41382c);box(root,0,1.41,.25,.55,.27,.12,0x64503d);
-    for(const side of [-1,1]){
-     box(root,side*.33,1.05,.08,.065,.5,.59,0x41382c);
-     box(root,side*.39,.83,.11,.17,.08,.26,bone);
-     segment(root,[side*.16,1.45,-.63],[side*.32,1.37,-.18],.014,.014,0x41382c,4);
-    }
-   }
-   this.mergeMobParts(root);return {root,legs,arms,head,tail,kind,dead:false};
-  }
-  const brute=kind==='brute',soldier=kind==='soldier';
-  const skin=soldier?0xa18c70:brute?0x9a6f64:0x86965e,armor=soldier?0x496276:brute?0x7b383d:0x4e5d43;
-  const dark=soldier?0x202e39:brute?0x3c292f:0x364431,bone=soldier?0x9cad9f:0xd4c3a1,metal=soldier?0x80938e:0x788375;
-  // Faceted torso volumes give the silhouettes curved, deliberate anatomy.
-  poly(root,0,1.15,.025,brute?.54:.34,.46,brute?.31:.235,skin);
-  poly(root,0,.78,.025,brute?.4:.28,.22,.24,dark);
-  segment(root,[0,1.4,0],[0,1.68,0],.15,.115,skin);
-  head.position.set(0,1.72,-.025);root.add(head);poly(head,0,0,0,.215,.215,.205,skin);
-  if(soldier){
-   // Layered breastplate and separate sternum, abdominal segments, belt and magazine pouches.
-   for(const side of [-1,1]){
-    const plate=poly(root,side*.167,1.3,-.157,.19,.245,.12,armor);plate.rotation.z=-side*.1;
-    box(root,side*.26,.83,-.19,.13,.19,.13,dark);box(root,side*.26,.89,-.27,.11,.055,.027,metal);
-    box(root,side*.135,.88,-.23,.12,.24,.1,armor);
-   }
-   box(root,0,1.3,-.278,.095,.24,.055,metal);
-   for(let i=0;i<3;i++)box(root,0,1.08-i*.075,-.232,.37,.055,.07,armor);
-   box(root,0,.74,-.01,.62,.1,.44,dark);box(root,0,.75,-.254,.1,.08,.035,metal);
-   box(root,0,1.22,.24,.37,.48,.19,dark);box(root,0,1.28,.35,.23,.25,.06,armor);
-   // Rounded helmet shell, side comms, inset visor and twin-filter respirator.
-   poly(head,0,.063,.016,.247,.235,.25,armor);box(head,0,.01,-.22,.34,.13,.047,dark);
-   box(head,0,.027,-.251,.3,.073,.017,0x64e9d0,0x1a6b5d);
-   box(head,.105,.027,-.269,.047,.055,.017,0xff8c55,0x762a10);
-   poly(head,0,-.1,-.193,.16,.088,.1,dark);
-   for(const side of [-1,1]){
-    segment(head,[side*.108,-.111,-.207],[side*.108,-.111,-.286],.051,.047,metal);
-    poly(head,side*.244,.01,.015,.046,.103,.115,dark);
-   }
-   segment(head,[.215,.18,.06],[.217,.39,.06],.011,.008,dark,4);
-   box(root,-.135,1.39,-.279,.06,.1,.013,0xe49b55);
-  }else{
-   // Broken exposed ribs, asymmetric growths and a surgical spine attachment.
-   poly(root,-.14,1.32,-.13,.29,.29,.18,skin);poly(root,.2,1.12,-.17,.16,.27,.14,armor);
-   for(let i=0;i<4;i++)for(const side of [-1,1]){
-    const rib=segment(root,[side*.035,1.36-i*.085,-.255],[side*(.21-i*.013),1.33-i*.085,-.205],.025,.018,bone,5);rib.rotation.z+=side*.07;
-   }
-   segment(root,[0,1.41,-.27],[0,1.03,-.275],.031,.026,dark);
-   box(root,-.2,1.38,.25,.14,.38,.11,metal);
-   for(let i=0;i<4;i++)poly(root,-.2,1.47-i*.09,.316,.039,.033,.024,dark);
-   // Jaw and cheeks are offset, avoiding a square, uniform toy face.
-   poly(head,-.035,-.105,-.105,.185,.125,.17,skin);box(head,-.018,-.061,-.222,.255,.142,.036,dark);
-   for(let i=0;i<5;i++)tooth(head,-.118+i*.047,-.11,-.243,.055+(i%2)*.023,bone,Math.PI);
-   for(const side of [-1,1]){
-    const brow=poly(head,side*.112,.069,-.165,.103,.064,.086,armor);brow.rotation.z=-side*.2;
-    box(head,side*.105,.027,-.213,.058,.051,.027,0xff6846,0x6c1f0d);
-   }
-   box(head,-.195,-.002,-.04,.054,.19,.18,metal);
-   for(let i=0;i<3;i++)box(head,-.225,.06-i*.055,-.13,.016,.025,.03,dark);
-  }
-  for(const side of [-1,1]){
-   const leg=new THREE.Group();leg.position.set(side*(brute?.31:.19),.69,0);root.add(leg);legs.push(leg);
-   segment(leg,[0,-.025,0],[0,-.31,.025],brute?.16:.115,brute?.13:.09,soldier?dark:skin);
-   poly(leg,0,-.3,-.025,brute?.145:.11,.11,.13,armor);
-   segment(leg,[0,-.32,.025],[0,-.58,-.01],brute?.105:.075,.066,soldier?dark:skin);
-   if(soldier||brute){
-    poly(leg,0,-.46,-.075,.12,.19,.083,armor);box(leg,0,-.27,-.136,.17,.14,.059,metal);
-    box(leg,0,-.6,-.087,.24,.15,.35,dark);box(leg,0,-.652,-.1,.25,.038,.36,metal);
-   }else{
-    poly(leg,0,-.61,-.095,.13,.069,.2,armor);
-    for(let i=0;i<3;i++)segment(leg,[(i-1)*.068,-.625,-.18],[(i-1)*.078,-.651,-.32],.028,.001,bone,4);
-   }
-   const arm=new THREE.Group();arm.position.set(side*(brute?.55:.36),1.46,0);root.add(arm);arms.push(arm);
-   poly(arm,0,-.045,0,brute?.225:.155,brute?.19:.15,.195,armor);
-   segment(arm,[0,-.095,0],[side*.016,-.33,.009],brute?.15:.092,.083,skin);
-   poly(arm,side*.016,-.33,.009,.1,.105,.11,dark);
-   segment(arm,[side*.016,-.35,.009],[0,-.57,-.073],.09,brute?.115:.069,soldier||side<0?metal:skin);
-   poly(arm,0,-.58,-.09,brute?.14:.089,.12,.115,skin);
-   if(soldier){box(arm,0,-.455,-.13,.15,.19,.042,armor);box(arm,0,-.36,-.114,.115,.06,.025,metal)}
-   else{
-    // One implanted forearm and long bony claws emphasize escaped experiments.
-    if(side<0)for(let i=0;i<3;i++)box(arm,0,-.405-i*.055,-.108,.17,.03,.055,dark);
-    for(let i=0;i<3;i++)segment(arm,[(i-1)*.056,-.62,-.135],[(i-1)*.063,-.76,-.19],.027,.001,bone,4);
-    const spike=tooth(arm,side*.12,.082,0,brute?.29:.22,bone,-side*.65);spike.rotation.x=.2;
-   }
-  }
-  if(soldier){
-   const gun=arms[1];box(gun,-.13,-.52,-.285,.16,.18,.42,dark);box(gun,-.13,-.42,-.31,.12,.025,.31,metal);
-   segment(gun,[-.13,-.5,-.45],[-.13,-.5,-.73],.041,.035,metal,6);
-   segment(gun,[-.13,-.5,-.72],[-.13,-.5,-.81],.046,.046,dark,6);
-   box(gun,-.13,-.652,-.36,.09,.18,.14,armor);
-   box(gun,-.13,-.37,-.35,.06,.075,.14,dark);box(gun,-.13,-.367,-.428,.035,.027,.011,0x64e9d0,0x1a6b5d);
-  }
-  if(brute){
-   // A rust-red containment exoskeleton, reactor and asymmetrical shoulder shield identify the boss.
-   root.scale.setScalar(1.47);
-   for(const side of [-1,1]){
-    const plate=poly(root,side*.265,1.29,-.235,.275,.285,.12,armor);plate.rotation.z=-side*.18;
-    box(root,side*.32,1.25,-.352,.035,.28,.032,metal);
-    poly(root,side*.42,1.54,.035,.21,.14,.25,armor);
-    segment(root,[side*.39,1.65,.15],[side*.43,1.88,.22],.053,.006,bone,4);
-   }
-   box(root,0,1.2,-.305,.31,.36,.12,dark);
-   segment(root,[0,1.2,-.365],[0,1.2,-.413],.106,.106,metal,8);
-   segment(root,[0,1.2,-.418],[0,1.2,-.434],.076,.076,0x788375,8);
-   box(root,0,1.2,-.45,.12,.12,.022,0x65fc9e,0x177c3d);
-   for(let i=0;i<3;i++)box(root,0,.99-i*.074,-.28,.5,.049,.073,armor);
-   segment(root,[-.3,1.03,.225],[-.3,1.5,.225],.095,.095,dark);segment(root,[.3,1.03,.225],[.3,1.5,.225],.095,.095,dark);
-   poly(head,0,.093,.035,.245,.16,.22,armor);box(head,0,.062,-.205,.35,.055,.039,metal);
-   box(head,0,-.166,-.138,.37,.055,.22,metal);
-   for(let i=0;i<4;i++)box(head,-.135+i*.09,-.172,-.253,.031,.048,.018,dark);
-  }
-  this.mergeMobParts(root);return {root,legs,arms,head,kind,dead:false};
  }
  private buildPickup(kind:PickupKind){
   const group=new THREE.Group();const palette:Record<PickupKind,number>={health:0xeabda1,armor:0x4ba9b4,ammo:0xc39945,keycard:0x78ee9d,evidence:0xc8b786,revolver:0xaebcb1,shotgun:0x8b9c91,plasma:0x63e89b,machinegun:0x768785};const col=palette[kind];
@@ -532,22 +347,27 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
  }
  render(state:GameState,dt:number,settings:Settings){
   if(this.lastResolution!==settings.resolution)this.resize(settings);this.clock+=dt;const p=state.player;
-  const eye=p.crouching?.9:p.mounted?2.6:1.65;const speedBob=state.status==='playing'?Math.sin(this.clock*(p.mounted?9:11))*(p.mounted?.025:.009):0;
+  const last=this.previousPlayer,travel=last?Math.hypot(p.x-last.x,p.z-last.z):0;
+  if(last&&state.time<last.time){this.cameraStride=0;this.cameraMotion=0;this.lastMountPosition=undefined;this.mountHeading=-.7;}
+  const actualMove=dt>0&&travel<1.5?travel:0;
+  this.cameraStride+=actualMove;
+  if(dt>0)this.cameraMotion+=(Math.min(1,actualMove/Math.max(dt,.001)/4.4)-this.cameraMotion)*(1-Math.exp(-dt*15));
+  this.previousPlayer={x:p.x,z:p.z,time:state.time};
+  const eye=p.crouching?.9:p.mounted?2.6:1.65;
+  const speedBob=state.status==='playing'?Math.sin(this.cameraStride*(p.mounted?4.3:8.2))*this.cameraMotion*(p.mounted?.032:.016):0;
   this.camera.position.set(p.x,p.y+eye+speedBob,p.z);this.camera.rotation.set(p.pitch+(p.recoil*.012),p.yaw,0,'YXZ');
   for(const d of state.doors){const g=this.doorGroups.get(d.id);if(g)g.position.y=d.open*3.4}
   for(const e of state.enemies){
-   const m=this.enemyGroups.get(e.id)!;m.root.position.set(e.x,0,e.z);
-   if(e.alive){m.root.rotation.y=Math.atan2(-(p.x-e.x),-(p.z-e.z));m.root.rotation.z=0;m.root.position.y=0;
-    const stride=Math.sin(e.phase*6)*(e.alert?.72:.13);m.legs.forEach((l,i)=>l.rotation.x=stride*(i%2?1:-1));m.arms.forEach((a,i)=>{a.rotation.x=(m.kind==='soldier'?-.4:0)-stride*(i%2?1:-1)*.5});
-    if(m.tail)m.tail.rotation.y=Math.sin(e.phase*3)*.18;m.head.rotation.z=e.hurt>0?Math.sin(this.clock*45)*.09:0;
-    m.root.scale.y=(m.kind==='brute'?1.47:1)*(e.hurt>0?.94:1);m.dead=false;
-   }else{
-    m.root.position.y=.1;m.root.rotation.z=Math.PI/2;m.root.rotation.x=.15;m.root.scale.y=m.kind==='brute'?1.47:1;
-    m.dead=true;
-   }
+   const rig=this.enemyGroups.get(e.id)!;
+   updateCreatureRig(rig,{x:e.x,z:e.z,heading:e.heading,speed:e.speed,attack:e.attack,hurt:e.hurt,alive:e.alive,time:state.time,dt});
   }
   for(const item of state.pickups){const g=this.pickupGroups.get(item.id)!;g.visible=!item.collected;if(g.visible){g.position.y=.48+Math.sin(this.clock*3+item.x)*.06;g.rotation.y=this.clock*.75}}
-  this.mountGroup.visible=!p.mounted;this.mountGroup.position.set(state.mount.x,0,state.mount.z);this.mountLegs.forEach((l,i)=>l.rotation.x=Math.sin(this.clock*2+i*Math.PI)*.04);
+  const mount=state.mount,previous=this.lastMountPosition;
+  const mountDistance=previous?Math.hypot(mount.x-previous.x,mount.z-previous.z):0;
+  if(mountDistance>.002&&mountDistance<2)this.mountHeading=Math.atan2(-(mount.x-previous!.x),-(mount.z-previous!.z));
+  updateCreatureRig(this.mountRig,{x:mount.x,z:mount.z,heading:this.mountHeading,speed:dt>0&&mountDistance<2?mountDistance/dt:0,attack:p.mounted?p.recoil:0,hurt:0,alive:true,time:state.time,dt});
+  this.mountRig.root.visible=!p.mounted;
+  this.lastMountPosition={x:mount.x,z:mount.z};
   if(this.powerLamp)(this.powerLamp.material as THREE.MeshBasicMaterial).color.setHex(state.powered?0x73ff99:0xff6633);
   for(let i=0;i<this.lamps.length;i++)this.lamps[i].visible=Math.sin(this.clock*3+i*1.73)>.0||i%4!==1||Math.sin(this.clock*31+i)>-.7;
   for(let i=0;i<this.hazmat.length;i++){const m=this.hazmat[i].material as THREE.MeshBasicMaterial;m.color.setRGB(.22+.04*Math.sin(this.clock*3),.48+.07*Math.sin(this.clock*2+i),.19)}

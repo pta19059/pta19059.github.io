@@ -38,7 +38,7 @@ export class Simulation {
     const player:Player={...this.level.spawn,y:0,vy:0,yaw:0,pitch:0,health:100,armor:0,keycard:false,evidence:0,
       mounted:false,crouching:false,grounded:true,weapon:'revolver',owned:[],ammo:{...START_AMMO},reserve:{...START_AMMO},reload:0,cooldown:0,recoil:0,hurt:0};
     this.state={player,enemies:this.level.enemies.map(e=>({...e,health:Math.round(STATS[e.kind].health*healthScale),maxHealth:Math.round(STATS[e.kind].health*healthScale),
-      alive:true,alert:false,cooldown:.7,hurt:0,phase:0,path:[],pathTime:0})),
+      alive:true,alert:false,cooldown:.7,hurt:0,phase:0,heading:0,speed:0,attack:0,vx:0,vz:0,path:[],pathTime:0})),
       doors:this.level.doors.map(d=>({...d,open:0,target:0})),pickups:this.level.pickups.map(p=>({...p,collected:false})),effects:[],
       status:'playing',kills:0,time:0,message:'ELIAS VANE: "Another night. Another extinction event." Find your revolver.',
       messageTime:5,powered:false,checkpoint:false,secrets:0,slow:1,events:[],mount:{...this.level.mount},difficulty};
@@ -56,7 +56,7 @@ export class Simulation {
       p.health=100;p.armor=55;
       for(const id of p.owned){p.ammo[id]=WEAPONS[id].clip;p.reserve[id]=WEAPONS[id].clip*4;}
       for(const item of s.pickups){if(item.z>-32.2&&item.kind!=='evidence'&&item.x>-13)item.collected=true;}
-      for(const e of s.enemies){if(e.z>-32.2){e.alive=false;e.health=0;s.kills++;}}
+      for(const e of s.enemies){if(e.z>-32.2){e.alive=false;e.health=0;e.speed=0;e.vx=0;e.vz=0;e.attack=0;s.kills++;}}
       for(const d of s.doors){if(['office','facility','security'].includes(d.id)){d.open=1;d.target=1;}}
       s.checkpoint=true;this.checkpointState=structuredClone(s);
       this.checkpointSecrets=[];
@@ -69,7 +69,7 @@ export class Simulation {
       this.state.status='playing';this.state.effects=[];this.state.events=[];
       this.attackWindups.clear();this.reloading=null;this.jumpHeld=false;
       this.secretDoors=new Set(this.checkpointSecrets);this.hazardTime=0;this.emptyClick=0;
-      for(const e of this.state.enemies){e.path=[];e.pathTime=0;e.cooldown=1.1;}
+      for(const e of this.state.enemies){e.path=[];e.pathTime=0;e.cooldown=1.1;e.speed=0;e.vx=0;e.vz=0;e.attack=0;}
       this.message('CHECKPOINT RESTORED — keycard secured. Enter the restricted laboratory.',4);
     }else{this.checkpointState=null;this.checkpointSecrets=[];this.resetState(this.state.difficulty);}
   }
@@ -98,7 +98,7 @@ export class Simulation {
     if(input.fire)this.fire();
     const slow=input.slow&&s.slow>.015;
     s.slow=clamp(s.slow+(slow?-.17:.085)*dt,0,1);
-    this.updateEnemies(dt*(slow?.32:1));
+    this.updateEnemies(dt*(slow?.32:1),dt);
     this.updateHazards(dt);
     for(const effect of s.effects)effect.life-=dt;
     s.effects=s.effects.filter(e=>e.life>0).slice(-130);
@@ -281,7 +281,7 @@ export class Simulation {
   private damageEnemy(e:Enemy,damage:number):void {
     e.health-=damage;e.hurt=1;e.alert=true;
     if(e.health>0)return;
-    e.health=0;e.alive=false;e.path=[];this.attackWindups.delete(e.id);this.state.kills++;
+    e.health=0;e.alive=false;e.path=[];e.speed=0;e.vx=0;e.vz=0;e.attack=0;this.attackWindups.delete(e.id);this.state.kills++;
     this.state.events.push({type:'kill'});this.effect('blood',e.x,e.z,.7,.5);
     // Small salvage drops prevent an unlucky route from making the level unwinnable.
     const p=this.state.player;
@@ -375,19 +375,28 @@ export class Simulation {
     this.message('NEON DISTRICT CLEARED — Elias Vane lives to investigate another night.',99);
   }
 
-  private updateEnemies(dt:number):void {
+  private updateEnemies(dt:number,frameDt=dt):void {
+    if(dt<=0)return;
     const p=this.state.player,difficulty=this.state.difficulty,detect=difficulty==='easy'?13:17;
     for(const e of this.state.enemies){
       if(!e.alive)continue;
       const stats=STATS[e.kind],distance=dist(e,p);
+      // Clear last frame's measured motion before each branch. Idle, blocked,
+      // charging and dead creatures never keep cycling their feet in place.
+      e.speed=0;e.attack=Math.max(0,e.attack-dt/(e.kind==='brute'?.26:.2));
       e.hurt=Math.max(0,e.hurt-dt*3.3);e.cooldown=Math.max(0,e.cooldown-dt);e.pathTime-=dt;
       if(!e.alert&&distance<detect&&this.enemySees(e))e.alert=true;
-      if(!e.alert){e.phase+=dt*.6;continue;}
+      if(!e.alert){e.vx=0;e.vz=0;continue;}
       const windup=this.attackWindups.get(e.id);
       if(windup!==undefined){
+        e.vx=0;e.vz=0;
+        this.faceEnemy(e,p.x-e.x,p.z-e.z,dt);
+        const duration=e.kind==='soldier'?.42:.32;
         const remaining=windup-dt;
+        e.attack=.15+.85*clamp(1-remaining/duration,0,1);
         if(remaining<=0){
           this.attackWindups.delete(e.id);
+          e.attack=1;
           if(this.enemySees(e)&&distance<stats.range+(e.kind==='soldier'?2:.55)){
             if(e.kind==='soldier'){
               this.effect('muzzle',e.x,e.z,1.4,.12);
@@ -402,32 +411,77 @@ export class Simulation {
       }
       const sees=this.enemySees(e);
       if(distance<stats.range&&sees&&e.cooldown<=0){
+        e.vx=0;e.vz=0;e.attack=.15;
+        this.faceEnemy(e,p.x-e.x,p.z-e.z,dt);
         this.attackWindups.set(e.id,e.kind==='soldier'?.42:.32);
         this.state.events.push({type:'enemy',message:e.kind==='soldier'?'Enemy charging shot':'Predator attacking'});
         if(e.kind==='soldier')this.effect('plasma',e.x,e.z,1.65,.4);
         continue;
       }
-      if(e.kind==='soldier'&&sees&&distance<9)continue;
+      const stopDistance=e.kind==='soldier'?9:stats.range*.85;
+      if(sees&&distance<=stopDistance+.025){
+        e.vx=0;e.vz=0;
+        this.faceEnemy(e,p.x-e.x,p.z-e.z,dt);
+        continue;
+      }
       let target:Vec2=p;
       if(!sees||!this.clearAt(e.x+(p.x-e.x)/Math.max(distance,.01)*.7,e.z+(p.z-e.z)/Math.max(distance,.01)*.7,stats.radius,0,stats.height)){
         if(e.pathTime<=0){e.path=this.findPath(e,p,stats.radius,Math.min(stats.height,1.8));e.pathTime=.8+this.random()*.25;}
         if(e.path.length){while(e.path.length&&dist(e,e.path[0])<.4)e.path.shift();if(e.path.length)target=e.path[0];}
-        else continue;
+        else {e.vx=0;e.vz=0;continue;}
       }
-      const length=dist(e,target);if(length<.01)continue;
-      const speed=stats.speed*(difficulty==='easy'?.88:difficulty==='hard'?1.12:1)*(e.hurt>0?.42:1);
-      let dx=(target.x-e.x)/length*speed*dt,dz=(target.z-e.z)/length*speed*dt;
-      // Separation keeps predators from occupying the same attack volume.
+      const length=dist(e,target);if(length<.01){e.vx=0;e.vz=0;continue;}
+      const acceleration=e.kind==='raptor'?12:e.kind==='mutant'?8:5;
+      let speed=stats.speed*(difficulty==='easy'?.88:difficulty==='hard'?1.12:1)*(e.hurt>0?.42:1);
+      // Brake before entering the attack/aim distance instead of snapping from
+      // full speed to an idle pose. Waypoints keep full speed through turns.
+      if(target===p&&sees)speed=Math.min(speed,Math.sqrt(2*acceleration*Math.max(0,distance-stopDistance)));
+      let desiredX=(target.x-e.x)/length*speed,desiredZ=(target.z-e.z)/length*speed;
+      // Begin steering before contact; hard movement checks below keep the
+      // physical volumes separated even when several predators pursue Elias.
       for(const other of this.state.enemies){
         if(other===e||!other.alive)continue;
         const gap=dist(e,other),minimum=stats.radius+STATS[other.kind].radius;
-        if(gap>.01&&gap<minimum){dx+=(e.x-other.x)/gap*(minimum-gap)*dt*2.0;dz+=(e.z-other.z)/gap*(minimum-gap)*dt*2.0;}
+        const shoulder=minimum+.35;
+        if(gap>.01&&gap<shoulder){desiredX+=(e.x-other.x)/gap*(shoulder-gap)*3;desiredZ+=(e.z-other.z)/gap*(shoulder-gap)*3;}
       }
-      if(distance<Math.max(.65,stats.radius+.35))continue;
-      if(this.clearAt(e.x+dx,e.z,stats.radius,0,stats.height))e.x+=dx;
-      if(this.clearAt(e.x,e.z+dz,stats.radius,0,stats.height))e.z+=dz;
-      e.phase+=dt*speed*3;
+      const desiredLength=Math.hypot(desiredX,desiredZ);
+      if(desiredLength>speed){desiredX*=speed/desiredLength;desiredZ*=speed/desiredLength;}
+      const changeX=desiredX-e.vx,changeZ=desiredZ-e.vz,change=Math.hypot(changeX,changeZ),blend=change>0?Math.min(1,acceleration*dt/change):1;
+      e.vx+=changeX*blend;e.vz+=changeZ*blend;
+      const dx=e.vx*dt,dz=e.vz*dt,startX=e.x,startZ=e.z;
+      const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.12));
+      for(let step=0;step<steps;step++){
+        if(this.enemyCanMove(e,e.x+dx/steps,e.z))e.x+=dx/steps;
+        if(this.enemyCanMove(e,e.x,e.z+dz/steps))e.z+=dz/steps;
+      }
+      const movedX=e.x-startX,movedZ=e.z-startZ,moved=Math.hypot(movedX,movedZ);
+      e.speed=moved/Math.max(frameDt,1e-8);e.phase+=moved;
+      // Losing a component to collision must also remove its stored momentum.
+      e.vx=movedX/dt;e.vz=movedZ/dt;
+      if(moved>.00001)this.faceEnemy(e,movedX,movedZ,dt);
     }
+  }
+
+  private faceEnemy(e:Enemy,dx:number,dz:number,dt:number):void {
+    if(Math.hypot(dx,dz)<.00001)return;
+    const desired=Math.atan2(-dx,-dz),difference=Math.atan2(Math.sin(desired-e.heading),Math.cos(desired-e.heading));
+    const rate=e.kind==='raptor'?8:e.kind==='brute'?4:6;
+    e.heading+=clamp(difference,-rate*dt,rate*dt);
+    e.heading=Math.atan2(Math.sin(e.heading),Math.cos(e.heading));
+  }
+
+  private enemyCanMove(e:Enemy,x:number,z:number):boolean {
+    const stats=STATS[e.kind];
+    if(!this.clearAt(x,z,stats.radius,0,stats.height))return false;
+    for(const other of this.state.enemies){
+      if(other===e||!other.alive)continue;
+      const minimum=stats.radius+STATS[other.kind].radius,nextGap=Math.hypot(x-other.x,z-other.z);
+      // A custom/checkpoint position may begin overlapped; only movement which
+      // increases that gap is then allowed. Ordinary movement cannot overlap.
+      if(nextGap<minimum-.00001&&nextGap<=dist(e,other)+.000001)return false;
+    }
+    return true;
   }
 
   private findPath(start:Vec2,goal:Vec2,radius:number,height:number):Vec2[] {

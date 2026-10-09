@@ -9,7 +9,18 @@ export interface PickupDef extends Vec2 {id:string;kind:PickupKind;label?:string
 export interface Prop extends Vec2 {kind:string;rotation?:number;scale?:number;label?:string}
 export interface LevelData {walls:Wall[];doors:DoorDef[];enemies:EnemyDef[];pickups:PickupDef[];props:Prop[];spawn:Vec2;exit:Vec2;checkpoint:Vec2;switch:Vec2;mount:Vec2;hazards:(Vec2&{w:number;d:number})[];bounds:{minX:number;maxX:number;minZ:number;maxZ:number}}
 export interface Player extends Vec2 {y:number;vy:number;yaw:number;pitch:number;health:number;armor:number;keycard:boolean;evidence:number;mounted:boolean;crouching:boolean;grounded:boolean;weapon:WeaponId;owned:WeaponId[];ammo:Record<WeaponId,number>;reserve:Record<WeaponId,number>;reload:number;cooldown:number;recoil:number;hurt:number}
-export interface Enemy extends EnemyDef {health:number;maxHealth:number;alive:boolean;alert:boolean;cooldown:number;hurt:number;phase:number;path:Vec2[];pathTime:number}
+export interface Enemy extends EnemyDef {
+  health:number;maxHealth:number;alive:boolean;alert:boolean;cooldown:number;hurt:number;
+  /** Metres travelled: the renderer derives footfall timing from actual movement. */
+  phase:number;
+  /** Facing in the same convention as player yaw; movement and aim update it. */
+  heading:number;
+  /** Actual horizontal speed, including collision and slow motion. */
+  speed:number;
+  /** Real attack windup/strike/recovery envelope, from zero to one. */
+  attack:number;
+  vx:number;vz:number;path:Vec2[];pathTime:number;
+}
 export interface Door extends DoorDef {open:number;target:number}
 export interface Pickup extends PickupDef {collected:boolean}
 export interface Effect extends Vec2 {y:number;kind:'blood'|'spark'|'plasma'|'smoke'|'muzzle';life:number;maxLife:number;dx?:number;dz?:number}
