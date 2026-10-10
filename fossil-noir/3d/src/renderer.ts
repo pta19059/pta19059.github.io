@@ -9,6 +9,14 @@ import {buildCampaignDressing} from './campaign-dressing';
 import {createCreatureTexture} from './creature-textures';
 import {createEffectTexture} from './effect-textures';
 import {buildCreatureRig,updateCreatureRig,type CreatureRig} from './creature-rig';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+import {createSurfaceMaterial,enrichSurfaceMaterial} from './surface-materials';
+import {createCampaignSurface} from './campaign-surfaces';
+import {EnhancedDressing} from './enhanced-dressing';
+import {WeaponModels} from './weapon-models';
+import {RenderEffects} from './render-effects';
+import {renderProfile} from './graphics-policy';
+import {CreatureSkin} from './creature-skin';
 import type {EnemyKind,EnemyDef,GameState,Settings,Wall,PickupDef,DestructibleDef,LevelData} from './types';
 
 const TAU=Math.PI*2;
@@ -32,6 +40,7 @@ export class Renderer {
  private batches=new Map<THREE.Material,THREE.BufferGeometry[]>();
  private doorGroups=new Map<string,THREE.Group>();
  private enemyGroups=new Map<string,CreatureRig>();
+ private enemySkins=new Map<string,CreatureSkin>();
  private pickupGroups=new Map<string,THREE.Group>();
  private propGroups=new Map<string,THREE.Group>();
  private propRuins=new Map<string,THREE.Group>();
@@ -40,6 +49,7 @@ export class Renderer {
  private lamps:THREE.Mesh[]=[];
  private hazmat:THREE.Mesh[]=[];
  private mountRig:CreatureRig;
+ private mountSkin:CreatureSkin;
  private mountHeading=-.7;
  private lastMountPosition?:{x:number;z:number};
  private effectMesh:THREE.InstancedMesh;
@@ -57,24 +67,53 @@ export class Renderer {
  private lights:THREE.PointLight[]=[];
  private atmosphere:Atmosphere;
  private campaignDressing?:ReturnType<typeof buildCampaignDressing>;
- constructor(private canvas:HTMLCanvasElement,private readonly level:LevelData=LEVEL){
-  this.renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,powerPreference:'high-performance'});
+ private enhancedDressing?:EnhancedDressing;
+ private weaponModels?:WeaponModels;
+ private post?:RenderEffects;
+ private frameState?:GameState;
+ private frameDt=0;
+ private environment?:THREE.WebGLRenderTarget;
+ private surfaceKinds=new Map<THREE.Material,string>();
+ private enhancedMaterials=new Map<THREE.Material,THREE.Material>();
+ private originalMaterials=new Map<THREE.Material,THREE.Material>();
+ private enhanced=false;
+ private settingsKey='';
+ private adaptiveScale=1;
+ private adaptiveFrames=0;
+ private averageFrame=16.7;
+ private lastFrameWall=0;
+ private shadowClock=0;
+ private moon:THREE.DirectionalLight;
+ private hemisphere:THREE.HemisphereLight;
+ private viewport={width:0,height:0};
+ private resetContext=true;
+ constructor(private canvas:HTMLCanvasElement,private readonly level:LevelData=LEVEL,settings?:Settings){
+  // Three creates empty array textures while initializing its WebGL state.
+  // A shared canvas can retain flip/premultiply unpack flags from the prior
+  // chapter, which WebGL forbids for texImage3D even before the first draw.
+  const context=canvas.getContext('webgl2',{antialias:false,alpha:false,powerPreference:'high-performance'});
+  if(context){context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL,false);context.pixelStorei(context.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);}
+  this.renderer=new THREE.WebGLRenderer({canvas,context:context??undefined,antialias:false,alpha:false,powerPreference:'high-performance'});
   this.renderer.setPixelRatio(1);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.NoToneMapping;
+  this.renderer.info.autoReset=false;
   this.scene.background=new THREE.Color(0x070910);this.scene.fog=new THREE.Fog(0x10151f,24,94);
   this.camera.rotation.order='YXZ';
   // Neutral fill reveals painted surfaces; local amber, magenta and green lights define districts.
-  const hemisphere=new THREE.HemisphereLight(0xb9c9df,0x615951,1.38);this.scene.add(hemisphere);
-  const moon=new THREE.DirectionalLight(0xb9c8e3,1.12);moon.position.set(-10,25,12);this.scene.add(moon);
+  this.hemisphere=new THREE.HemisphereLight(0xb9c9df,0x615951,1.38);this.scene.add(this.hemisphere);
+  this.moon=new THREE.DirectionalLight(0xb9c8e3,1.12);this.moon.position.set(-10,25,12);this.scene.add(this.moon,this.moon.target);
+  this.moon.shadow.mapSize.set(1024,1024);this.moon.shadow.camera.left=-18;this.moon.shadow.camera.right=18;this.moon.shadow.camera.top=18;this.moon.shadow.camera.bottom=-18;
+  this.moon.shadow.camera.near=.1;this.moon.shadow.camera.far=75;this.moon.shadow.bias=-.0004;this.moon.shadow.normalBias=.035;
   const warm=new THREE.DirectionalLight(0xffd3a2,.42);warm.position.set(-18,8,3);this.scene.add(warm);
   const green=new THREE.DirectionalLight(0x83eebc,.22);green.position.set(7,9,-25);this.scene.add(green);
   this.scene.add(this.muzzleLight,this.blastLight);
-  for(const kind of ['brick','metal','concrete','crate','floor','labfloor','road','ceiling','door','fuel']){const m=new THREE.MeshLambertMaterial({map:createRetroTexture(kind)});this.retroMaterial(m);this.mats.set(kind,m)}
+  for(const kind of ['brick','metal','concrete','crate','floor','labfloor','road','ceiling','door','fuel']){const m=new THREE.MeshLambertMaterial({map:createRetroTexture(kind)});this.retroMaterial(m);this.mats.set(kind,m);this.surfaceKinds.set(m,kind)}
   if((this.level.chapterId??0)===0)this.buildLevel();else this.buildCampaignLevel();this.flush();
   for(const d of this.level.doors)this.buildDoor(d);
   for(const prop of this.level.destructibles??[])this.buildDestructible(prop);
   for(const e of this.level.enemies)this.ensureEnemy(e);
   for(const p of this.level.pickups){const group=this.buildPickup(p);group.position.set(p.x,.5,p.z);this.scene.add(group);this.pickupGroups.set(p.id,group)}
   this.mountRig=buildCreatureRig('raptor',true,(color,emissive=0)=>this.creatureMaterial('raptor',true,color,emissive));this.mountRig.root.position.set(this.level.mount.x,0,this.level.mount.z);this.mountRig.root.rotation.y=this.mountHeading;this.scene.add(this.mountRig.root);
+  this.mountSkin=new CreatureSkin(this.mountRig);this.mountSkin.setEnabled(false);
   this.effectMat=new THREE.MeshBasicMaterial({color:0xffffff,map:createEffectTexture(),transparent:true,opacity:.94,alphaTest:.07,depthWrite:false});
   this.effectMat.onBeforeCompile=shader=>{
    shader.vertexShader='attribute float effectTile;\nattribute float effectAlpha;\nvarying float vEffectTile;\nvarying float vEffectAlpha;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvEffectTile=effectTile;vEffectAlpha=effectAlpha;');
@@ -88,6 +127,7 @@ diffuseColor *= texture2D(map,atlasUV);diffuseColor.a *= vEffectAlpha;
   this.effectMesh=new THREE.InstancedMesh(effectGeometry,this.effectMat,192);this.effectMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.effectMesh.count=0;this.effectMesh.frustumCulled=false;this.scene.add(this.effectMesh);
   this.canvas.style.imageRendering='pixelated';
   this.atmosphere=new Atmosphere(this.scene,this.level);
+  if(settings)this.resize(settings);
  }
  // Half-pixel world snapping keeps the retro edges stable enough to read painted detail.
  private retroMaterial(m:THREE.MeshLambertMaterial){
@@ -174,11 +214,13 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
     const horn=this.mesh(new THREE.ConeGeometry(.08,.32,5),this.mat(e.boss==='guardian'?0x8fba75:0xbbae7b),side*.15,.18,-.12,rig.head);horn.rotation.z=side*-.32;
    }
   }
-  rig.root.position.set(e.x,0,e.z);this.enemyGroups.set(e.id,rig);this.scene.add(rig.root);return rig;
+  rig.root.position.set(e.x,0,e.z);this.enemyGroups.set(e.id,rig);this.scene.add(rig.root);
+  const skin=new CreatureSkin(rig);skin.setEnabled(this.enhanced);this.enemySkins.set(e.id,skin);if(this.enhanced)this.applyMaterials(rig.root,true);return rig;
  }
  private removeTransientGroup(group:THREE.Group){
   group.removeFromParent();
-  group.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();const list=Array.isArray(o.material)?o.material:[o.material];for(const m of list)if(![...this.mats.values()].includes(m))m.dispose();}});
+  const shared=new Set([...this.mats.values(),...this.enhancedMaterials.keys(),...this.enhancedMaterials.values()]);
+  group.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();const list=Array.isArray(o.material)?o.material:[o.material];for(const m of list)if(!shared.has(m))m.dispose();}});
  }
  private buildLevel(){
   const M=(k:string)=>this.mats.get(k)!;
@@ -418,8 +460,9 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   if(!material){
    const map=textured?createCreatureTexture(kind,color):undefined;
    // Baked sprite-era surface color stays readable on the unlit side of a moving creature.
-   const surface={color:textured?0xffffff:color,map,emissive:textured?0xffffff:emissive,emissiveMap:map,emissiveIntensity:textured?.20:1,flatShading:false};
+   const surface={color:textured?0xffffff:color,map:map??null,emissive:textured?0xffffff:emissive,emissiveMap:map??null,emissiveIntensity:textured?.20:1,flatShading:false};
    material=kind==='soldier'&&textured&&!skin?new THREE.MeshPhongMaterial({...surface,shininess:14,specular:0x253030}):new THREE.MeshLambertMaterial(surface);
+   material.name=`fossil-creature-${kind}-${skin?'hide':'hardware'}-${color}`;
    // Keep the world wobble, but preserve subpixel precision on animated joints and facial details.
    this.mats.set(key,material);
   }
@@ -443,16 +486,94 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
    if(kind==='railgun')this.localBox(group,.07,.15,0,.38,.08,.075,0x273e52);
   }
   const ringMat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.6,side:THREE.DoubleSide});
+  ringMat.forceSinglePass=true;
   const ring=new THREE.Mesh(new THREE.RingGeometry(.28,.36,12),ringMat);ring.rotation.x=-Math.PI/2;ring.position.y=-.43;group.add(ring);
+  // Ammunition cartridges and repeated armor parts rotate as one object.
+  // Merge those rigid parts per surface instead of drawing every small box.
+  const batches=new Map<THREE.Material,THREE.Mesh[]>();
+  for(const child of group.children)if(child instanceof THREE.Mesh&&!Array.isArray(child.material)){
+   const list=batches.get(child.material)??[];list.push(child);batches.set(child.material,list);
+  }
+  for(const [material,meshes]of batches)if(meshes.length>1){
+   const parts=meshes.map(mesh=>{mesh.updateMatrix();return mesh.geometry.clone().applyMatrix4(mesh.matrix)}),geometry=mergeGeometries(parts,false);
+   if(geometry){for(const mesh of meshes){mesh.removeFromParent();mesh.geometry.dispose()}group.add(new THREE.Mesh(geometry,material));}
+   for(const part of parts)part.dispose();
+  }
   return group;
  }
+ private textureFiltering(material:THREE.Material,enhanced:boolean){
+  const names=['map','normalMap','bumpMap','roughnessMap','metalnessMap','emissiveMap','alphaMap','aoMap'] as const;
+  for(const name of names){const texture=(material as unknown as Record<string,unknown>)[name];if(!(texture instanceof THREE.Texture))continue;
+   const mag=enhanced?THREE.LinearFilter:THREE.NearestFilter,min=enhanced?THREE.LinearMipmapLinearFilter:THREE.NearestFilter;
+   if(texture.magFilter!==mag||texture.minFilter!==min){texture.magFilter=mag;texture.minFilter=min;texture.generateMipmaps=enhanced;texture.anisotropy=enhanced?Math.min(4,this.renderer.capabilities.getMaxAnisotropy()):1;texture.needsUpdate=true;}
+  }
+ }
+ private applyMaterials(root:THREE.Object3D,enhanced:boolean){
+  root.traverse(object=>{if(!(object instanceof THREE.Mesh))return;
+   const convert=(material:THREE.Material)=>{
+    const original=this.originalMaterials.get(material)??material;
+    if(!enhanced){this.textureFiltering(original,false);return original;}
+    let modern=this.enhancedMaterials.get(original);
+    if(!modern){const kind=this.surfaceKinds.get(original),campaign=(original as THREE.MeshLambertMaterial).map?.name;
+     modern=kind?createSurfaceMaterial(kind):campaign?.startsWith('campaign:')&&(original instanceof THREE.MeshLambertMaterial||original instanceof THREE.MeshPhongMaterial)?createCampaignSurface(campaign.slice(9),original):enrichSurfaceMaterial(original);
+     if(modern instanceof THREE.MeshStandardMaterial&&original.name.startsWith('fossil-creature-')){
+      const hide=original.name.includes('-hide-');if(modern.emissiveMap)modern.emissiveIntensity=.055;modern.roughness=hide?.88:.7;modern.metalness=hide?0:.18;
+      if(hide&&modern.map){modern.color.multiplyScalar(.8);modern.bumpMap=modern.map.clone();modern.bumpMap.colorSpace=THREE.NoColorSpace;modern.bumpScale=.014;}
+     }
+     this.enhancedMaterials.set(original,modern);if(modern!==original)this.originalMaterials.set(modern,original);}
+    this.textureFiltering(modern,true);return modern;
+   };
+   object.material=Array.isArray(object.material)?object.material.map(convert):convert(object.material);
+   const surfaces=Array.isArray(object.material)?object.material:[object.material];
+   object.receiveShadow=enhanced&&surfaces.some(m=>m instanceof THREE.MeshStandardMaterial);
+   object.castShadow=enhanced&&!(object instanceof THREE.InstancedMesh)&&surfaces.some(m=>m instanceof THREE.MeshStandardMaterial&&!m.transparent);
+  });
+ }
+ private touchDevice(){return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)||(navigator.maxTouchPoints>0&&matchMedia('(pointer: coarse)').matches);}
  resize(settings:Settings){
-  const width=settings.resolution==='320'?320:640,height=settings.resolution==='320'?200:400;this.renderer.setSize(width,height,false);this.snapGrid.set(width*(width===640?1:.5),height*(width===640?1:.5));
-  const rect=this.canvas.getBoundingClientRect();this.camera.aspect=rect.width&&rect.height?rect.width/rect.height:1.6;this.camera.updateProjectionMatrix();this.lastResolution=settings.resolution;
+  const rect=this.canvas.getBoundingClientRect(),vw=rect.width||innerWidth||640,vh=rect.height||innerHeight||400;
+  const profile=renderProfile(settings,vw,vh,this.touchDevice(),this.adaptiveScale),wasEnhanced=this.enhanced;
+  this.enhanced=profile.enhanced;
+  if(this.enhanced&&!this.environment){
+   const pmrem=new THREE.PMREMGenerator(this.renderer),room=new RoomEnvironment();
+   this.environment=pmrem.fromScene(room,.04);room.dispose();pmrem.dispose();
+   this.scene.environment=this.environment.texture;this.scene.environmentIntensity=.32;
+   this.weaponModels=new WeaponModels();this.enhancedDressing=new EnhancedDressing(this.scene,this.level);
+   this.post=new RenderEffects(this.renderer,this.scene,this.camera,r=>{if(this.frameState)this.weaponModels!.render(r,this.frameState,this.frameDt,this.camera.aspect);});
+  }
+  this.applyMaterials(this.scene,this.enhanced);
+  for(const skin of this.enemySkins.values())skin.setEnabled(this.enhanced);this.mountSkin.setEnabled(this.enhanced);
+  this.atmosphere.setEnhanced(this.enhanced);
+  if(wasEnhanced!==this.enhanced){this.effectMat.map?.dispose();this.effectMat.map=createEffectTexture(this.enhanced);this.effectMat.needsUpdate=true;}
+  // Enhancement is a presentation choice: no level collision or save data changes.
+  const dressing=this.scene.getObjectByName('enhanced-dressing');if(dressing)dressing.visible=this.enhanced;
+  this.scene.environment=this.enhanced?this.environment?.texture??null:null;
+  this.renderer.toneMapping=this.enhanced?THREE.ACESFilmicToneMapping:THREE.NoToneMapping;
+  this.renderer.toneMappingExposure=1.12;
+  this.hemisphere.intensity=this.enhanced?1.65:1.38;this.moon.intensity=this.enhanced?2.1:1.12;
+  this.renderer.shadowMap.enabled=profile.shadows;this.renderer.shadowMap.type=THREE.PCFShadowMap;this.renderer.shadowMap.autoUpdate=false;this.renderer.shadowMap.needsUpdate=profile.shadows;
+  this.moon.castShadow=profile.shadows;
+  this.renderer.setSize(profile.width,profile.height,false);this.post?.resize(profile.width,profile.height,profile.bloom);
+  this.snapGrid.set(profile.width*(profile.width===640?1:.5),profile.height*(profile.width===640?1:.5));
+  this.camera.aspect=vw/vh;this.camera.updateProjectionMatrix();this.canvas.style.imageRendering=this.enhanced?'auto':'pixelated';
+  this.viewport={width:vw,height:vh};this.lastResolution=settings.resolution;
+  this.settingsKey=`${settings.rendering}-${settings.resolution}-${settings.quality}`;
+  this.resetContext=true;
+  if(wasEnhanced!==this.enhanced){this.lastFrameWall=0;this.adaptiveFrames=0;}
   for(const l of this.lights)l.visible=settings.quality==='high';
  }
  render(state:GameState,dt:number,settings:Settings){
-  if(this.lastResolution!==settings.resolution)this.resize(settings);this.clock+=dt;const p=state.player;
+  // Chapter renderers share this canvas's context. The previous renderer may
+  // have deleted bindings after the replacement was constructed.
+  if(this.resetContext){this.renderer.resetState();this.resetContext=false;}
+  this.renderer.info.reset();
+  if(this.settingsKey!==`${settings.rendering}-${settings.resolution}-${settings.quality}`)this.resize(settings);this.clock+=dt;const p=state.player;
+  if(this.enhanced&&settings.resolution==='auto'&&dt>0){
+   const now=performance.now(),interval=now-this.lastFrameWall;this.lastFrameWall=now;
+   if(interval>0&&interval<250){this.averageFrame+=(interval-this.averageFrame)*.04;this.adaptiveFrames++;}
+   if(this.adaptiveFrames>90&&this.averageFrame>30&&this.adaptiveScale>.56){this.adaptiveScale=Math.max(.55,this.adaptiveScale-.12);this.adaptiveFrames=0;this.resize(settings);}
+   else if(this.adaptiveFrames>240&&this.averageFrame<18&&this.adaptiveScale<1){this.adaptiveScale=Math.min(1,this.adaptiveScale+.08);this.adaptiveFrames=0;this.resize(settings);}
+  }
   const last=this.previousPlayer,travel=last?Math.hypot(p.x-last.x,p.z-last.z):0;
   if(last&&state.time<last.time){this.cameraStride=0;this.cameraMotion=0;this.lastMountPosition=undefined;this.mountHeading=-.7;}
   const actualMove=dt>0&&travel<1.5?travel:0;
@@ -462,6 +583,13 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   const eye=p.crouching?.9:p.mounted?2.6:1.65;
   const speedBob=state.status==='playing'?Math.sin(this.cameraStride*(p.mounted?4.3:8.2))*this.cameraMotion*(p.mounted?.032:.016):0;
   this.camera.position.set(p.x,p.y+eye+speedBob,p.z);this.camera.rotation.set(p.pitch+(p.recoil*.012),p.yaw,0,'YXZ');
+  if(this.enhanced){
+   this.shadowClock+=dt;
+   if(this.renderer.shadowMap.enabled&&this.shadowClock>.075){this.shadowClock=0;this.moon.position.set(p.x-10,25,p.z+12);this.moon.target.position.set(p.x,0,p.z);this.renderer.shadowMap.needsUpdate=true;}
+   // A constant nearby-light budget avoids evaluating the whole campaign's lamps per pixel.
+   const near=[...this.lights].sort((a,b)=>a.position.distanceToSquared(this.camera.position)-b.position.distanceToSquared(this.camera.position));
+   for(let i=0;i<near.length;i++)near[i].visible=settings.quality==='high'&&i<4;
+  }
   this.muzzleLight.visible=settings.quality==='high'&&!p.mounted&&p.owned.includes(p.weapon);
   this.muzzleLight.intensity=Math.max(0,p.recoil-.58)*26;
   this.muzzleLight.color.setHex(p.weapon==='plasma'?0x65ff9e:p.weapon==='arc'?0xb6a1ff:p.weapon==='railgun'?0x80c8ff:0xffcf8b);
@@ -474,16 +602,18 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
    // A shut portal fully hides the next room, so its creatures need no draw calls.
    rig.root.visible=this.sectorVisible(e.z,state)&&Math.hypot(e.x-p.x,e.z-p.z)<65;
    rig.root.position.y=this.curbstep(e.x,e.z);
+   this.enemySkins.get(e.id)?.update();
   }
-  const presentEnemies=new Set(state.enemies.map(e=>e.id));for(const [id,rig] of this.enemyGroups)if(!presentEnemies.has(id)){this.removeTransientGroup(rig.root);this.enemyGroups.delete(id)}
+  const presentEnemies=new Set(state.enemies.map(e=>e.id));for(const [id,rig] of this.enemyGroups)if(!presentEnemies.has(id)){this.enemySkins.get(id)?.dispose();this.enemySkins.delete(id);this.removeTransientGroup(rig.root);this.enemyGroups.delete(id)}
   const presentPickups=new Set(state.pickups.map(item=>item.id));for(const [id,g] of this.pickupGroups)if(!presentPickups.has(id)){this.removeTransientGroup(g);this.pickupGroups.delete(id)}
-  for(const item of state.pickups){let g=this.pickupGroups.get(item.id);if(!g){g=this.buildPickup(item);this.pickupGroups.set(item.id,g);this.scene.add(g)}g.visible=!item.collected;if(g.visible){g.position.set(item.x,.48+Math.sin(this.clock*3+item.x)*.06,item.z);g.rotation.y=this.clock*.75}}
+  for(const item of state.pickups){let g=this.pickupGroups.get(item.id);if(!g){g=this.buildPickup(item);this.pickupGroups.set(item.id,g);this.scene.add(g);if(this.enhanced)this.applyMaterials(g,true)}g.visible=!item.collected;if(g.visible){g.position.set(item.x,.48+Math.sin(this.clock*3+item.x)*.06,item.z);g.rotation.y=this.clock*.75}}
   const mount=state.mount,previous=this.lastMountPosition;
   const mountDistance=previous?Math.hypot(mount.x-previous.x,mount.z-previous.z):0;
   if(mountDistance>.002&&mountDistance<2)this.mountHeading=Math.atan2(-(mount.x-previous!.x),-(mount.z-previous!.z));
   updateCreatureRig(this.mountRig,{x:mount.x,z:mount.z,heading:this.mountHeading,speed:dt>0&&mountDistance<2?mountDistance/dt:0,attack:p.mounted?p.recoil:0,hurt:0,alive:true,time:state.time,dt});
   this.mountRig.root.visible=!p.mounted&&!this.level.safe&&mount.x>=this.level.bounds.minX&&mount.x<=this.level.bounds.maxX&&mount.z>=this.level.bounds.minZ&&mount.z<=this.level.bounds.maxZ;
   this.mountRig.root.position.y=this.curbstep(mount.x,mount.z);
+  this.mountSkin.update();
   this.lastMountPosition={x:mount.x,z:mount.z};
   if(this.powerLamp)(this.powerLamp.material as THREE.MeshBasicMaterial).color.setHex(state.powered?0x73ff99:0xff6633);
   for(const prop of state.destructibles){
@@ -512,7 +642,8 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   }
   this.effectMesh.count=count;this.effectMesh.instanceMatrix.needsUpdate=true;this.effectTiles.needsUpdate=this.effectAlpha.needsUpdate=true;if(this.effectMesh.instanceColor)this.effectMesh.instanceColor.needsUpdate=true;
   this.atmosphere.update(state,this.camera,this.clock,settings);this.campaignDressing?.update?.(dt,state);
-  this.renderer.render(this.scene,this.camera);
+  if(this.enhanced){this.enhancedDressing?.update(state,this.camera,dt);this.frameState=state;this.frameDt=dt;this.post!.render(dt);}
+  else this.renderer.render(this.scene,this.camera);
  }
  private curbstep(x:number,z:number){if((this.level.chapterId??0)!==0)return 0;return z>-20&&z<4&&Math.abs(x)>10.5&&Math.abs(x)<13.1?.12:0;}
  private sectorVisible(z:number,state:GameState){
@@ -527,9 +658,10 @@ if(gl_Position.w>0.0){vec2 p=gl_Position.xy/gl_Position.w;gl_Position.xy=floor(p
   return true;
  }
  dispose(){
-  this.campaignDressing?.dispose();this.atmosphere.dispose();
-  const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>(this.mats.values()),textures=new Set<THREE.Texture>();
+  for(const skin of this.enemySkins.values())skin.dispose();this.mountSkin.dispose();this.moon.shadow.dispose();
+  this.campaignDressing?.dispose();this.atmosphere.dispose();this.enhancedDressing?.dispose();this.weaponModels?.dispose();this.post?.dispose();this.environment?.dispose();
+  const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>([...this.mats.values(),...this.enhancedMaterials.keys(),...this.enhancedMaterials.values()]),textures=new Set<THREE.Texture>();
   this.scene.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m)}});
-  for(const g of geometries)g.dispose();for(const m of materials){const map=(m as THREE.MeshLambertMaterial).map;if(map)textures.add(map);m.dispose()}for(const t of textures)t.dispose();this.renderer.dispose();
+  for(const g of geometries)g.dispose();for(const m of materials){for(const value of Object.values(m))if(value instanceof THREE.Texture)textures.add(value);m.dispose()}for(const t of textures)t.dispose();this.renderer.dispose();
  }
 }

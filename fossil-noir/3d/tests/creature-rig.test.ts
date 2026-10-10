@@ -60,12 +60,12 @@ test('stopped and paused creatures do not keep marching',()=>{
  }
 });
 
-test('creature geometry stays within the retro mesh budget',()=>{
+test('enhanced creature anatomy stays within the triangle and batched mesh budget',()=>{
  for(const kind of kinds){
   const rig=creature(kind);let triangles=0,meshes=0;
   rig.root.traverse(object=>{if(object instanceof THREE.Mesh){meshes++;triangles+=(object.geometry.index?.count??object.geometry.attributes.position.count)/3;}});
-  assert.ok(triangles<5000,`${kind}: ${triangles} triangles`);
-  assert.ok(meshes<65,`${kind}: ${meshes} batched meshes`);
+  assert.ok(triangles<22000,`${kind}: ${triangles} triangles`);
+  assert.ok(meshes<100,`${kind}: ${meshes} batched meshes`);
  }
 });
 

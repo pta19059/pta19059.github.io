@@ -28,7 +28,7 @@ let failed = false;
 const audio = new AudioSystem();
 const controls = new Controls();
 const input = new Input(canvas, pause, controls);
-const viewmodel = new Viewmodel(weaponCanvas);
+let viewmodel: Viewmodel | undefined;
 const ui = new UI({ start, chapter: selectChapter, next: nextChapter, resume, restart, menu, pause, settings: applySettings }, controls);
 simulation = new Simulation(CAMPAIGN[0], ui.settings.difficulty);
 chapterStart = cleanState(simulation.state);
@@ -172,7 +172,7 @@ function loadChapter(index: number, difficulty: Difficulty, carry?: Player, save
     const initial = cleanState(next.state);
     if (saved && !next.restoreSavedState(saved)) throw new Error('Invalid restored checkpoint');
     else if (legacy) next.restart(true);
-    nextRenderer = new Renderer(canvas, CAMPAIGN[index]);
+    nextRenderer = new Renderer(canvas, CAMPAIGN[index], ui.settings);
     nextRenderer.resize(ui.settings);
     const oldRenderer = renderer;
     renderer = nextRenderer; simulation = next; chapter = index;
@@ -222,13 +222,17 @@ function restart(checkpoint = false) {
 }
 function menu() { collectEvidence(); changeScreen('menu'); ui.setSave(readCheckpoint()?.chapter ?? null); }
 function applySettings(settings: Settings) {
+  document.documentElement.dataset.rendering = settings.rendering;
+  weaponCanvas.hidden = settings.rendering !== 'retro';
+  if (settings.rendering === 'retro') viewmodel ??= new Viewmodel(weaponCanvas);
+  else viewmodel = undefined;
   if (controls.preference !== settings.controls) controls.setPreference(settings.controls);
   input.sensitivity = settings.sensitivity;
   audio.setVolume(settings.volume); audio.setMusicVolume(settings.musicVolume); audio.setEffectsVolume(settings.effectsVolume);
   renderer?.resize(settings);
 }
 try {
-  renderer = new Renderer(canvas, CAMPAIGN[0]);
+  renderer = new Renderer(canvas, CAMPAIGN[0], ui.settings);
   applySettings(ui.settings); ui.setLevel(CAMPAIGN[0]);
   const saved = readCheckpoint();
   ui.setSave(saved?.chapter ?? null); ui.show('menu');
@@ -259,7 +263,8 @@ function frame(now: number) {
         }
       }
       renderer.render(simulation.state, running ? dt : 0, ui.settings);
-      viewmodel.render(simulation.state, running ? dt : 0); ui.update(simulation.state);
+      if (ui.settings.rendering === 'retro') viewmodel?.render(simulation.state, running ? dt : 0);
+      ui.update(simulation.state);
     } catch (error) {
       console.error('Fossil Noir 3D runtime error', error); failed = true;
       changeScreen('menu'); ui.setError('The mission could not continue. Reload this page to restart from the saved chapter.');

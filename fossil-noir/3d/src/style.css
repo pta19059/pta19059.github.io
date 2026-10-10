@@ -9,9 +9,9 @@ button:disabled{cursor:default}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--amber);outline-offset:4px}
 [hidden]{display:none!important}
 #game{position:relative;background:#080b08;--hurt:0}
-#world,#weapon{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
-#world{display:block;outline:none}
-#weapon{pointer-events:none;z-index:2}
+#world,#weapon{position:absolute;inset:0;width:100%;height:100%}
+#world{display:block;outline:none;image-rendering:auto}
+#weapon{pointer-events:none;z-index:2;image-rendering:pixelated;image-rendering:crisp-edges}
 .screen-treatment{position:absolute;inset:0;z-index:3;pointer-events:none;box-shadow:inset 0 0 85px #0004}
 .screen-treatment:after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 100px 35px rgba(160,20,10,var(--hurt));border:1px solid #9ec88120}
 .crosshair{position:absolute;z-index:4;left:50%;top:50%;width:21px;height:21px;transform:translate(-50%,-50%);filter:drop-shadow(1px 1px 0 #000);pointer-events:none;opacity:.8}
@@ -119,3 +119,10 @@ body[data-controls="desktop"] .touch-controls,body[data-controls="desktop"] .rot
 @media(orientation:portrait){body[data-controls="touch"] .touch-actions{grid-template-columns:48px 48px 68px;grid-template-rows:40px 40px 40px;gap:7px;bottom:115px;right:max(12px,env(safe-area-inset-right))}body[data-controls="touch"] .touch-actions button{min-height:40px}body[data-controls="touch"] .touch-actions .touch-fire{grid-column:3;grid-row:1/3;min-height:87px}body[data-controls="touch"] .touch-actions button[data-action=reload]{grid-column:1;grid-row:2}body[data-controls="touch"] .touch-actions button[data-action=weapon]{grid-column:2;grid-row:2}body[data-controls="touch"] .touch-actions button[data-action=crouch]{grid-column:1;grid-row:3}body[data-controls="touch"] .touch-actions button[data-action=slow]{grid-column:2;grid-row:3}body[data-controls="touch"] .touch-actions button[data-action=sprint]{position:static;grid-column:3;grid-row:3;width:auto;height:40px;min-height:40px}body[data-controls="touch"] .touch-stick{left:18px;bottom:126px;width:96px;height:96px}body[data-controls="touch"] .touch-stick i{left:26px;top:26px}body[data-controls="touch"] .touch-stick span{top:101px;font-size:7px}body[data-controls="touch"] .interaction-hint{bottom:268px;font-size:9px}body[data-controls="touch"].playing .rotate-tip{top:52px;font-size:8px}body[data-controls="touch"] .rotate-tip span{display:none}body[data-controls="touch"] .pickup-notices{top:85px;width:calc(100% - 28px);left:14px}body[data-controls="touch"] .hud-ammo-type{font-size:6px}}
 @media(max-width:640px){body[data-controls="desktop"] .pickup-notices{top:80px;width:calc(100% - 28px);left:14px}.control-status{font-size:8px}.control-choice{margin:10px 0 15px;padding:10px 0}}
 @media(max-height:500px) and (orientation:landscape){body[data-controls="touch"] .control-status{padding:5px 7px;margin-bottom:7px;font-size:8px}body[data-controls="touch"] .pickup-copy p{display:none}body[data-controls="touch"] .pickup-card{padding-top:6px;padding-bottom:8px}body[data-controls="touch"] .pickup-quantity{margin-top:3px}.hud-ammo-type{font-size:7px}}
+
+/* Enhanced world presentation; menus and combat feedback retain Vane's identity. */
+:root[data-rendering="retro"] #world{image-rendering:pixelated;image-rendering:crisp-edges}
+:root[data-rendering="enhanced"] .screen-treatment{box-shadow:inset 0 0 60px #0002}
+:root[data-rendering="enhanced"] .screen-treatment:after{border:0;box-shadow:inset 0 0 75px 20px rgba(160,20,10,var(--hurt))}
+:root[data-rendering="enhanced"] .menu-overlay{background:linear-gradient(90deg,#050b08f0 0%,#09100be8 45%,#081208b0 75%,#07100692)}
+:root[data-rendering="enhanced"] .menu-overlay:before{opacity:.3}

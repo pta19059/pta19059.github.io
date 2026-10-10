@@ -44,6 +44,7 @@ export function createCampaignTexture(kind:CampaignSurface):THREE.CanvasTexture 
   for(let x=2;x<64;x+=10){rect(x,45,1,13,colors[1]);rect(x,50-random(x)*12,5,5+random(x)*12,colors[2])}
  }
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+ texture.name=`campaign:${kind}`;
  texture.minFilter=texture.magFilter=THREE.NearestFilter;texture.generateMipmaps=false;
  texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
  return texture;

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /** Original eight-cell pixel VFX atlas. Grayscale sprites accept instance tint. */
-export function createEffectTexture():THREE.CanvasTexture {
+export function createEffectTexture(enhanced=false):THREE.CanvasTexture {
  const canvas=document.createElement('canvas');canvas.width=256;canvas.height=128;
  const g=canvas.getContext('2d')!;g.imageSmoothingEnabled=false;
  const random=(seed:number)=>{const t=Math.sin(seed*127.17+19.32)*43571.91;return t-Math.floor(t)};
@@ -36,7 +36,7 @@ export function createEffectTexture():THREE.CanvasTexture {
   for(let y=4;y<61;y++)for(let x=4;x<61;x++){
    const dx=(x-32)/27,dy=(y-33)/25,edge=1-dx*dx-dy*dy;
    const lumps=Math.sin(x*.35)*.08+Math.sin(y*.28+x*.1)*.08;
-   if(edge+lumps<.06||random(x*31+y*71)<Math.max(0,.24-edge*.24))continue;
+   if(edge+lumps<.06||(!enhanced&&random(x*31+y*71)<Math.max(0,.24-edge*.24)))continue;
    const value=125+((1-dy)*39|0),alpha=Math.min(.72,.18+(edge+lumps)*.42);
    rect(x,y,1,1,`rgba(${value},${value},${value},${alpha})`);
   }
@@ -58,6 +58,6 @@ export function createEffectTexture():THREE.CanvasTexture {
  // Broken glass: narrow slanted shard with a painted bright edge.
  stamp(6,()=>{polygon([12,18,49,9,54,40,33,52,17,41],'#777777');polygon([15,19,45,13,40,37,19,40],'#d7d7d7');polygon([43,14,51,36,36,47,40,37],'#b7b7b7');rect(20,19,20,2)});
  stamp(7,()=>{rect(23,30,19,3);rect(31,23,3,18);rect(20,31,4,2,'#898989');rect(32,19,2,5,'#bcbcbc')});
- const map=new THREE.CanvasTexture(canvas);map.magFilter=map.minFilter=THREE.NearestFilter;map.generateMipmaps=false;map.colorSpace=THREE.SRGBColorSpace;
+ const map=new THREE.CanvasTexture(canvas);map.magFilter=enhanced?THREE.LinearFilter:THREE.NearestFilter;map.minFilter=enhanced?THREE.LinearFilter:THREE.NearestFilter;map.generateMipmaps=false;map.colorSpace=THREE.SRGBColorSpace;
  return map;
 }

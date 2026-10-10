@@ -1,120 +1,104 @@
 import * as THREE from 'three';
 import type {EnemyKind} from './types';
 
-/** Original painted surfaces: large value shapes first, pixel-scale wear second. */
+/** Original coherent 256px surfaces, made from pigmentation, pores and wear. */
 export function createCreatureTexture(kind:EnemyKind,color:number):THREE.CanvasTexture {
- const canvas=document.createElement('canvas');canvas.width=canvas.height=kind==='raptor'?128:64;
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
  const size=canvas.width,ctx=canvas.getContext('2d')!;
- // Stable IDs retain the renderer's material cache and skin shading classifications.
+ // The IDs are shared with the rig and renderer's surface classifications.
  const palettes:Record<EnemyKind,Record<number,number>>={
-  raptor:{[0x60794b]:0xa18f59,[0x9baf74]:0xdbc79b,[0x958252]:0xb39b64,[0xc4ae73]:0xe0cda2},
-  soldier:{[0xa18c70]:0xd2b298,[0x496276]:0x939fac,[0x202e39]:0x394758,[0x80938e]:0xc7cacc},
-  mutant:{[0x86965e]:0xc5b5a2,[0x4e5d43]:0xaa9d80,[0x788375]:0x80918f},
-  brute:{[0x9a6f64]:0xbe8e71,[0x7b383d]:0xcdc0a0,[0x788375]:0x918474},
+  raptor:{[0x60794b]:0x9c9567,[0x9baf74]:0xd7c9a4,[0x958252]:0xa99265,[0xc4ae73]:0xdfcba2},
+  soldier:{[0xa18c70]:0xc7aa93,[0x496276]:0x8d9cab,[0x202e39]:0x3c4854,[0x80938e]:0xb9c4c5},
+  mutant:{[0x86965e]:0xb7b5a0,[0x4e5d43]:0x939478,[0x788375]:0x7b8d89},
+  brute:{[0x9a6f64]:0xb48e7a,[0x7b383d]:0xc2b393,[0x788375]:0x8b8176},
  };
- const painted=palettes[kind][color]??color;
- const r=(painted>>16)&255,g=(painted>>8)&255,b=painted&255;
- const shade=(factor:number,offset=0)=>`rgb(${Math.max(0,Math.min(255,Math.round(r*factor+offset)))},${Math.max(0,Math.min(255,Math.round(g*factor+offset)))},${Math.max(0,Math.min(255,Math.round(b*factor+offset)))})`;
- const random=(n:number)=>{const value=Math.sin(n*127.13+color*.0017)*43758.5453;return value-Math.floor(value)};
- const pixel=(x:number,y:number,w:number,h:number,fill:string)=>{ctx.fillStyle=fill;ctx.fillRect(x,y,w,h)};
- const line=(x:number,y:number,w:number,h:number,dark:string,light:string)=>{pixel(x,y,w,h,dark);pixel(x,y-h,w,Math.max(1,h/2),light)};
- const flesh=kind==='mutant'&&color===0x86965e||kind==='brute'&&color===0x9a6f64||kind==='soldier'&&color===0xa18c70;
- const belly=kind==='raptor'&&(color===0x9baf74||color===0xc4ae73);
- pixel(0,0,size,size,shade(1));
- if(kind==='raptor'||flesh){
-  // Broad stepped highlights are painted into each curved part, like a pre-lit FPS sprite.
-  // Low-frequency masses survive 320x200; a little sparse grain prevents plastic surfaces.
-  for(let y=0;y<size;y+=2)for(let x=0;x<size;x+=2){
-   const u=x/size,v=y/size;
-   const volume=.81+Math.sin(v*Math.PI)*.2+Math.max(0,Math.cos(u*Math.PI*2-.8))*.15;
-   const stepped=Math.round(volume*18)/18;
-   pixel(x,y,2,2,shade(stepped));
+ const painted=palettes[kind][color]??color,r=(painted>>16)&255,g=(painted>>8)&255,b=painted&255;
+ const clamp=(n:number)=>Math.max(0,Math.min(255,n));
+ const shade=(value:number,offset=0)=>`rgb(${clamp(Math.round(r*value+offset))},${clamp(Math.round(g*value+offset))},${clamp(Math.round(b*value+offset))})`;
+ const hash=(x:number,y:number,salt=0)=>{let n=Math.imul(x^color,374761393)+Math.imul(y+salt,668265263);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296};
+ const noise=(u:number,v:number,frequency:number,salt=0)=>{
+  const x=u*frequency,y=v*frequency,ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy);
+  const a=hash((ix+frequency)%frequency,(iy+frequency)%frequency,salt),bb=hash((ix+1+frequency)%frequency,(iy+frequency)%frequency,salt),c=hash((ix+frequency)%frequency,(iy+1+frequency)%frequency,salt),d=hash((ix+1+frequency)%frequency,(iy+1+frequency)%frequency,salt);
+  return a+(bb-a)*sx+(c-a+(a-bb-c+d)*sx)*sy;
+ };
+ const flesh=(kind==='mutant'&&color===0x86965e)||(kind==='brute'&&color===0x9a6f64)||(kind==='soldier'&&color===0xa18c70);
+ const reptile=kind==='raptor',belly=reptile&&(color===0x9baf74||color===0xc4ae73),cloth=kind==='soldier'&&color===0x202e39;
+ const image=ctx.createImageData(size,size);
+ for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+  const u=x/size,v=y/size,index=(y*size+x)*4;
+  const broad=noise(u,v,4,19),mottle=noise(u,v,13,71),grain=noise(u,v,48,137),pore=hash(x,y,221);
+  let value=.9+broad*.15+(mottle-.5)*.09+(grain-.5)*.045+(pore-.5)*.025,red=0,green=0,blue=0;
+  if(reptile){
+   if(belly){
+    const row=Math.floor(y/15),rowY=(y%15)/15,curve=Math.cos(u*Math.PI*8+row*.43)*.09;
+    const crease=Math.exp(-Math.pow((rowY-.09-curve)*17,2));
+    value+=.025*Math.sin(rowY*Math.PI)-crease*.125;
+   }else{
+    // Staggered rounded scales have a narrow recessed rim and varied pigmentation.
+    const row=Math.floor(y/8),sx=x+(row%2)*4,col=Math.floor(sx/8),seed=hash(col,row,379),cy=4+(seed-.5)*.6,cx=4+(hash(col,row,383)-.5)*.9;
+    const dx=((sx%8)-cx)/3.65,dy=((y%8)-cy)/3.1,edge=dx*dx+dy*dy;
+    value+=(seed-.5)*.08-Math.exp(-Math.pow((edge-.92)*5,2))*.085;
+    if(edge<.8)value+=Math.max(0,-dy)*.024;
+    const band=Math.sin(v*Math.PI*10+Math.sin(u*Math.PI*4)*1.1),dorsal=.3+.7*Math.pow(Math.abs(Math.sin(u*Math.PI*2)),3);
+    if(band>.32)value-=Math.pow((band-.32)/.68,1.3)*dorsal*.19;
+    red+=(broad-.5)*7;green+=(mottle-.5)*8;blue-=3;
+   }
+  }else if(flesh){
+   // Irregular subcutaneous color is continuous rather than stamped pixel patches.
+   value+=(noise(u,v,25,447)-.5)*.07;
+   if(pore>.963)value-=.085;
+   const bruise=Math.max(0,noise(u,v,7,541)-.64)*2.2;
+   if(kind!=='soldier'){red+=bruise*12;green-=bruise*19;blue+=bruise*4;}
+   const striation=Math.sin(u*Math.PI*22+Math.sin(v*Math.PI*4)*.72);
+   value+=striation*.018;
+  }else if(cloth){
+   const thread=((x+y)%2?1:-1)*.021,fold=Math.sin(u*Math.PI*10+Math.sin(v*Math.PI*4)*.67);
+   value+=thread+fold*.054;
+  }else{
+   value=.96+(broad-.5)*.1+(grain-.5)*.06+(pore-.5)*.032;
+   // Fine oxide in recesses and a subtly brushed manufactured finish.
+   value+=Math.sin(x*.81+y*.14)*.012;
+   if(mottle<.28){red+=8;green-=3;blue-=8;}
   }
-  for(let i=0;i<(kind==='raptor'?270:85);i++)pixel(random(i)*size|0,random(i+431)*size|0,1,1,shade(.9+random(i+233)*.25));
+  image.data[index]=clamp(Math.round(r*value+red));image.data[index+1]=clamp(Math.round(g*value+green));image.data[index+2]=clamp(Math.round(b*value+blue));image.data[index+3]=255;
  }
- if(kind==='raptor'){
-  if(belly){
-   // Overlapping cream scutes, with thinner folds at the edge and broad unbroken highlights.
-   for(let y=4;y<size;y+=9){
-    for(let x=0;x<size;x+=24){
-     const j=x/24,h=2+(j%2),top=y+(j%2);
-     line(x,top,22,h,shade(.67),shade(1.11));pixel(x+2,top+2,17,2,shade(.9));
-    }
-   }
-  }else{
-   // Irregular dorsal bars form a recognizable animal pattern rather than a grid of dots.
-   for(let i=0;i<8;i++){
-    const y=6+i*15,x=(i%2)*12,w=39+(i%3)*7;
-    pixel(x,y,w,5,shade(.6));pixel(x+7,y+5,w-9,4,shade(.65));
-    pixel(size-x-w,y+7,w-6,4,shade(.69));pixel(size-x-w+9,y+11,w-19,3,shade(.72));
-   }
-   // Larger scales around joints fade into fine scales, with light upper rims and recessed seams.
-   for(let row=0;row<13;row++)for(let col=-1;col<15;col++){
-    const seed=row*31+col+73,x=col*9+(row%2)*4+(random(seed)*3|0),y=row*10+(random(seed+313)*3|0);
-    const w=4+(seed%3),h=2+(seed%3),value=.91+random(seed+97)*.14;
-    pixel(x,y,w,1,shade(1.18));pixel(x-1,y+1,1,h,shade(.73));pixel(x,y+1,w,h,shade(value));pixel(x+1,y+h+1,w-1,1,shade(.7));
-   }
-   // Healed claw cuts carry pale connective tissue surrounded by a dark scar border.
-   for(let i=0;i<3;i++)for(let y=0;y<19;y++){
-    const x=66+i*6+Math.floor(y*.3);pixel(x-1,62+y,2,1,'#66553a');pixel(x,62+y,1,1,'#d9c49a');
-   }
-  }
- }else if(kind==='soldier'){
-  if(flesh){
-   for(let y=13;y<43;y++){const x=20+(y%7===0?1:0);pixel(x,y,1,1,'#956b5b');if(y%6===0)pixel(x+1,y,2,1,shade(1.12))}
-   line(7,48,44,1,shade(.72),shade(1.09));
-  }else if(color===0x202e39){
-   // Broad creased fabric separates knees, gloves and the rifle from the bright armor plates.
-   for(let y=0;y<64;y+=4)pixel(0,y,64,2,shade(.83+y/200));
-   for(let i=0;i<6;i++)for(let y=6;y<59;y++){
-    const x=6+i*10+Math.round(Math.sin(y*.11+i)*2);
-    pixel(x,y,2,1,shade(.68));pixel(x+2,y,2,1,shade(1.27));
-   }
-   for(const y of [13,46])line(0,y,64,2,shade(.55),shade(1.45));
-  }else{
-   // Painted bevels, inset steel panels and edge catches have a clear large-to-small hierarchy.
-   for(let y=0;y<64;y++)pixel(0,y,64,1,shade(1.17-y*.004));
-   pixel(3,3,58,2,shade(1.45));pixel(3,5,2,54,shade(1.25));pixel(3,58,58,3,shade(.5));pixel(59,5,3,56,shade(.62));
-   pixel(11,11,42,29,shade(.76));pixel(13,13,38,25,shade(.95));pixel(13,13,38,2,shade(1.28));pixel(13,37,38,2,shade(.65));
-   for(const x of [7,55])for(const y of [7,55]){pixel(x,y,3,3,shade(.48));pixel(x,y,2,1,shade(1.8))}
-   pixel(7,44,49,8,'#753e4a');pixel(7,43,49,1,'#b47878');pixel(7,51,49,1,'#4b3038');
-   for(let i=0;i<3;i++)pixel(19+i*7,24,4,3+i%2,'#ddc492');
-   pixel(38,31,9,5,shade(.58));pixel(39,32,6,1,shade(1.45));pixel(39,34,4,1,shade(1.45));
-   for(let i=0;i<5;i++)line(43,16+i*3,8,1,shade(.45),shade(1.22));
-   for(let i=0;i<9;i++){const x=random(i+61)*55+4|0,y=random(i+93)*55+4|0;line(x,y,2+i%5,1,shade(.5),shade(1.65))}
-  }
+ ctx.putImageData(image,0,0);
+ const stroke=(points:[number,number][],width:number,fill:string)=>{ctx.strokeStyle=fill;ctx.lineWidth=width;ctx.lineCap=ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(...points[0]);for(let i=1;i<points.length;i++){const prior=points[i-1],point=points[i];ctx.quadraticCurveTo(prior[0],prior[1],(prior[0]+point[0])/2,(prior[1]+point[1])/2)}ctx.lineTo(...points.at(-1)!);ctx.stroke();};
+ if(reptile&&!belly){
+  ctx.globalAlpha=.37;
+  for(let i=0;i<3;i++){const x=137+i*13;stroke([[x,122],[x-2,139],[x+5,157],[x+6,180]],2.6,'#625d43');stroke([[x+1,122],[x,140],[x+7,158],[x+8,180]],1,'#d7c49b');}
+  ctx.globalAlpha=1;
  }else if(flesh){
-  // Muscle creases and healed surgery seams reinforce form; bruises occupy deliberate patches.
-  for(let i=0;i<4;i++)for(let y=5;y<59;y++){
-   const x=6+i*16+Math.round(Math.sin(y*.065+i*.9)*3);
-   pixel(x,y,1,1,shade(.63));pixel(x+1,y,2,1,shade(1.15));
-   if(y%11===0){pixel(x-2,y,6,1,'#7c5b49');pixel(x-2,y-1,1,1,shade(1.2))}
+  if(kind!=='soldier'){
+   // A small number of branching vessels follow the underlying muscle direction.
+   ctx.globalAlpha=.24;
+   for(let i=0;i<4;i++){
+    const x=25+i*61;stroke([[x,14],[x+6,56],[x-8,91],[x+1,139],[x-3,213]],1.4,kind==='brute'?'#765050':'#5c7563');
+    stroke([[x+2,68],[x+22,89],[x+28,112]],1,'#627268');stroke([[x-4,150],[x-24,169],[x-28,188]],.9,'#74685d');
+   }
+   ctx.globalAlpha=.62;
+   const scars=[[[52,39],[61,76],[56,103]],[[173,132],[162,168],[173,209]]] as [number,number][][];
+   for(const path of scars){stroke(path,3.2,'#785949');stroke(path.map(([x,y])=>[x+1.2,y] as [number,number]),1.2,'#d0b9a3');
+    for(let i=1;i<5;i++){const t=i/5,x=path[0][0]*(1-t)+path.at(-1)![0]*t,y=path[0][1]*(1-t)+path.at(-1)![1]*t;stroke([[x-4,y-1],[x+4,y+1]],.9,'#514d45');}
+   }
+   ctx.globalAlpha=1;
+  }else{
+   ctx.globalAlpha=.34;stroke([[86,58],[82,98],[91,138]],1.3,'#916d5e');ctx.globalAlpha=1;
   }
-  for(let i=0;i<4;i++){
-   const x=9+i*13,y=15+(i%2)*24,w=5+i%3,h=7+i%3;
-   pixel(x,y,w,h,kind==='brute'?'#855341':'#967767');
-   pixel(x+1,y+2,w-2,h-3,kind==='brute'?'#694334':'#78574a');
-   pixel(x,y-1,w-1,1,shade(1.22));
-  }
-  for(let i=0;i<3;i++){
-   const y=10+i*18;line(3,y,21,1,shade(.73),shade(1.17));line(39,y+5,21,1,shade(.77),shade(1.11));
-  }
+ }else if(cloth){
+  for(const x of [21,234]){stroke([[x,0],[x+3,76],[x-1,171],[x,256]],2,shade(.63));stroke([[x+2,0],[x+5,76],[x+1,171],[x+2,256]],.8,shade(1.12));}
+  ctx.strokeStyle=shade(1.18);ctx.lineWidth=1;ctx.setLineDash([2.1,2.6]);ctx.beginPath();ctx.moveTo(28,0);ctx.lineTo(28,256);ctx.moveTo(229,0);ctx.lineTo(229,256);ctx.stroke();ctx.setLineDash([]);
  }else{
-  // Large pale cracked plates contrast the sienna/pale skin. Corrosion stays in seams.
-  for(let y=0;y<64;y++)pixel(0,y,64,1,shade(1.12-y*.003));
-  pixel(3,3,58,2,shade(1.36));pixel(3,5,2,54,shade(1.18));pixel(59,4,2,57,shade(.52));pixel(4,58,55,3,shade(.48));
-  for(let y=8;y<58;y++){
-   const x=23+Math.floor(Math.sin(y*.15)*4);pixel(x,y,2,1,shade(.39));pixel(x+2,y,1,1,shade(1.28));
-   if(y>30&&y<46)pixel(x+Math.floor((y-30)*.8),y,1,1,shade(.52));
-  }
-  for(let i=0;i<18;i++){const x=random(i+79)*55+4|0,y=random(i+91)*54+5|0;line(x,y,2+i%4,1,i%3===0?'#886344':shade(.53),shade(1.3))}
-  for(const x of [7,54])for(const y of [7,54]){pixel(x,y,3,3,shade(.4));pixel(x,y,1,1,shade(1.65))}
-  if(kind==='brute')for(let x=8;x<57;x+=8){pixel(x,44,4,6,'#ad8d56');pixel(x+4,44,3,6,'#463b32')}
-  else{
-   for(let i=0;i<4;i++)line(41,15+i*4,12,2,shade(.44),shade(1.15));
-   pixel(8,47,15,4,'#618d78');pixel(8,46,15,1,'#b2c2a4');
-  }
+  // Flat paint, chamfer catches, edge rub and hardware labels read at any scale.
+  ctx.strokeStyle=shade(.58);ctx.lineWidth=3;ctx.strokeRect(7,7,242,242);ctx.strokeStyle=shade(1.25);ctx.lineWidth=1;ctx.strokeRect(9,9,238,238);
+  ctx.globalAlpha=.15;ctx.fillStyle='#21343b';ctx.fillRect(42,34,173,93);ctx.globalAlpha=1;
+  ctx.strokeStyle=shade(.68);ctx.lineWidth=1.3;ctx.strokeRect(43,35,171,91);
+  for(const x of [17,237])for(const y of [17,237]){ctx.fillStyle=shade(.48);ctx.beginPath();ctx.arc(x,y,3.1,0,Math.PI*2);ctx.fill();stroke([[x-1.5,y-1],[x+1.5,y-1]],1,shade(1.3));}
+  ctx.globalAlpha=.66;ctx.fillStyle=kind==='soldier'?'#734b51':'#77614b';ctx.fillRect(27,176,202,23);ctx.globalAlpha=.45;ctx.fillStyle='#cfb481';ctx.fillRect(29,178,198,2);ctx.globalAlpha=1;
+  ctx.font='bold 12px monospace';ctx.fillStyle=shade(.55);ctx.fillText(kind==='soldier'?'AXIOM / 09':'SUBJECT / AX',54,76);ctx.fillStyle=shade(1.28);ctx.fillText(kind==='soldier'?'AXIOM / 09':'SUBJECT / AX',54,75);
+  for(let i=0;i<44;i++){const x=11+hash(i,17,877)*233,y=11+hash(i,31,883)*233,length=2+hash(i,43,887)*10;ctx.globalAlpha=.2+hash(i,53)*.3;stroke([[x,y],[x+length,y-.3-length*.16]],.7,shade(1.5));}
+  ctx.globalAlpha=1;
  }
- const texture=new THREE.CanvasTexture(canvas);texture.magFilter=THREE.NearestFilter;texture.minFilter=THREE.NearestFilter;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.generateMipmaps=false;texture.colorSpace=THREE.SRGBColorSpace;
+ const texture=new THREE.CanvasTexture(canvas);texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.generateMipmaps=true;texture.colorSpace=THREE.SRGBColorSpace;
  return texture;
 }

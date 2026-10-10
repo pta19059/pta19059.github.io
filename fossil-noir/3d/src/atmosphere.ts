@@ -7,7 +7,7 @@ const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
 type Stamp='shadow'|'mist'|'impact'|'blood';
 
 /** Small original pixel masks; dither keeps the soft shapes in the retro palette. */
-function stamp(kind:Stamp):THREE.CanvasTexture {
+function stamp(kind:Stamp,enhanced=false):THREE.CanvasTexture {
  const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d')!;
  const pixels=g.createImageData(64,64);
  for(let y=0;y<64;y++)for(let x=0;x<64;x++){
@@ -25,10 +25,10 @@ function stamp(kind:Stamp):THREE.CanvasTexture {
    if(Math.abs(dx+dy*.7)<.025&&r>.3&&r<.9){density=1;color=[16,25,30]}
   }
   pixels.data[i]=color[0];pixels.data[i+1]=color[1];pixels.data[i+2]=color[2];
-  pixels.data[i+3]=density>(BAYER[(y%4)*4+x%4]+.5)/16?255:0;
+  pixels.data[i+3]=enhanced&&['shadow','mist'].includes(kind)?Math.round(density*255):density>(BAYER[(y%4)*4+x%4]+.5)/16?255:0;
  }
  g.putImageData(pixels,0,0);const map=new THREE.CanvasTexture(c);
- map.magFilter=map.minFilter=THREE.NearestFilter;map.generateMipmaps=false;map.colorSpace=THREE.SRGBColorSpace;return map;
+ map.magFilter=enhanced?THREE.LinearFilter:THREE.NearestFilter;map.minFilter=enhanced?THREE.LinearMipmapLinearFilter:THREE.NearestFilter;map.generateMipmaps=enhanced;map.colorSpace=THREE.SRGBColorSpace;return map;
 }
 
 /** Cosmetic detail only. Fixed instance budgets do not affect simulation or collisions. */
@@ -45,12 +45,14 @@ export class Atmosphere {
  private seen=new WeakSet<Effect>();
  private previous?:GameState;
  private materials:THREE.Material[]=[];
+ private stamps:{kind:Stamp;material:THREE.MeshBasicMaterial}[]=[];
+ private enhanced=false;
  private vents=[{x:4,z:-3},{x:-11.65,z:-11},{x:11.65,z:-17},{x:-9.6,z:-38.8},{x:9.6,z:-41}];
  constructor(scene:THREE.Scene,private readonly level:LevelData=LEVEL){
   if((this.level.chapterId??0)!==0)this.vents=this.level.props.filter(p=>p.kind==='vent'||p.kind==='tank'||p.kind==='reactor').slice(0,8).map(p=>({x:p.x,z:p.z}));
   if(!this.vents.length)this.vents=[{x:this.level.switch.x,z:this.level.switch.z}];
   const mask=(kind:Stamp,opacity=1)=>{
-   const m=new THREE.MeshBasicMaterial({map:stamp(kind),transparent:opacity<1,opacity,alphaTest:.01,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});this.materials.push(m);return m;
+   const m=new THREE.MeshBasicMaterial({map:stamp(kind),transparent:opacity<1,opacity,alphaTest:.01,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});this.materials.push(m);this.stamps.push({kind,material:m});return m;
   };
   const instances=(geometry:THREE.BufferGeometry,material:THREE.Material,budget:number)=>{
    const mesh=new THREE.InstancedMesh(geometry,material,budget);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;mesh.count=0;scene.add(mesh);return mesh;
@@ -62,6 +64,10 @@ export class Atmosphere {
   this.mist=instances(new THREE.PlaneGeometry(1,1),mask('mist',.2),20);
   const rainMat=new THREE.MeshBasicMaterial({color:0x8db6b4,transparent:true,opacity:.35,depthWrite:false});this.materials.push(rainMat);
   this.rain=instances(new THREE.BoxGeometry(.013,.31,.013),rainMat,112);
+ }
+ setEnhanced(enhanced:boolean){
+  if(this.enhanced===enhanced)return;this.enhanced=enhanced;
+  for(const {kind,material} of this.stamps){material.map?.dispose();material.map=stamp(kind,enhanced);material.needsUpdate=true;}
  }
  private floor(x:number,z:number){if((this.level.chapterId??0)!==0)return .057;return z>-20&&z<4&&Math.abs(x)>10.5?.167:.057}
  private ground(mesh:THREE.InstancedMesh,index:number,x:number,z:number,width:number,depth:number,y=this.floor(x,z)){

@@ -57,11 +57,26 @@ test('automatic controls follow actual touch, game keys, mouse and primary-point
   document.dispatchEvent(event('pointerdown', { pointerType: 'pen' }));
   assert.equal(controls.mode, 'touch');
   document.dispatchEvent(event('pointermove', { pointerType: 'mouse', buttons: 0 }));
+  assert.equal(controls.mode, 'touch');
+  document.dispatchEvent(event('pointerdown', { pointerType: 'mouse', buttons: 1 }));
   assert.equal(controls.mode, 'desktop');
   coarse.matches = true; coarse.dispatchEvent(new Event('change'));
   assert.equal(controls.mode, 'touch');
   assert.deepEqual(changes, ['touch', 'desktop', 'touch', 'desktop', 'touch']);
   unsubscribe(); controls.setPreference('desktop'); assert.equal(changes.length, 5);
+}));
+
+test('uncaptured mouse motion after touch and Pointer Lock release preserves touch controls', () => withBrowser(({ document }) => {
+  const controls = new Controls();
+  document.dispatchEvent(event('pointerdown', { pointerType: 'touch', pointerId: 4 }));
+  document.dispatchEvent(event('pointerlockchange', {}));
+  document.dispatchEvent(event('pointermove', { pointerType: 'mouse', buttons: 0 }));
+  document.dispatchEvent(event('pointerup', { pointerType: 'touch', pointerId: 4 }));
+  document.dispatchEvent(event('pointermove', { pointerType: 'mouse', buttons: 0 }));
+  assert.equal(controls.mode, 'touch');
+  assert.equal(document.body.dataset.controls, 'touch');
+  document.dispatchEvent(event('pointerdown', { pointerType: 'mouse', buttons: 1 }));
+  assert.equal(controls.mode, 'desktop', 'A deliberate mouse click still changes mode immediately.');
 }));
 
 test('explicit preferences persist and remain fixed until Auto is selected', () => withBrowser(({ document, coarse, values }) => {

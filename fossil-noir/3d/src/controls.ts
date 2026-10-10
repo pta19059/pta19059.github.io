@@ -39,9 +39,9 @@ export class Controls {
     // Capture runs before the game handlers, so the first actual input works
     // immediately after an automatic mode change.
     document.addEventListener('pointerdown', (event) => this.observePointer(event), { capture: true, passive: true });
-    document.addEventListener('pointermove', (event) => {
-      if (event.pointerType === 'mouse' && event.buttons === 0) this.observePointer(event);
-    }, { capture: true, passive: true });
+    // Pointer Lock release can emit an unprompted mouse hover after a touch.
+    // A click or game key expresses desktop intent; hover alone must not hide
+    // the touch controls in the middle of that gesture.
     document.addEventListener('keydown', (event) => {
       if (this.preference !== 'auto' || !GAME_KEYS.has(event.code)) return;
       const target = event.target;

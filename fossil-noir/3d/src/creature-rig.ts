@@ -30,7 +30,7 @@ function batchJoint(group:THREE.Group){
  }
  for(const [material,meshes]of batches){
   if(meshes.length<2)continue;
-  const geometries=meshes.map(mesh=>{mesh.updateMatrix();return mesh.geometry.clone().applyMatrix4(mesh.matrix)});
+  const geometries=meshes.map(mesh=>{mesh.updateMatrix();const copy=mesh.geometry.clone().applyMatrix4(mesh.matrix);if(!copy.index)return copy;const flat=copy.toNonIndexed();copy.dispose();return flat});
   const geometry=mergeGeometries(geometries,false);
   if(geometry){for(const mesh of meshes){group.remove(mesh);mesh.geometry.dispose()}group.add(new THREE.Mesh(geometry,material))}
   for(const g of geometries)g.dispose();
@@ -47,21 +47,53 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
  const mesh=(parent:THREE.Group,geometry:THREE.BufferGeometry,color:number,pos:Point=[0,0,0],emissive=0)=>{
   const m=new THREE.Mesh(geometry,material(color,emissive));m.position.set(...pos);parent.add(m);return m;
  };
- const box=(p:THREE.Group,pos:Point,size:Point,color:number,emissive=0)=>mesh(p,new THREE.BoxGeometry(...size),color,pos,emissive);
- const oval=(p:THREE.Group,pos:Point,size:Point,color:number)=>{const m=mesh(p,new THREE.SphereGeometry(1,10,6),color,pos);m.scale.set(...size);return m};
- const segment=(p:THREE.Group,a:Point,b:Point,r1:number,r2:number,color:number,sides=7)=>{
-  const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),delta=end.sub(start),m=mesh(p,new THREE.CylinderGeometry(r2,r1,delta.length(),sides,1),color);
+ const box=(p:THREE.Group,pos:Point,size:Point,color:number,emissive=0)=>{
+  // Small chamfers catch directional light on equipment instead of a cube edge.
+  const [w,h,d]=size,r=Math.min(.025,w*.17,h*.17,d*.17),shape=new THREE.Shape();
+  shape.moveTo(-w/2+r,-h/2+r);shape.lineTo(w/2-r,-h/2+r);shape.lineTo(w/2-r,h/2-r);shape.lineTo(-w/2+r,h/2-r);shape.closePath();
+  const geometry=new THREE.ExtrudeGeometry(shape,{depth:d-r*2,steps:1,bevelEnabled:true,bevelSize:r,bevelThickness:r,bevelSegments:1,curveSegments:1});
+  geometry.translate(0,0,-(d-r*2)/2);
+  const posAttr=geometry.getAttribute('position'),normals=geometry.getAttribute('normal'),uv=geometry.getAttribute('uv');
+  for(let i=0;i<posAttr.count;i++){const nx=Math.abs(normals.getX(i)),ny=Math.abs(normals.getY(i)),nz=Math.abs(normals.getZ(i));uv.setXY(i,nx>nz&&nx>ny?posAttr.getZ(i)/d+.5:posAttr.getX(i)/w+.5,ny>nz&&ny>nx?posAttr.getZ(i)/d+.5:posAttr.getY(i)/h+.5)}
+  return mesh(p,geometry,color,pos,emissive);
+ };
+ const oval=(p:THREE.Group,pos:Point,size:Point,color:number)=>{const m=mesh(p,new THREE.SphereGeometry(1,16,10),color,pos);m.scale.set(...size);return m};
+ const segment=(p:THREE.Group,a:Point,b:Point,r1:number,r2:number,color:number,sides=12)=>{
+  const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),delta=end.sub(start),length=delta.length();
+  const geometry=new THREE.CylinderGeometry(r2,r1,length,sides,sides>=10?3:1),positions=geometry.getAttribute('position');
+  if(sides>=10){for(let i=0;i<positions.count;i++){const t=clamp((positions.getY(i)+length/2)/Math.max(.001,length),0,1),swell=1+Math.sin(t*Math.PI)*.085;positions.setXYZ(i,positions.getX(i)*swell,positions.getY(i),positions.getZ(i)*swell)}geometry.computeVertexNormals();}
+  const m=mesh(p,geometry,color);
   m.position.copy(start).addScaledVector(delta,.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());return m;
  };
- const cone=(p:THREE.Group,pos:Point,radius:number,length:number,color:number,rx=0,rz=0)=>{const m=mesh(p,new THREE.ConeGeometry(radius,length,5),color,pos);m.rotation.set(rx,0,rz);return m};
+ const cone=(p:THREE.Group,pos:Point,radius:number,length:number,color:number,rx=0,rz=0)=>{const m=mesh(p,new THREE.ConeGeometry(radius,length,8),color,pos);m.rotation.set(rx,0,rz);return m};
+ const curved=(p:THREE.Group,points:Point[],radius:number,color:number,taper=true,steps=7)=>{
+  const curve=new THREE.CatmullRomCurve3(points.map(point=>new THREE.Vector3(...point))),frames=curve.computeFrenetFrames(steps,false),positions:number[]=[],uv:number[]=[],indices:number[]=[],sides=8;
+  for(let i=0;i<=steps;i++){
+   const center=curve.getPointAt(i/steps),r=radius*(taper?Math.max(.018,1-i/steps):1);
+   for(let side=0;side<=sides;side++){const a=side*TAU/sides,vertex=center.clone().addScaledVector(frames.normals[i],Math.cos(a)*r).addScaledVector(frames.binormals[i],Math.sin(a)*r);positions.push(vertex.x,vertex.y,vertex.z);uv.push(side/sides,i/steps)}
+  }
+  for(let i=0;i<steps;i++)for(let side=0;side<sides;side++){const a=i*(sides+1)+side,b=a+sides+1;indices.push(a,b,a+1,a+1,b,b+1)}
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geometry.setIndex(indices);geometry.computeVertexNormals();return mesh(p,geometry,color);
+ };
  const joint=(parent:THREE.Group,pos:Point)=>{const group=new THREE.Group();group.position.set(...pos);parent.add(group);return group};
- // Ten-sided taper profiles retain the retro polygon budget without a faceted skull silhouette.
+ // Connected sixteen-sided profiles form a coherent skull, throat and foot silhouette.
  const profile=(p:THREE.Group,rings:{z:number;y:number;x:number;h:number}[],color:number)=>{
-  const positions:number[]=[],uv:number[]=[],indices:number[]=[],sides=10;
+  const positions:number[]=[],uv:number[]=[],indices:number[]=[],sides=16;
   for(let j=0;j<rings.length;j++)for(let i=0;i<sides;i++){const a=i*TAU/sides,r=rings[j];positions.push(Math.cos(a)*r.x,r.y+Math.sin(a)*r.h,r.z);uv.push(i/sides,j/(rings.length-1))}
-  for(let j=0;j<rings.length-1;j++)for(let i=0;i<sides;i++){const a=j*sides+i,b=j*sides+(i+1)%sides,c=a+sides,d=b+sides;indices.push(a,c,b,b,c,d)}
-  for(let i=1;i<sides-1;i++){indices.push(0,i,i+1);const o=(rings.length-1)*sides;indices.push(o,o+i+1,o+i)}
+  const forward=rings.at(-1)!.z>rings[0].z;
+  for(let j=0;j<rings.length-1;j++)for(let i=0;i<sides;i++){const a=j*sides+i,b=j*sides+(i+1)%sides,c=a+sides,d=b+sides;if(forward)indices.push(a,b,c,b,d,c);else indices.push(a,c,b,b,c,d)}
+  for(let i=1;i<sides-1;i++){const o=(rings.length-1)*sides;if(forward)indices.push(0,i+1,i,o,o+i,o+i+1);else indices.push(0,i,i+1,o,o+i+1,o+i)}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return mesh(p,g,color);
+ };
+ const torso=(p:THREE.Group,width:number,color:number)=>{
+  const rings=[{y:.005,w:width*.71,d:.175},{y:.12,w:width*.69,d:.181},{y:.24,w:width*.75,d:.196},{y:.37,w:width*.92,d:.223},{y:.49,w:width,d:.243},{y:.59,w:width*.96,d:.219},{y:.67,w:width*.64,d:.158},{y:.72,w:.114,d:.105}],positions:number[]=[],uv:number[]=[],indices:number[]=[],sides=20;
+  for(let j=0;j<rings.length;j++)for(let i=0;i<=sides;i++){
+   const a=i*TAU/sides,ring=rings[j],x=Math.cos(a)*ring.w,front=Math.max(0,-Math.sin(a));
+   const pec=Math.exp(-Math.pow((ring.y-.48)/.12,2))*.026,sternum=Math.exp(-Math.pow(x/.039,2))*.022;
+   positions.push(x,ring.y,.025+Math.sin(a)*ring.d-front*(pec-sternum));uv.push(i/sides,j/(rings.length-1));
+  }
+  for(let j=0;j<rings.length-1;j++)for(let i=0;i<sides;i++){const a=j*(sides+1)+i,b=a+sides+1;indices.push(a,b,a+1,a+1,b,b+1);}
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geometry.setIndex(indices);geometry.computeVertexNormals();return mesh(p,geometry,color);
  };
 
  const dinosaur=kind==='raptor',soldier=kind==='soldier',brute=kind==='brute';
@@ -75,18 +107,23 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
   oval(pelvis,[0,.13,.13],[.32,.3,.6],skin);oval(chest,[0,.09,-.34],[.265,.26,.39],skin);
   oval(chest,[0,-.035,-.24],[.235,.135,.45],belly);oval(pelvis,[0,-.015,.17],[.29,.17,.36],belly);
   neck.position.set(0,.13,-.5);
-  segment(neck,[0,0,0],[0,.27,-.15],.16,.115,skin);segment(neck,[0,.25,-.14],[0,.32,-.31],.118,.1,skin);
+  profile(neck,[{z:.07,y:.06,x:.155,h:.16},{z:-.055,y:.11,x:.145,h:.15},{z:-.14,y:.22,x:.13,h:.125},{z:-.22,y:.3,x:.11,h:.105},{z:-.34,y:.31,x:.103,h:.1}],skin);
+  curved(neck,[[0,-.07,.015],[0,.085,-.065],[0,.22,-.24],[0,.245,-.31]],.064,belly,false,6);
   head.position.set(0,.32,-.3);
-  profile(head,[{z:.13,y:0,x:.14,h:.135},{z:-.06,y:.035,x:.172,h:.15},{z:-.23,y:.015,x:.128,h:.095},{z:-.52,y:-.014,x:.092,h:.074},{z:-.62,y:-.017,x:.076,h:.06}],skin);
+  profile(head,[{z:.13,y:0,x:.14,h:.135},{z:.045,y:.022,x:.161,h:.143},{z:-.06,y:.035,x:.172,h:.15},{z:-.15,y:.022,x:.15,h:.121},{z:-.23,y:.015,x:.128,h:.095},{z:-.43,y:-.007,x:.105,h:.082},{z:-.52,y:-.014,x:.092,h:.074},{z:-.62,y:-.017,x:.076,h:.06}],skin);
   oval(head,[0,-.093,-.34],[.098,.032,.31],dark);
   jaw.position.set(0,-.073,.08);
   profile(jaw,[{z:0,y:-.035,x:.115,h:.036},{z:-.24,y:-.061,x:.102,h:.035},{z:-.6,y:-.056,x:.071,h:.028},{z:-.69,y:-.049,x:.05,h:.025}],belly);
   for(const side of [-1,1]){
    const brow=oval(head,[side*.146,.092,-.085],[.052,.035,.12],skin);brow.rotation.z=side*.24;
    oval(head,[side*.161,.055,-.128],[.023,.042,.046],dark);
-   box(head,[side*.178,.056,-.135],[.012,.027,.041],mount?0xffd99a:0xf6c57d,0x523108);
-   box(head,[side*.186,.056,-.141],[.005,.026,.01],dark);
+   oval(head,[side*.18,.056,-.135],[.012,.026,.036],mount?0xffd99a:0xf6c57d);
+   oval(head,[side*.189,.056,-.137],[.004,.026,.007],dark);
+   oval(head,[side*.191,.065,-.146],[.0025,.004,.004],0xfff4cc);
    oval(head,[side*.059,.01,-.586],[.017,.012,.022],dark);
+   curved(head,[[side*.092,.039,-.557],[side*.112,.065,-.34],[side*.15,.055,-.23]],.013,belly,false,5);
+   oval(head,[side*.117,-.023,-.195],[.052,.072,.11],skin);
+   curved(jaw,[[side*.096,-.052,-.05],[side*.095,-.085,-.31],[side*.058,-.072,-.63]],.011,skin,false,6);
    for(let i=0;i<6;i++){
     const z=-.2-i*.064,x=side*(.102-i*.006);
     cone(head,[x,-.105,z],.019,.072+(i%2)*.012,bone,Math.PI);
@@ -95,31 +132,33 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
    // Large haunches belong to the thigh joint, so their silhouette compresses with each step.
    const hip=joint(pelvis,[side*.267,0,.19]),knee=joint(hip,[0,-.5,0]),hock=joint(knee,[0,-.55,0]),foot=joint(hock,[0,-.28,0]);
    oval(hip,[0,-.145,0],[.19,.265,.23],skin);segment(hip,[0,-.05,0],[0,-.5,0],.15,.075,skin);
+   oval(hip,[side*.045,-.25,-.073],[.132,.22,.148],skin);
    oval(knee,[0,-.015,0],[.091,.09,.095],belly);segment(knee,[0,-.02,0],[0,-.55,0],.085,.046,belly);
+   oval(knee,[0,-.185,.01],[.062,.19,.071],skin);
    segment(hock,[0,0,0],[0,-.28,0],.046,.039,skin);
    oval(foot,[0,.035,-.08],[.107,.063,.139],belly);
-   for(let toe=-1;toe<=1;toe++){
-    const tx=toe*.056;
-    segment(foot,[tx,.035,-.035],[tx*1.35,.022,-.225],.032,.023,belly,5);
-    segment(foot,[tx*1.35,.023,-.22],[tx*1.48,.024,-.295],.03,.002,bone,5);
+   for(let toe=0;toe<=1;toe++){
+    const tx=side*(toe*.063-.01);
+    curved(foot,[[tx,.033,-.023],[tx*1.16,.035,-.105],[tx*1.35,.022,-.225]],.03,belly,false,5);
+    oval(foot,[tx*1.16,.034,-.125],[.033,.024,.035],skin);
+    curved(foot,[[tx*1.35,.023,-.22],[tx*1.48,.037,-.267],[tx*1.48,.014,-.304]],.028,bone,true,5);
    }
    // The inner second toe is held clear of the floor, with a hooked sickle claw.
    segment(foot,[-side*.08,.068,-.025],[-side*.104,.128,-.12],.031,.023,skin,5);
-   segment(foot,[-side*.104,.135,-.12],[-side*.106,.152,-.2],.037,.026,bone,5);
-   segment(foot,[-side*.106,.152,-.2],[-side*.105,.073,-.254],.026,.002,bone,5);
+   curved(foot,[[-side*.104,.135,-.12],[-side*.106,.162,-.182],[-side*.105,.143,-.22],[-side*.105,.073,-.254]],.037,bone,true,8);
    rig.legs.push({hip,knee,hock,foot,side,upper:.5,lower:.55,metatarsal:.28,anchor:new THREE.Vector2(),swingStart:new THREE.Vector2(),worldFoot:new THREE.Vector2(),height:0,previous:0,initialized:false});
    const upper=joint(chest,[side*.23,.055,-.415]),lower=joint(upper,[0,-.22,0]);
    segment(upper,[0,0,0],[0,-.22,0],.061,.043,skin);segment(lower,[0,0,0],[0,-.21,0],.043,.033,belly);
    for(let i=-1;i<=1;i++){segment(lower,[i*.029,-.205,0],[i*.038,-.265,-.08],.016,.011,skin,5);segment(lower,[i*.038,-.265,-.08],[i*.04,-.29,-.11],.018,.001,bone,5)}
    rig.arms.push({upper,lower,side});
-   for(let i=0;i<5;i++){const band=oval(pelvis,[side*.293,.2-i*.015,-.28+i*.18],[.027,.13,.053],dark);band.rotation.z=side*.28}
   }
-  // A long, tapered counterbalance tail with four independent following joints.
+  for(let i=0;i<6;i++){const z=-.36+i*.17;oval(pelvis,[0,.391-Math.abs(z-.11)*.13,z],[.047,.039,.074],skin);}
+  // Six overlapping tapered pieces give the counterbalance a curved silhouette.
   let parent=joint(pelvis,[0,.14,.62]);
-  const lengths=[.48,.47,.46,.45],radii=[.164,.123,.079,.04,.008];
+  const lengths=[.35,.35,.34,.32,.29,.21],radii=[.164,.135,.109,.08,.052,.026,.004];
   for(let i=0;i<lengths.length;i++){
-   rig.tail.push(parent);segment(parent,[0,0,0],[0,-.025,lengths[i]],radii[i],radii[i+1],skin,8);
-   segment(parent,[0,-radii[i]*.66,0],[0,-.025-radii[i+1]*.66,lengths[i]],radii[i]*.56,radii[i+1]*.56,belly,6);
+   rig.tail.push(parent);profile(parent,[{z:-.015,y:0,x:radii[i],h:radii[i]},{z:lengths[i]*.35,y:-.01,x:radii[i]*.91,h:radii[i]*.86},{z:lengths[i]*.72,y:-.018,x:radii[i+1]*1.2,h:radii[i+1]*1.1},{z:lengths[i],y:-.025,x:radii[i+1],h:radii[i+1]}],skin);
+   curved(parent,[[0,-radii[i]*.62,0],[0,-.017-radii[i+1]*.7,lengths[i]*.6],[0,-.025-radii[i+1]*.6,lengths[i]]],radii[i]*.41,belly,true,5);
    parent=joint(parent,[0,-.025,lengths[i]]);
   }
   if(mount){
@@ -130,7 +169,7 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
   const width=brute?.46:.31,shoulder=brute?.51:.345;
   // Pelvis, abdominal cylinder and ribcage form separate masses, rather than a single inflated capsule.
   oval(pelvis,[0,.025,.04],[width*.88,.19,.225],soldier?dark:skin);
-  oval(chest,[0,.26,.03],[width*.8,.29,.205],skin);oval(chest,[0,.49,.025],[width,.27,.235],skin);
+  torso(chest,width,skin);
   segment(chest,[0,.58,0],[0,brute?.66:soldier?.68:.75,-.015],.12,.102,skin);neck.position.set(0,brute?.64:soldier?.65:.73,-.018);head.position.set(0,brute||soldier?.1:.14,0);
   oval(head,[0,.025,0],[.145,.19,.159],skin);oval(head,[0,-.092,-.025],[.123,.1,.13],skin);
   jaw.position.set(0,-.062,-.012);
@@ -154,40 +193,71 @@ export function buildCreatureRig(kind:EnemyKind,mount:boolean,material:Surface):
    }
    segment(head,[.15,.15,.034],[.15,.32,.034],.009,.007,dark,5);
    box(chest,[-.136,.51,-.268],[.052,.053,.012],0xf1c489);
+   for(const side of [-1,1]){
+    curved(chest,[[side*.11,.62,-.155],[side*.245,.635,-.115],[side*.33,.52,-.073]],.017,dark,false,5);
+    box(chest,[side*.135,.57,-.252],[.11,.023,.023],bone);
+    oval(head,[side*.143,-.018,-.133],[.02,.027,.012],0x80938e);
+   }
   }else{
    // Asymmetric pectorals, rib arcs and a heavy implant distinguish the infected silhouettes.
-   oval(chest,[-width*.38,.5,-.126],[width*.67,.22,.17],skin);oval(chest,[width*.45,.36,-.135],[width*.44,.205,.124],armor);
-   for(let i=0;i<4;i++)for(const side of [-1,1])segment(chest,[side*.025,.52-i*.069,-.236],[side*(width*.75-i*.018),.48-i*.064,-.199],.018,.013,bone,5);
-   segment(chest,[0,.51,-.246],[0,.245,-.225],.023,.018,dark,5);
+   oval(chest,[width*.66,.38,-.139],[width*.31,.165,.082],armor);
+   for(let i=0;i<4;i++)for(const side of [-1,1])curved(chest,[[side*.025,.49-i*.069,-.201],[side*(width*.37),.505-i*.067,-.219],[side*(width*.75-i*.018),.48-i*.064,-.164]],.0125,bone,false,5);
+   curved(chest,[[0,.51,-.214],[0,.37,-.225],[0,.245,-.182]],.014,dark,false,5);
+   for(const side of [-1,1]){
+    curved(chest,[[0,.64,-.13],[side*.12,.64,-.176],[side*.31,.58,-.107]],.028,skin,false,6);
+    for(let i=0;i<3;i++)oval(chest,[side*.071,.27-i*.083,-.145],[.061,.038,.035],skin);
+    curved(chest,[[side*.11,.18,-.163],[side*.2,.29,-.173],[side*.24,.43,-.183]],.008,dark,false,7);
+    for(let i=0;i<3;i++){const z=.195+i*.018;curved(chest,[[side*.18,.34,z],[side*.13,.46,z+.015],[side*.065,.61,z-.006]],.01,armor,false,5);}
+   }
    box(chest,[width*.82,.43,.042],[.14,.26,.27],armor);box(chest,[.055,.47,.239],[.19,.3,.08],0x788375);
    for(let i=0;i<4;i++)box(chest,[.053,.58-i*.062,.287],[.15,.023,.02],i===0?0x79b597:dark,i===0?0x163526:0);
-   oval(head,[-.053,.029,-.107],[.09,.07,.09],skin);oval(head,[.083,.027,-.103],[.084,.08,.072],armor);
+   oval(head,[-.053,.029,-.107],[.065,.054,.065],skin);oval(head,[.124,.043,-.043],[.034,.071,.047],armor);
    for(const side of [-1,1]){
     oval(head,[side*.073,.047,-.144],[.055,.041,.025],dark);
     oval(head,[side*.073,.086,-.13],[.074,.028,.047],skin);
-    oval(head,[side*.08,-.006,-.135],[.073,.047,.04],skin);
-    box(head,[side*.071,.04,-.173],[.029,.018,.01],0xf2cf94,0x472d16);
+    oval(head,[side*.08,-.006,-.135],[.051,.034,.031],skin);
+    oval(head,[side*.071,.04,-.173],[.023,.017,.01],0xf2cf94);
+    oval(head,[side*.07,.04,-.182],[.008,.013,.006],dark);
+    oval(head,[side*.066,.046,-.186],[.0025,.003,.002],0xffefd0);
    }
    profile(head,[{z:-.118,y:.002,x:.035,h:.063},{z:-.183,y:-.003,x:.03,h:.046},{z:-.213,y:-.021,x:.026,h:.025}],skin);
    for(const side of [-1,1])oval(head,[side*.018,-.033,-.207],[.013,.007,.01],dark);
-   box(head,[0,-.069,-.142],[.126,.041,.03],dark);
+   oval(head,[0,-.069,-.142],[.073,.029,.027],dark);
    oval(jaw,[0,-.052,-.122],[.096,.045,.055],skin);
+   for(const side of [-1,1])curved(head,[[side*.073,-.018,-.167],[side*.107,-.083,-.126],[side*.095,-.13,-.035]],.013,skin,false,6);
    for(let i=0;i<5;i++){cone(head,[(i-2)*.024,-.084,-.163],.011,.044,bone,Math.PI);cone(jaw,[(i-2)*.024,-.017,-.153],.011,.036,bone)}
    if(brute){oval(chest,[-.36,.56,.035],[.25,.22,.27],armor);for(let i=0;i<3;i++)cone(chest,[-.36+i*.093,.76,.05],.035,.17-i*.018,bone,0,-.15)}
+   curved(chest,[[width*.72,.51,.17],[width*.4,.64,.24],[.08,.51,.292]],.023,0x788375,false,8);
+   for(let i=0;i<3;i++)oval(chest,[-width*.77,.53-i*.05,-.048],[.06,.028,.065],skin);
+   curved(head,[[.145,.071,.014],[.157,-.01,.025],[.138,-.105,.004]],.013,0x788375,false,6);
   }
   for(const side of [-1,1]){
    const hip=joint(pelvis,[side*(brute?.23:.176),-.025,.018]),knee=joint(hip,[0,-.52,0]),hock=joint(knee,[0,-.54,0]),foot=joint(hock,[0,0,0]);
    oval(hip,[0,-.2,.01],[brute?.158:.119,.253,.13],soldier?dark:skin);segment(hip,[0,-.05,0],[0,-.52,0],brute?.142:.105,.071,soldier?dark:skin);
    oval(knee,[0,-.008,-.032],[.085,.085,.095],armor);segment(knee,[0,-.03,0],[0,-.54,0],.08,.052,soldier?dark:skin);
-   if(soldier){box(hip,[0,-.185,-.09],[.17,.28,.06],armor);box(knee,[0,-.21,-.066],[.12,.24,.055],armor)}
-   box(foot,[0,.027,-.092],[brute?.21:.16,.14,.31],soldier?dark:armor);box(foot,[0,-.035,-.085],[brute?.215:.165,.038,.33],dark);
-   if(!soldier)for(let toe=-1;toe<=1;toe++)segment(foot,[toe*.044,.012,-.222],[toe*.053,.011,-.273],.016,.001,bone,5);
+   if(soldier){
+    box(hip,[0,-.185,-.09],[.17,.28,.06],armor);box(knee,[0,-.21,-.066],[.12,.24,.055],armor);
+    box(foot,[0,.027,-.092],[.16,.14,.31],dark);box(foot,[0,-.035,-.085],[.165,.038,.33],dark);
+   }else{
+    oval(knee,[0,-.15,.017],[brute?.082:.066,.155,.085],skin);
+    profile(foot,[{z:.041,y:.029,x:brute?.082:.068,h:.071},{z:-.05,y:.03,x:brute?.103:.082,h:.07},{z:-.145,y:.017,x:brute?.114:.09,h:.052},{z:-.22,y:.009,x:brute?.088:.07,h:.038}],skin);
+    for(let toe=-1;toe<=1;toe++){
+     curved(foot,[[toe*.045,.022,-.137],[toe*.053,.018,-.196],[toe*.053,.012,-.224]],.025,skin,false,4);
+     curved(foot,[[toe*.053,.012,-.216],[toe*.059,.024,-.258],[toe*.062,-.01,-.286]],.023,bone,true,5);
+    }
+   }
    rig.legs.push({hip,knee,hock,foot,side,upper:.52,lower:.54,metatarsal:0,anchor:new THREE.Vector2(),swingStart:new THREE.Vector2(),worldFoot:new THREE.Vector2(),height:0,previous:0,initialized:false});
    const upper=joint(chest,[side*shoulder,.56,.015]),lower=joint(upper,[0,-.34,0]);
    const bulky=!soldier&&side<0;
    oval(upper,[0,-.075,0],[bulky?.17:.12,.16,.14],soldier?(side<0?0x8b555b:armor):skin);segment(upper,[0,-.06,0],[0,-.34,0],bulky?.137:.105,.073,soldier?dark:skin);
    segment(lower,[0,0,0],[0,-.33,0],bulky?.115:.075,.048,soldier?dark:skin);oval(lower,[0,-.34,-.014],[.06,.09,.055],soldier?dark:skin);
-   if(!soldier){for(let finger=-1;finger<=1;finger++){segment(lower,[finger*.034,-.373,-.025],[finger*.041,-.43,-.065],.019,.012,skin,5);segment(lower,[finger*.041,-.43,-.065],[finger*.043,-.443,-.112],.018,.002,bone,5)}}
+   if(!soldier){
+    oval(upper,[0,-.194,-.044],[bulky?.112:.075,.124,.075],skin);
+    oval(lower,[0,-.125,-.025],[bulky?.099:.07,.126,.064],skin);
+    curved(upper,[[side*.048,-.067,-.065],[side*.069,-.18,-.076],[side*.035,-.297,-.039]],.008,dark,false,7);
+    for(let finger=-1;finger<=1;finger++){curved(lower,[[finger*.034,-.373,-.025],[finger*.041,-.408,-.038],[finger*.041,-.43,-.065]],.018,skin,false,5);curved(lower,[[finger*.041,-.43,-.062],[finger*.043,-.445,-.087],[finger*.043,-.443,-.117]],.018,bone,true,6);}
+    curved(lower,[[side*.034,-.318,.004],[side*.063,-.351,-.015],[side*.071,-.388,-.045]],.022,skin,true,5);
+   }
    else box(lower,[0,-.16,-.05],[.11,.18,.06],armor);
    rig.arms.push({upper,lower,side});
    if(soldier&&side===1){
