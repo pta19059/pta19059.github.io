@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#080d0a" />
     <meta name="description" content="Fossil Noir 3D. A complete original retro first-person shooter: cybernetic enemies, mutated dinosaurs, and the neon-soaked streets of Vesper, 2091. Play in your browser." />
     <title>Fossil Noir 3D — The Lazarus Campaign</title>
-    <script type="module" crossorigin src="/fossil-noir/3d/assets/game-Dvx93qKY.js"></script>
-    <link rel="stylesheet" crossorigin href="/fossil-noir/3d/assets/game-FdSC_Gc7.css">
+    <script type="module" crossorigin src="/fossil-noir/3d/assets/game-DPUTe2Jb.js"></script>
+    <link rel="stylesheet" crossorigin href="/fossil-noir/3d/assets/game-BMERnNHS.css">
   </head>
   <body>
     <main id="game" aria-label="Fossil Noir 3D browser game">
@@ -21,6 +21,7 @@
       </div>
       <div id="boss-status" class="boss-status" aria-label="Boss health" hidden><div><b id="boss-name">PRIORITY HOSTILE</b><span id="boss-health"></span></div><i><b id="boss-bar"></b></i></div>
       <div id="message" class="game-message" aria-live="polite"></div>
+      <aside id="pickup-notices" class="pickup-notices" aria-label="Collected weapons and ammunition" aria-live="polite" aria-relevant="additions"></aside>
       <div id="interaction" class="interaction-hint"></div>
       <div id="arsenal" class="arsenal" aria-label="Weapons and ammunition"></div>
       <footer id="hud" class="hud" aria-label="Player status">
@@ -32,7 +33,7 @@
           </svg>
           <span id="portrait-label">VANE</span>
         </div>
-        <div class="hud-stat ammo-stat"><span>AMMO <small id="hud-weapon">REVOLVER</small></span><strong id="hud-ammo">00</strong><em id="hud-reserve">/ 000</em></div>
+        <div class="hud-stat ammo-stat"><span>AMMO <small id="hud-weapon">REVOLVER</small></span><strong id="hud-ammo">00</strong><em id="hud-reserve">/ 000</em><div id="hud-ammo-type" class="hud-ammo-type">.44 ROUNDS</div></div>
         <div class="hud-inventory"><span id="hud-key" class="key-indicator">KEY <b>—</b></span><span>KILLS <b id="hud-kills">0 / 0</b></span><span id="hud-mode">ON FOOT</span></div>
       </footer>
       <div id="menu-overlay" class="menu-overlay"></div>

@@ -10,6 +10,15 @@ export const WEAPONS:Record<WeaponId,WeaponStats>={
   railgun:{name:'Rail Rifle',damage:128,interval:.85,clip:5,range:80,reload:1.9,pellets:1,spread:.001,reserveCap:36,ammoPickup:8},
   arc:{name:'Arc Disruptor',damage:55,interval:.5,clip:12,range:24,reload:1.6,pellets:1,spread:.007,reserveCap:60,ammoPickup:12},
 };
+/** Each supply is specific to one weapon; mixed crates list their contents. */
+export const AMMO_TYPES:Record<WeaponId,{name:string;unit:string;description:string;color:string}>={
+  revolver:{name:'.44 Rounds',unit:'rounds',description:'Heavy revolver cartridges for the Detective Revolver.',color:'#aebcb1'},
+  shotgun:{name:'12-Gauge Shells',unit:'shells',description:'Buckshot shells for the Tactical Shotgun.',color:'#d99863'},
+  plasma:{name:'Plasma Cells',unit:'cells',description:'Green energy cells for the Plasma Rifle.',color:'#63e89b'},
+  machinegun:{name:'7.62 Rounds',unit:'rounds',description:'Linked rifle cartridges for the Heavy Machine Gun.',color:'#768785'},
+  railgun:{name:'Rail Slugs',unit:'slugs',description:'Magnetic penetrator slugs for the Rail Rifle.',color:'#7ebeff'},
+  arc:{name:'Arc Capacitors',unit:'capacitors',description:'High-voltage charge modules for the Arc Disruptor.',color:'#b6a1ff'},
+};
 export interface DifficultyStats {name:string;description:string;health:number;damage:number;speed:number;ammo:number;detect:number;attackInterval:number;accuracy:number}
 export const DIFFICULTIES:Record<Difficulty,DifficultyStats>={
   easy:{name:'Rookie',description:'Explore the case with more supplies and gentler enemies.',health:.8,damage:.65,speed:.88,ammo:1.25,detect:13,attackInterval:1.2,accuracy:.55},

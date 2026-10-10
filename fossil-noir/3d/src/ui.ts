@@ -1,6 +1,8 @@
-import type { Difficulty, GameState, LevelData, Settings, WeaponId } from './types';
+import type { Difficulty, GameEvent, GameState, LevelData, Settings, WeaponId } from './types';
 import { CAMPAIGN, CASE_FILES } from './campaign';
-import { WEAPONS, WEAPON_IDS } from './arsenal';
+import { AMMO_TYPES, WEAPONS, WEAPON_IDS } from './arsenal';
+import { Controls } from './controls';
+import { PickupNotices } from './pickup-notices';
 
 type Screen = 'menu' | 'pause' | 'dead' | 'complete' | 'playing';
 type Callbacks = {
@@ -15,7 +17,7 @@ type Callbacks = {
 };
 
 const SETTINGS_KEY = 'fossil-noir-3d-settings';
-const DEFAULT_SETTINGS: Settings = { sensitivity: 1, resolution: '640', quality: 'high', volume: 0.7, musicVolume: 0.75, effectsVolume: 0.95, difficulty: 'normal' };
+const DEFAULT_SETTINGS: Settings = { sensitivity: 1, resolution: '640', quality: 'high', volume: 0.7, musicVolume: 0.75, effectsVolume: 0.95, difficulty: 'normal', controls: 'auto' };
 const DIFFICULTY_LABELS: Record<Difficulty, {name: string; description: string}> = {
   easy: { name: 'ROOKIE', description: 'Less enemy health and damage. Slower attacks. Generous ammunition.' },
   normal: { name: 'DETECTIVE', description: 'Balanced enemies, combat speed and ammunition. The intended first run.' },
@@ -35,9 +37,16 @@ export class UI {
   private knownEvidence: string[] = [];
   private overlay = document.querySelector<HTMLElement>('#menu-overlay')!;
   private cached = new Map<string, string>();
+  private notices = new PickupNotices(document.querySelector<HTMLElement>('#pickup-notices')!);
 
-  constructor(private callbacks: Callbacks) {
+  constructor(private callbacks: Callbacks, private controls = new Controls()) {
     this.settings = this.loadSettings();
+    this.controls.setPreference(this.settings.controls);
+    this.notices.setCompact(this.controls.mode === 'touch');
+    this.controls.subscribe(() => {
+      this.refreshControls();
+      if (this.screen === 'playing' && this.state) this.update(this.state);
+    });
     this.overlay.addEventListener('click', (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]');
       if (!button || button.disabled) return;
@@ -76,6 +85,7 @@ export class UI {
         const description = this.overlay.querySelector('#difficulty-description');
         if (description) description.textContent = DIFFICULTY_LABELS[this.settings.difficulty].description;
       }
+      if (field === 'controls') this.render();
     });
     document.addEventListener('keydown', (event) => {
       if (this.screen !== 'playing' && event.code === 'Escape') {
@@ -94,6 +104,7 @@ export class UI {
   }
 
   setLevel(level: LevelData): void {
+    this.clearPickups();
     this.level = level;
     this.selectedChapter = level.chapterId ?? 0;
     this.state = undefined;
@@ -109,6 +120,10 @@ export class UI {
   }
 
   setEvidence(ids: string[]): void { this.knownEvidence = ids.filter((id) => Object.hasOwn(CASE_FILES, id)); }
+
+  handleEvents(events: GameEvent[], state: GameState): void { this.notices.handle(events, state.player.owned); }
+  tick(dt: number): void { this.notices.tick(dt); }
+  clearPickups(): void { this.notices.clear(); }
 
   show(screen: Screen): void {
     this.screen = screen;
@@ -127,6 +142,7 @@ export class UI {
     this.write('hud-ammo', player.reload > 0 ? 'LOAD' : String(player.ammo[player.weapon]).padStart(2, '0'));
     this.write('hud-reserve', `/ ${String(player.reserve[player.weapon]).padStart(3, '0')}`);
     this.write('hud-weapon', player.owned.includes(player.weapon) ? WEAPONS[player.weapon].name.toUpperCase() : 'MECHANICAL ARM');
+    this.write('hud-ammo-type', player.owned.includes(player.weapon) ? AMMO_TYPES[player.weapon].name.toUpperCase() : 'FIND A WEAPON');
     this.write('hud-kills', `${state.kills} / ${state.enemies.length}`);
     this.write('hud-mode', player.mounted ? 'STRIDER MOUNTED' : `FOCUS ${Math.round(state.slow * 100)}%`);
     this.write('hud-difficulty', DIFFICULTY_LABELS[state.difficulty].name);
@@ -153,17 +169,18 @@ export class UI {
     this.write('objective', objective.toUpperCase());
     this.write('message', state.messageTime > 0 ? state.message : '');
     let hint = '';
+    const use = this.controls.mode === 'touch' ? 'TAP USE' : 'E';
     const nearDoor = state.doors.find((door) => Math.hypot(door.x - player.x, door.z - player.z) < 3.2);
     const nearPickup = state.pickups.filter((item) => !item.collected && Math.hypot(item.x - player.x, item.z - player.z) < 2.6).sort((a, b) => Math.hypot(a.x - player.x, a.z - player.z) - Math.hypot(b.x - player.x, b.z - player.z))[0];
-    if (player.mounted) hint = 'E · DISMOUNT STRIDER';
-    else if (Math.hypot(state.mount.x - player.x, state.mount.z - player.z) < 2.8) hint = 'E · RIDE STRIDER';
-    else if (!state.powered && Math.hypot(this.level.switch.x - player.x, this.level.switch.z - player.z) < 2.5) hint = 'E · ACTIVATE POWER / TRANSMITTER';
+    if (player.mounted) hint = `${use} · DISMOUNT STRIDER`;
+    else if (Math.hypot(state.mount.x - player.x, state.mount.z - player.z) < 2.8) hint = `${use} · RIDE STRIDER`;
+    else if (!state.powered && Math.hypot(this.level.switch.x - player.x, this.level.switch.z - player.z) < 2.5) hint = `${use} · ACTIVATE POWER / TRANSMITTER`;
     else if (Math.hypot(this.level.exit.x - player.x, this.level.exit.z - player.z) < 3) hint = !state.powered ? 'ACTIVATE THE SWITCH FIRST' : remaining ? 'PRIORITY HOSTILES REMAIN' : evidenceLeft ? 'RECOVER THE REQUIRED EVIDENCE' : `ENTER ${this.level.exitLabel ?? 'THE EXIT'}`;
-    else if (nearDoor) hint = nearDoor.locked && !player.keycard ? 'SECURITY KEYCARD REQUIRED' : `E · ${nearDoor.target > 0 ? 'CLOSE' : 'OPEN'} ${nearDoor.label.toUpperCase()}`;
+    else if (nearDoor) hint = nearDoor.locked && !player.keycard ? 'SECURITY KEYCARD REQUIRED' : `${use} · ${nearDoor.target > 0 ? 'CLOSE' : 'OPEN'} ${nearDoor.label.toUpperCase()}`;
     else if (nearPickup) {
       const weapon = WEAPON_IDS.includes(nearPickup.kind as WeaponId) ? nearPickup.kind as WeaponId : undefined;
-      const name = nearPickup.label ?? (weapon ? WEAPONS[weapon].name : nearPickup.kind === 'ammo' && nearPickup.ammoFor ? `${WEAPONS[nearPickup.ammoFor].name} ammunition` : nearPickup.kind);
-      hint = `WALK OVER · ${name.toUpperCase()}${nearPickup.kind === 'ammo' && nearPickup.amount ? ` +${nearPickup.amount}` : ''}`;
+      const name = weapon ? WEAPONS[weapon].name : nearPickup.kind === 'ammo' ? nearPickup.ammoFor ? `${AMMO_TYPES[nearPickup.ammoFor].name} · FOR ${WEAPONS[nearPickup.ammoFor].name}` : 'MIXED AMMUNITION CRATE' : nearPickup.label ?? nearPickup.kind;
+      hint = `MOVE OVER · ${name.toUpperCase()}`;
     }
     this.write('interaction', hint);
     document.querySelector('#crosshair')!.classList.toggle('firing', player.recoil > 0.1);
@@ -194,6 +211,43 @@ export class UI {
     return `<div class="difficulty-choice"><label for="difficulty">DIFFICULTY FOR NEW RUN</label><select id="difficulty" data-setting="difficulty">${Object.entries(DIFFICULTY_LABELS).map(([id, info]) => `<option value="${id}" ${this.settings.difficulty === id ? 'selected' : ''}>${info.name}</option>`).join('')}</select><p id="difficulty-description">${DIFFICULTY_LABELS[this.settings.difficulty].description}</p></div>`;
   }
 
+  private controlChoice(): string {
+    return `<div class="control-choice"><label for="control-preference">CONTROL MODE</label><select id="control-preference" data-setting="controls"><option value="auto" ${this.settings.controls === 'auto' ? 'selected' : ''}>AUTO · DETECT DEVICE</option><option value="desktop" ${this.settings.controls === 'desktop' ? 'selected' : ''}>PC · KEYBOARD + MOUSE</option><option value="touch" ${this.settings.controls === 'touch' ? 'selected' : ''}>PHONE / TABLET · TOUCH</option></select><p id="control-description">${this.controls.mode === 'touch' ? 'TOUCH ACTIVE · Joystick + on-screen buttons. No mouse capture needed.' : 'KEYBOARD + MOUSE ACTIVE · WASD, Shift to sprint and left click to fire.'}</p></div>`;
+  }
+
+  private controlStatus(): string {
+    return `<div class="control-status"><b id="control-status-mode">${this.controls.mode === 'touch' ? 'PHONE / TABLET · TOUCH' : 'PC · KEYBOARD + MOUSE'}</b><span id="control-status-source">${this.controls.preference === 'auto' ? 'AUTO DETECTED' : 'MANUAL SELECTION'}</span></div>`;
+  }
+
+  private controlManual(): string {
+    const rows = this.controls.mode === 'touch' ? [
+      ['MOVE', 'LEFT JOYSTICK'], ['RUN', 'FULL STICK / HOLD RUN'], ['AIM', 'DRAG THE RIGHT SIDE'], ['FIRE + AIM', 'HOLD & DRAG FIRE'],
+      ['JUMP / CROUCH', 'JUMP / HOLD CROUCH'], ['INTERACT / RIDE', 'TAP USE'], ['RELOAD', 'TAP RELOAD'], ['CHANGE WEAPON', 'TAP GUN'], ['BULLET TIME', 'HOLD FOCUS'], ['PAUSE', 'TAP Ⅱ'],
+    ] : [
+      ['MOVE', 'W A S D'], ['RUN', 'HOLD SHIFT'], ['AIM / FIRE', 'MOUSE / LEFT CLICK'], ['JUMP', 'SPACE'], ['CROUCH', 'CTRL / C'],
+      ['INTERACT / RIDE', 'E'], ['RELOAD', 'R'], ['CHANGE WEAPON', '1–6 / MOUSE WHEEL'], ['BULLET TIME', 'HOLD Q'], ['PAUSE', 'ESC / P'],
+    ];
+    return rows.map(([name, keys]) => `<span>${name}</span><kbd>${keys}</kbd>`).join('');
+  }
+
+  private controlTip(): string {
+    return this.controls.mode === 'touch' ? 'Two thumbs: move with the left joystick; push it fully to run. Hold and drag FIRE with the right thumb to shoot and aim together. Drag elsewhere on the right to look without shooting. Landscape is recommended.' : 'Click the game to capture the mouse. Esc releases it. Hold Shift to run; left click fires. Touch controls stay hidden. On a hybrid device, Auto follows your active input; you can choose a fixed mode above.';
+  }
+
+  private refreshControls(): void {
+    this.notices.setCompact(this.controls.mode === 'touch');
+    // Update only labels: replacing the menu during pointerdown would swallow
+    // the first tap on a hybrid device before its click can reach a button.
+    const text = (id: string, value: string) => { const node = document.getElementById(id); if (node) node.textContent = value; };
+    text('control-status-mode', this.controls.mode === 'touch' ? 'PHONE / TABLET · TOUCH' : 'PC · KEYBOARD + MOUSE');
+    text('control-status-source', this.controls.preference === 'auto' ? 'AUTO DETECTED' : 'MANUAL SELECTION');
+    text('control-footer', this.controls.mode === 'touch' ? 'TOUCH · MOVE / AIM / FIRE' : 'PC · KEYBOARD + MOUSE');
+    text('control-description', this.controls.mode === 'touch' ? 'TOUCH ACTIVE · Joystick + on-screen buttons. No mouse capture needed.' : 'KEYBOARD + MOUSE ACTIVE · WASD, Shift to sprint and left click to fire.');
+    text('control-tip', this.controlTip());
+    const manual = document.getElementById('control-manual');
+    if (manual) manual.innerHTML = this.controlManual();
+  }
+
   private briefing(level: LevelData): string {
     const index = level.chapterId ?? 0;
     return `<aside class="case-file"><div class="file-tab">CASE FILE <b>${String(index + 1).padStart(2, '0')} / ${CAMPAIGN.length}</b></div><h2>${escapeHtml(level.title ?? 'THE NEON DISTRICT')}</h2><div class="file-subject">${escapeHtml(level.subtitle ?? 'VESPER CITY / 2091')}</div><p>${escapeHtml(level.intro ?? '')}</p><div class="case-route"><span>OBJECTIVE / ${escapeHtml(level.objective ?? 'REACH THE EXIT')}</span><span>EXIT / ${escapeHtml(level.exitLabel ?? 'EXTRACTION')}</span><span>ARSENAL CARRIES INTO THE NEXT CHAPTER</span></div><div class="file-stamp">${level.safe ? 'SAFEHOUSE' : 'STATUS: OPEN'}</div></aside>`;
@@ -208,10 +262,10 @@ export class UI {
     let title = '';
     if (this.panel === 'controls') {
       title = 'FIELD MANUAL';
-      content = `<div class="controls-grid"><span>MOVE</span><kbd>W A S D</kbd><span>AIM / FIRE</span><kbd>MOUSE / LEFT CLICK</kbd><span>SPRINT / JUMP</span><kbd>SHIFT / SPACE</kbd><span>CROUCH</span><kbd>CTRL / C</kbd><span>INTERACT / RIDE</span><kbd>E</kbd><span>RELOAD</span><kbd>R</kbd><span>CHANGE WEAPON</span><kbd>1–6 / MOUSE WHEEL</kbd><span>BULLET TIME</span><kbd>HOLD Q</kbd><span>PAUSE</span><kbd>ESC / P</kbd></div><p class="field-note">Click the game to capture the mouse. Esc releases it. Walk over new weapons, ammunition, armor, medical kits and case files to collect them. R reloads from your reserve. Each weapon has its own ammunition; caches can be collected before finding the weapon. Defeated enemies leave supplies on the ground.</p><p class="field-note">Shoot fuel canisters for explosions; glass shatters. The Rail Rifle delivers precise heavy hits; the Arc Disruptor chains energy between nearby enemies. Explore secret doors for rare weapons. Hold Q for bullet time. Pause to read recovered case files.</p><p class="field-note">TOUCH: left joystick moves; drag the right side to aim. Hold FIRE or RUN. E operates doors, switches and the strider. GUN cycles owned weapons.</p><button data-action="back" class="menu-button">← BACK</button>`;
+      content = `${this.controlChoice()}<div id="control-manual" class="controls-grid">${this.controlManual()}</div><p id="control-tip" class="field-note">${this.controlTip()}</p><p class="field-note">Walk over supplies to collect them. Each weapon has its own ammunition. The recovery card shows the ammo type, compatible weapon and the exact reserve added. Supplies can be stored before finding their weapon; reload from its reserve.</p><p class="field-note">Shoot fuel canisters for explosions; glass shatters. The Rail Rifle delivers precise heavy hits; the Arc Disruptor chains energy between nearby enemies. Explore secret doors for rare weapons. Pause to read recovered case files.</p><button data-action="back" class="menu-button">← BACK</button>`;
     } else if (this.panel === 'settings') {
       title = 'SYSTEM SETUP';
-      content = `<div class="settings-grid"><label for="sensitivity">MOUSE SENSITIVITY <output id="sensitivity-value">${this.settings.sensitivity.toFixed(1)}×</output></label><input id="sensitivity" data-setting="sensitivity" type="range" min="0.3" max="2.5" step="0.1" value="${this.settings.sensitivity}"><label for="resolution">RETRO RESOLUTION</label><select id="resolution" data-setting="resolution"><option value="320" ${this.settings.resolution === '320' ? 'selected' : ''}>320 × 200 — CLASSIC</option><option value="640" ${this.settings.resolution === '640' ? 'selected' : ''}>640 × 400 — SHARP</option></select><label for="quality">EFFECTS QUALITY</label><select id="quality" data-setting="quality"><option value="low" ${this.settings.quality === 'low' ? 'selected' : ''}>LOW</option><option value="high" ${this.settings.quality === 'high' ? 'selected' : ''}>HIGH</option></select><label for="volume">MASTER VOLUME <output id="volume-value">${Math.round(this.settings.volume * 100)}%</output></label><input id="volume" data-setting="volume" type="range" min="0" max="1" step="0.05" value="${this.settings.volume}"><label for="music-volume">MUSIC VOLUME <output id="music-volume-value">${Math.round(this.settings.musicVolume * 100)}%</output></label><input id="music-volume" data-setting="musicVolume" type="range" min="0" max="1" step="0.05" value="${this.settings.musicVolume}"><label for="effects-volume">EFFECTS VOLUME <output id="effects-volume-value">${Math.round(this.settings.effectsVolume * 100)}%</output></label><input id="effects-volume" data-setting="effectsVolume" type="range" min="0" max="1" step="0.05" value="${this.settings.effectsVolume}"></div>${this.difficultyControl()}<p class="field-note">Difficulty changes apply to a new campaign or chapter selection. The current run and its checkpoints keep their original difficulty. Other settings apply immediately and are saved automatically.</p><button data-action="back" class="menu-button">← BACK</button>`;
+      content = `<div class="settings-grid"><label for="sensitivity">LOOK SENSITIVITY <output id="sensitivity-value">${this.settings.sensitivity.toFixed(1)}×</output></label><input id="sensitivity" data-setting="sensitivity" type="range" min="0.3" max="2.5" step="0.1" value="${this.settings.sensitivity}"><label for="resolution">RETRO RESOLUTION</label><select id="resolution" data-setting="resolution"><option value="320" ${this.settings.resolution === '320' ? 'selected' : ''}>320 × 200 — CLASSIC</option><option value="640" ${this.settings.resolution === '640' ? 'selected' : ''}>640 × 400 — SHARP</option></select><label for="quality">EFFECTS QUALITY</label><select id="quality" data-setting="quality"><option value="low" ${this.settings.quality === 'low' ? 'selected' : ''}>LOW</option><option value="high" ${this.settings.quality === 'high' ? 'selected' : ''}>HIGH</option></select><label for="volume">MASTER VOLUME <output id="volume-value">${Math.round(this.settings.volume * 100)}%</output></label><input id="volume" data-setting="volume" type="range" min="0" max="1" step="0.05" value="${this.settings.volume}"><label for="music-volume">MUSIC VOLUME <output id="music-volume-value">${Math.round(this.settings.musicVolume * 100)}%</output></label><input id="music-volume" data-setting="musicVolume" type="range" min="0" max="1" step="0.05" value="${this.settings.musicVolume}"><label for="effects-volume">EFFECTS VOLUME <output id="effects-volume-value">${Math.round(this.settings.effectsVolume * 100)}%</output></label><input id="effects-volume" data-setting="effectsVolume" type="range" min="0" max="1" step="0.05" value="${this.settings.effectsVolume}"></div>${this.controlChoice()}${this.difficultyControl()}<p class="field-note">Difficulty changes apply to a new campaign or chapter selection. The current run and its checkpoints keep their original difficulty. Other settings apply immediately and are saved automatically.</p><button data-action="back" class="menu-button">← BACK</button>`;
     } else if (this.panel === 'chapters') {
       title = 'SELECT A CHAPTER';
       content = `<div class="chapter-grid">${CAMPAIGN.map((level, index) => `<button data-action="select-chapter" data-chapter="${index}" class="chapter-card ${index === this.selectedChapter ? 'selected' : ''}" aria-pressed="${index === this.selectedChapter}"><b>${String(index + 1).padStart(2, '0')}</b><span>${escapeHtml(level.title ?? '')}<small>${escapeHtml(level.subtitle ?? '')}</small></span></button>`).join('')}</div><div class="chapter-briefing"><p>${escapeHtml(CAMPAIGN[this.selectedChapter].intro ?? '')}</p><small>${escapeHtml(CAMPAIGN[this.selectedChapter].objective ?? '')}</small></div>${this.difficultyControl()}<button data-action="launch-chapter" class="menu-button primary">▶ START CHAPTER ${String(this.selectedChapter + 1).padStart(2, '0')}</button><p class="field-note">Chapter selection gives a suitable starting arsenal. Playing the campaign carries your collected weapons and ammunition forward.</p><button data-action="back" class="menu-button">← BACK</button>`;
@@ -220,7 +274,7 @@ export class UI {
       const ids = [...new Set([...this.knownEvidence, ...(this.state?.pickups.filter((item) => item.collected && item.evidenceId).map((item) => item.evidenceId!) ?? [])])];
       content = `<div class="evidence-files">${ids.length ? ids.map((id) => CASE_FILES[id] ? `<article><h3>${escapeHtml(CASE_FILES[id].title)}</h3><small>${escapeHtml(CASE_FILES[id].source)}</small><p>${escapeHtml(CASE_FILES[id].body)}</p></article>` : '').join('') : '<p class="field-note">No files recovered yet. Look for glowing evidence terminals and walk over them.</p>'}</div><button data-action="back" class="menu-button">← BACK</button>`;
     } else if (isMenu) {
-      content = `<button data-action="start" class="menu-button primary"><span>▶</span> START CAMPAIGN</button><button data-action="continue" class="menu-button" ${this.savedChapter === null ? 'disabled' : ''}>CONTINUE ${this.savedChapter === null ? 'CAMPAIGN' : `CHAPTER ${String(this.savedChapter + 1).padStart(2, '0')}`}</button><button data-action="chapters" class="menu-button">CHAPTER SELECT · ${CAMPAIGN.length} CHAPTERS</button>${this.difficultyControl()}<button data-action="controls" class="menu-button">CONTROLS</button><button data-action="settings" class="menu-button">SETTINGS</button><a class="original-link" href="../">↗ PLAY THE ORIGINAL 2D GAME</a>`;
+      content = `${this.controlStatus()}<button data-action="start" class="menu-button primary"><span>▶</span> START CAMPAIGN</button><button data-action="continue" class="menu-button" ${this.savedChapter === null ? 'disabled' : ''}>CONTINUE ${this.savedChapter === null ? 'CAMPAIGN' : `CHAPTER ${String(this.savedChapter + 1).padStart(2, '0')}`}</button><button data-action="chapters" class="menu-button">CHAPTER SELECT · ${CAMPAIGN.length} CHAPTERS</button>${this.difficultyControl()}<button data-action="controls" class="menu-button">CONTROLS</button><button data-action="settings" class="menu-button">SETTINGS</button><a class="original-link" href="../">↗ PLAY THE ORIGINAL 2D GAME</a>`;
     } else if (this.screen === 'pause') {
       title = 'MISSION PAUSED';
       content = `<p class="pause-quote">CHAPTER ${String(chapter + 1).padStart(2, '0')} · ${escapeHtml(this.level.title ?? '')}<br>${this.state ? DIFFICULTY_LABELS[this.state.difficulty].name : ''} · Your run keeps its chosen difficulty.</p><button data-action="resume" class="menu-button primary">▶ RESUME MISSION</button>${checkpoint ? '<button data-action="checkpoint" class="menu-button">RESTART CHECKPOINT</button>' : ''}<button data-action="retry" class="menu-button">RESTART CHAPTER</button><button data-action="files" class="menu-button">READ CASE FILES</button><button data-action="controls" class="menu-button">CONTROLS</button><button data-action="settings" class="menu-button">SETTINGS</button><button data-action="menu" class="menu-button">MAIN MENU</button>`;
@@ -233,7 +287,7 @@ export class UI {
       const elapsed = Math.floor(this.state?.time ?? 0);
       content = `<p class="pause-quote">${escapeHtml(this.level.completionMessage ?? 'The trail continues.')}</p>${final ? '<p class="ending-copy">CASE 091 CLOSED. The Lazarus evidence is on every screen in Vesper. Mara is alive. Axiom can no longer bury the truth.</p>' : `<p class="next-chapter">NEXT / ${String(chapter + 2).padStart(2, '0')} · ${escapeHtml(CAMPAIGN[chapter + 1].title ?? '')}</p>`}<div class="results"><div class="result-line"><span>CHAPTER TIME</span><b>${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}</b></div><div class="result-line"><span>HOSTILES NEUTRALIZED</span><b>${this.state?.kills ?? 0} / ${this.state?.enemies.length ?? 0}</b></div><div class="result-line"><span>SECRETS DISCOVERED</span><b>${this.state?.secrets ?? 0}</b></div><div class="result-line"><span>EVIDENCE RECOVERED</span><b>${this.state?.player.evidence ?? 0}</b></div></div>${final ? '<button data-action="start" class="menu-button primary">▶ NEW CAMPAIGN</button>' : '<button data-action="next" class="menu-button primary">▶ NEXT CHAPTER</button>'}<button data-action="files" class="menu-button">READ CASE FILES</button><button data-action="retry" class="menu-button">REPLAY CHAPTER</button><button data-action="menu" class="menu-button">MAIN MENU</button>`;
     }
-    this.overlay.innerHTML = `<div class="menu-scroll"><div class="menu-topline"><span>PRIVATE INVESTIGATION / CASE 091</span><span>VESPER CITY · 2091</span></div><div class="menu-columns ${isMenu && main ? 'title-screen' : 'subscreen'}"><section class="menu-panel"><div class="brand ${isMenu && main ? '' : 'brand-small'}"><div class="brand-kicker">ELIAS VANE RETURNS IN</div><h1>FOSSIL<span>NOIR<em>3D</em></span></h1><div class="brand-rule"></div></div>${title ? `<h2 class="panel-title">${title}</h2>` : '<p class="tagline">The city died. The dinosaurs didn’t.</p>'}<div class="menu-actions">${content}</div></section>${isMenu && main ? this.briefing(CAMPAIGN[this.savedChapter ?? 0]) : ''}</div><div class="menu-bottomline"><span>RETRO FPS / ${CAMPAIGN.length} CHAPTER CAMPAIGN</span><span>${isMenu ? 'KEYBOARD + MOUSE · TOUCH SUPPORTED' : 'ELIAS VANE / FOSSIL NOIR'}</span></div></div>`;
+    this.overlay.innerHTML = `<div class="menu-scroll"><div class="menu-topline"><span>PRIVATE INVESTIGATION / CASE 091</span><span>VESPER CITY · 2091</span></div><div class="menu-columns ${isMenu && main ? 'title-screen' : 'subscreen'}"><section class="menu-panel"><div class="brand ${isMenu && main ? '' : 'brand-small'}"><div class="brand-kicker">ELIAS VANE RETURNS IN</div><h1>FOSSIL<span>NOIR<em>3D</em></span></h1><div class="brand-rule"></div></div>${title ? `<h2 class="panel-title">${title}</h2>` : '<p class="tagline">The city died. The dinosaurs didn’t.</p>'}<div class="menu-actions">${content}</div></section>${isMenu && main ? this.briefing(CAMPAIGN[this.savedChapter ?? 0]) : ''}</div><div class="menu-bottomline"><span>RETRO FPS / ${CAMPAIGN.length} CHAPTER CAMPAIGN</span><span><span id="control-footer">${this.controls.mode === 'touch' ? 'TOUCH · MOVE / AIM / FIRE' : 'PC · KEYBOARD + MOUSE'}</span></span></div></div>`;
     requestAnimationFrame(() => this.overlay.querySelector<HTMLButtonElement>('button.primary, button[data-action="back"]')?.focus({ preventScroll: true }));
   }
 
@@ -253,6 +307,7 @@ export class UI {
       musicVolume: finite(data.musicVolume, 0, 1, DEFAULT_SETTINGS.musicVolume),
       effectsVolume: finite(data.effectsVolume, 0, 1, DEFAULT_SETTINGS.effectsVolume),
       difficulty: data.difficulty === 'easy' || data.difficulty === 'hard' || data.difficulty === 'nightmare' ? data.difficulty : 'normal',
+      controls: data.controls === 'desktop' || data.controls === 'touch' ? data.controls : 'auto',
     };
   }
 }

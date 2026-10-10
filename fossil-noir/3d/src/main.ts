@@ -4,6 +4,7 @@ import { WEAPONS, WEAPON_IDS } from './arsenal';
 import { Renderer } from './renderer';
 import { Simulation } from './simulation';
 import { Input } from './input';
+import { Controls } from './controls';
 import { UI } from './ui';
 import { Viewmodel } from './viewmodel';
 import { AudioSystem } from './audio';
@@ -25,9 +26,10 @@ let screen: 'menu'|'pause'|'dead'|'complete'|'playing' = 'menu';
 let previous = performance.now();
 let failed = false;
 const audio = new AudioSystem();
-const input = new Input(canvas, pause);
+const controls = new Controls();
+const input = new Input(canvas, pause, controls);
 const viewmodel = new Viewmodel(weaponCanvas);
-const ui = new UI({ start, chapter: selectChapter, next: nextChapter, resume, restart, menu, pause, settings: applySettings });
+const ui = new UI({ start, chapter: selectChapter, next: nextChapter, resume, restart, menu, pause, settings: applySettings }, controls);
 simulation = new Simulation(CAMPAIGN[0], ui.settings.difficulty);
 chapterStart = cleanState(simulation.state);
 
@@ -213,12 +215,14 @@ function restart(checkpoint = false) {
   if (failed) return;
   if (!checkpoint) { loadChapter(chapter, simulation.state.difficulty, undefined, chapterStart); return; }
   if (!simulation.state.checkpoint) return;
+  ui.clearPickups();
   simulation.restart(true);
   ui.update(simulation.state); saveBoundary(chapter, simulation.state);
   audio.unlock(); changeScreen('playing'); input.capture(); previous = performance.now();
 }
 function menu() { collectEvidence(); changeScreen('menu'); ui.setSave(readCheckpoint()?.chapter ?? null); }
 function applySettings(settings: Settings) {
+  if (controls.preference !== settings.controls) controls.setPreference(settings.controls);
   input.sensitivity = settings.sensitivity;
   audio.setVolume(settings.volume); audio.setMusicVolume(settings.musicVolume); audio.setEffectsVolume(settings.effectsVolume);
   renderer?.resize(settings);
@@ -242,6 +246,7 @@ function frame(now: number) {
         simulation.update(dt, input.read());
         const checkpoint = simulation.state.events.some((event) => event.type === 'checkpoint');
         if (checkpoint) { collectEvidence(); saveBoundary(chapter, simulation.state); }
+        ui.handleEvents(simulation.state.events, simulation.state); ui.tick(dt);
         audio.handle(simulation.state.events); simulation.state.events.length = 0; audio.tick(simulation.state, dt);
         ui.update(simulation.state);
         if (simulation.state.status === 'dead') changeScreen('dead');

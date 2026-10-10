@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../src/simulation';
-import { DIFFICULTIES, WEAPONS, WEAPON_IDS } from '../src/arsenal';
+import { AMMO_TYPES, DIFFICULTIES, WEAPONS, WEAPON_IDS } from '../src/arsenal';
 import { LEVEL } from '../src/level';
-import { EMPTY_INPUT, type Difficulty, type InputFrame, type LevelData, type Vec2, type WeaponId } from '../src/types';
+import { EMPTY_INPUT, type Difficulty, type InputFrame, type LevelData, type PickupReceipt, type Vec2, type WeaponId } from '../src/types';
 
 const frame = (changes: Partial<InputFrame> = {}): InputFrame => ({ ...EMPTY_INPUT, ...changes });
 function advance(sim: Simulation, seconds: number, changes: Partial<InputFrame> = {}) {
@@ -26,6 +26,102 @@ function equip(id: WeaponId, changes: Partial<LevelData> = {}) {
   advance(sim, .2);
   return sim;
 }
+const receipts=(sim:Simulation):PickupReceipt[]=>sim.state.events.filter(event=>event.type==='pickup'&&event.pickup).map(event=>event.pickup!);
+
+test('each ammunition identity explicitly names its compatible weapon and has its own visual color',()=>{
+  assert.equal(new Set(WEAPON_IDS.map(id=>AMMO_TYPES[id].name)).size,6);
+  assert.equal(new Set(WEAPON_IDS.map(id=>AMMO_TYPES[id].color)).size,6);
+  for(const id of WEAPON_IDS){
+    assert.ok(AMMO_TYPES[id].description.includes(WEAPONS[id].name),`${id} description names the compatible weapon`);
+    assert.match(AMMO_TYPES[id].color,/^#[0-9a-f]{6}$/);
+    assert.ok(AMMO_TYPES[id].unit.length>0);
+  }
+});
+
+test('typed ammunition receipts report the exact difficulty-adjusted reserve gain for each of six weapons',()=>{
+  for(const difficulty of ['easy','normal','hard','nightmare'] as Difficulty[])for(const id of WEAPON_IDS){
+    const sim=arena({pickups:[{id:`supply-${id}`,kind:'ammo',ammoFor:id,amount:13,x:0,z:0}]},difficulty);
+    sim.update(0,frame());
+    const expected=Math.round(13*DIFFICULTIES[difficulty].ammo);
+    assert.deepEqual(receipts(sim),[{pickupId:`supply-${id}`,kind:'ammo',weapon:id,ammunition:[{weapon:id,added:expected}]}]);
+    assert.equal(sim.state.player.reserve[id],expected);
+    assert.ok(WEAPON_IDS.filter(other=>other!==id).every(other=>sim.state.player.reserve[other]===0));
+    assert.deepEqual(sim.state.player.owned,[],'finding ammunition does not grant a weapon');
+  }
+});
+
+test('supply receipts contain the accepted capped quantity and full boxes remain silent and uncollected',()=>{
+  for(const id of WEAPON_IDS){
+    const sim=arena({pickups:[{id:'ammo',kind:'ammo',ammoFor:id,amount:30,x:0,z:0}]},'nightmare');
+    sim.state.player.reserve[id]=WEAPONS[id].reserveCap;
+    sim.update(0,frame());
+    assert.equal(sim.state.pickups[0].collected,false);
+    assert.deepEqual(sim.state.events,[],'a full supply produces no pickup or message event');
+    sim.state.player.reserve[id]-=2;
+    sim.update(0,frame());
+    assert.deepEqual(receipts(sim),[{pickupId:'ammo',kind:'ammo',weapon:id,ammunition:[{weapon:id,added:2}]}]);
+    assert.equal(sim.state.player.reserve[id],WEAPONS[id].reserveCap);
+  }
+});
+
+test('first weapon receipts distinguish loaded ammunition from the actual new reserve, including a full reserve',()=>{
+  for(const id of WEAPON_IDS)for(const room of [0,2]){
+    const sim=arena({pickups:[{id:'found-gun',kind:id,x:0,z:0}]},'hard');
+    sim.state.player.reserve[id]=WEAPONS[id].reserveCap-room;
+    sim.update(0,frame());
+    assert.deepEqual(receipts(sim),[{pickupId:'found-gun',kind:'weapon',weapon:id,loaded:WEAPONS[id].clip,ammunition:room?[{weapon:id,added:room}]:[]}]);
+    assert.equal(sim.state.player.ammo[id],WEAPONS[id].clip);
+    assert.equal(sim.state.player.reserve[id],WEAPONS[id].reserveCap);
+    assert.equal(sim.state.pickups[0].collected,true,'a previously unknown gun is acquired even when its spare reserve is full');
+  }
+});
+
+test('duplicate gun receipts are ammunition receipts without refilling the magazine or resetting reload',()=>{
+  for(const id of WEAPON_IDS){
+    const sim=equip(id),p=sim.state.player;
+    sim.state.events=[];p.ammo[id]=1;p.reserve[id]=WEAPONS[id].reserveCap-2;
+    sim.reload();const reload=p.reload;sim.state.events=[];
+    sim.state.pickups.push({id:'duplicate-gun',kind:id,x:0,z:0,collected:false});
+    sim.update(0,frame());
+    assert.deepEqual(receipts(sim),[{pickupId:'duplicate-gun',kind:'ammo',weapon:id,ammunition:[{weapon:id,added:2}]}]);
+    assert.equal(p.ammo[id],1);assert.equal(p.reload,reload);
+    sim.state.events=[];sim.state.pickups.push({id:'full-duplicate',kind:id,x:0,z:0,collected:false});
+    sim.update(0,frame());
+    assert.equal(sim.state.pickups.at(-1)!.collected,false);assert.deepEqual(sim.state.events,[]);
+  }
+});
+
+test('mixed crates itemize only the ammunition actually accepted for individual weapons',()=>{
+  const sim=arena({pickups:[{id:'mixed-crate',kind:'ammo',x:0,z:0}]});
+  const rooms=[0,2,1,0,3,4];
+  WEAPON_IDS.forEach((id,index)=>{sim.state.player.reserve[id]=WEAPONS[id].reserveCap-rooms[index];});
+  sim.update(0,frame());
+  assert.deepEqual(receipts(sim),[{pickupId:'mixed-crate',kind:'cache',ammunition:[{weapon:'shotgun',added:2},{weapon:'plasma',added:1},{weapon:'railgun',added:3},{weapon:'arc',added:4}]}]);
+  assert.ok(WEAPON_IDS.every(id=>sim.state.player.reserve[id]===WEAPONS[id].reserveCap));
+  assert.ok(WEAPON_IDS.every(id=>sim.state.player.ammo[id]===0),'a mixed crate does not fill magazines');
+  sim.state.events=[];sim.state.pickups.push({id:'full-crate',kind:'ammo',x:0,z:0,collected:false});
+  sim.update(0,frame());
+  assert.equal(sim.state.pickups.at(-1)!.collected,false);assert.deepEqual(sim.state.events,[]);
+});
+
+test('wave soldier drops issue one machine-gun-specific receipt only when the physical supply is collected',()=>{
+  const sim=arena({defaultLoadout:['railgun'],waves:[{id:'reinforcement',trigger:{x:0,z:0},radius:1,enemies:[{id:'reinforcement-soldier',kind:'soldier',x:0,z:-5}]}]});
+  sim.update(.025,frame());aim(sim,sim.state.enemies[0]);sim.state.events=[];
+  sim.update(.025,frame({fire:true}));
+  assert.equal(sim.state.enemies[0].alive,false);
+  assert.deepEqual(receipts(sim),[],'a distant kill creates the supply without awarding it');
+  const drop=sim.state.pickups.find(item=>item.id==='drop-reinforcement-soldier')!;
+  assert.ok(drop);sim.state.player.x=drop.x;sim.state.player.z=drop.z;sim.state.events=[];
+  sim.update(0,frame());
+  assert.deepEqual(receipts(sim),[{pickupId:drop.id,kind:'ammo',weapon:'machinegun',ammunition:[{weapon:'machinegun',added:20}]}]);
+  sim.state.events=[];sim.update(0,frame());assert.deepEqual(receipts(sim),[]);
+});
+
+test('pickup receipts are transient and are not replayed when restoring a checkpoint',()=>{
+  const sim=arena({checkpoint:{x:0,z:0},pickups:[{id:'rail',kind:'railgun',x:0,z:0},{id:'key',kind:'keycard',x:0,z:0}]});
+  sim.update(0,frame());assert.equal(receipts(sim).length,1);assert.equal(sim.state.checkpoint,true);
+  sim.restart(true);assert.deepEqual(receipts(sim),[]);assert.equal(sim.state.pickups[0].collected,true);
+});
 
 test('six weapon slots and wheel switching skip weapons that have not been discovered', () => {
   const sim = equip('revolver');

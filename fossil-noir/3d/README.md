@@ -39,38 +39,40 @@ Choose any chapter from the main menu or play them in order using **NEXT CHAPTER
 
 Weapons and colour-coded ammunition are collected by walking over them. Ammunition has separate finite reserves for each weapon, can be stored before its weapon is found, and remains on the ground when that reserve is full. Duplicate weapons supply spare ammunition. Cybernetic soldiers leave physical ammunition packs to collect rather than granting supplies remotely. Side routes and secret rooms reward exploration.
 
-Interact with a cyan-saddled Strider to ride it. Press **E** again to dismount. Mounts are restricted to each map's designated riding area. Fuel canisters produce occluded explosions that damage nearby enemies and Elias; marked glass shatters. Destruction, drops, triggered waves and progress are restored at saved checkpoints and reset on a new chapter run.
+Each successful weapon or ammunition collection displays a non-blocking recovery card with its identity, ammunition type, compatible weapon and the exact quantity accepted after difficulty scaling and reserve limits. Mixed crates list individual supplies rather than claiming universal ammunition. Cards explain when ammunition is stored for a weapon not yet found. Their display timer freezes during pause; phone mode queues one card at a time to keep the controls clear.
+
+Interact with a cyan-saddled Strider to ride it. Press **E** on PC or tap **USE** in touch mode again to dismount. Mounts are restricted to each map's designated riding area. Fuel canisters produce occluded explosions that damage nearby enemies and Elias; marked glass shatters. Destruction, drops, triggered waves and progress are restored at saved checkpoints and reset on a new chapter run.
 
 ## Arsenal and difficulty
 
-| Slot | Weapon | Combat role |
-| --- | --- | --- |
-| 1 | Detective Revolver | Accurate medium-damage pistol, six-round cylinder. |
-| 2 | Tactical Shotgun | Eight pellets and powerful close-range bursts. |
-| 3 | Plasma Rifle | Rapid green energy fire. |
-| 4 | Heavy Machine Gun | Automatic fire and sixty-round belts. |
-| 5 | Rail Rifle | Precise high-damage magnetic shots, five-round magazine. |
-| 6 | Arc Disruptor | Electrical hits chain to up to two nearby enemies with line of sight. |
+| Slot | Weapon | Ammunition | Combat role |
+| --- | --- | --- | --- |
+| 1 | Detective Revolver | .44 rounds | Accurate medium-damage pistol, six-round cylinder. |
+| 2 | Tactical Shotgun | 12-gauge shells | Eight pellets and powerful close-range bursts. |
+| 3 | Plasma Rifle | Plasma cells | Rapid green energy fire. |
+| 4 | Heavy Machine Gun | 7.62 rounds | Automatic fire and sixty-round belts. |
+| 5 | Rail Rifle | Rail slugs | Precise high-damage magnetic shots, five-round magazine. |
+| 6 | Arc Disruptor | Arc capacitors | Electrical hits chain to up to two nearby enemies with line of sight. |
 
 Four difficulties are selectable before starting: **Rookie, Detective, Nightmare and Extinction**. They change enemy health, movement, attack rate, damage, accuracy and the amount of ammunition collected. Settings changes do not silently change the difficulty of a mission already in progress.
 
 ## Controls
 
-| Action | Keyboard / mouse |
-| --- | --- |
-| Move | WASD |
-| Look | Mouse; click to capture the pointer |
-| Fire | Left mouse button |
-| Sprint | Shift |
-| Jump | Space |
-| Crouch | Ctrl or C |
-| Interact / ride / dismount | E |
-| Reload | R |
-| Change weapon | Mouse wheel or 1–6 |
-| Instinct | Hold Q |
-| Pause / release pointer | Esc or P |
+| Action | PC: keyboard / mouse | Phone / tablet: touch |
+| --- | --- | --- |
+| Move | WASD | Left joystick |
+| Look | Mouse; click to capture the pointer | Drag the right side |
+| Fire and aim | Left mouse button + mouse | Hold and drag FIRE |
+| Sprint | Hold Shift | Push joystick fully, or hold RUN |
+| Jump | Space | Tap JUMP |
+| Crouch | Hold Ctrl or C | Hold CROUCH |
+| Interact / ride / dismount | E | Tap USE |
+| Reload | R | Tap RELOAD |
+| Change weapon | Mouse wheel or 1–6 | Tap GUN |
+| Instinct | Hold Q | Hold FOCUS |
+| Pause | Esc or P | Tap Ⅱ |
 
-Touch mode provides a movement joystick, drag-to-look area, and action buttons. Landscape orientation is recommended.
+Auto mode detects mobile devices, iPadOS and the primary pointer type, then follows actual touch, keyboard or mouse use. A narrow browser window or touchscreen support alone does not identify a phone. The menu, field manual, interaction hints and touch-control visibility all use the active mode. Choose **Auto**, **PC**, or **Phone / tablet** in Controls or Settings to override detection; the choice is saved. Touch mode never requests mouse capture. Independent pointer ownership allows simultaneous gestures and clears held actions on cancellation, lost capture, blur, pause or mode change. Landscape orientation is recommended.
 
 ## Retro presentation
 
@@ -90,7 +92,7 @@ Creature anatomy includes a horizontal raptor ribcage, muscular haunches, a tape
 
 The original soundtrack is a sixteen-bar D-minor industrial/noir composition at 112 BPM: syncopated kick and snare, ghost notes, metallic percussion, a gritty bass line, wide dark chords and a recurring detective motif. A synchronized heavier percussion and distorted riff stem fades in when nearby enemies are alerted. The score is generated once into stereo sample buffers, loops continuously, and resumes at the same musical position after pause. Each weapon has a different locally generated sample with layered muzzle crack, pressure-wave body, filtered powder noise, asymmetric room reflections and mechanical detail; the plasma rifle uses a layered energy discharge. Reloads, doors, footsteps and creature attacks have distinct effects. Music briefly dips during shots, and a master compressor preserves attack while controlling overlapping peaks. No external music or sound recordings are required.
 
-Settings include mouse sensitivity, render resolution, graphics quality, separate master/music/effects volumes and difficulty. Existing saved master-volume preferences are preserved. Checkpoints and settings are browser-local, with defensive handling when storage is unavailable. WebGL2 hardware acceleration is required. Performance depends on the browser and GPU; 60 FPS is a target, not a measured guarantee.
+Settings include look sensitivity, automatic or explicit control mode, render resolution, graphics quality, separate master/music/effects volumes and difficulty. Existing saved master-volume preferences are preserved. Checkpoints and settings are browser-local, with defensive handling when storage is unavailable. WebGL2 hardware acceleration is required. Performance depends on the browser and GPU; 60 FPS is a target, not a measured guarantee.
 
 ## Source modules
 
@@ -113,6 +115,8 @@ Settings include mouse sensitivity, render resolution, graphics quality, separat
 | `atmosphere.ts` | Instanced rain, steam, contact shadows and impact decals |
 | `viewmodel.ts` | Animated first-person arm and weapons |
 | `input.ts` | Pointer Lock, keyboard, mouse and touch |
+| `controls.ts` | Device/input detection, saved automatic or explicit control mode |
+| `pickup-notices.ts` | Exact typed ammunition recovery cards, queue and gameplay-time expiry |
 | `ui.ts` / `style.css` | HUD, menus and settings |
 | `audio.ts` | Web Audio playback, adaptive music mix, layered effects and volume controls |
 | `audio-synthesis.ts` | Original stereo instruments, weapon samples and industrial/noir composition |
@@ -121,6 +125,8 @@ Three.js is MIT licensed. Dependency versions and licenses are recorded by npm; 
 
 ## Validation
 
-All **81 automated tests** pass, and the production build passes TypeScript and Vite. The checks cover simulation, arsenal, campaign, creatures, destructibles and original audio. Every chapter completes on Rookie and Detective using ordinary movement, combat, finite ammunition, keycards, switches and exits. A continuous Detective campaign also completes with the actual production inventory-transfer factory: **167 hostiles defeated and all nine original case files collected**. The deterministic test player has perfect aim; simulated completion time is not a human play-time estimate.
+All **101 automated tests** pass, and the production build passes TypeScript and Vite. The checks cover simulation, arsenal, campaign, creatures, destructibles and original audio. Every chapter completes on Rookie and Detective using ordinary movement, combat, finite ammunition, keycards, switches and exits. A continuous Detective campaign also completes with the actual production inventory-transfer factory: **167 hostiles defeated and all nine original case files collected**. The deterministic test player has perfect aim; simulated completion time is not a human play-time estimate.
 
-All **62 Chromium browser checks** pass with software WebGL2. The 45 integrated checks cover eight rendered maps, six real reinforcement waves, four dinosaur boss models and health displays, all six weapon slots, actual mouse capture and controls, visible ammunition dropped by a killed soldier, restart cleanup, next-chapter inventory transfer, compatible Continue saves and the final ending. Seventeen additional checks use the unmodified compiled production page under `/fossil-noir/3d/`, including doors, new rail/arc firing and reloading, all four difficulty options, settings and resizing; no TypeScript source is requested. Independent rendered checks verify chapter scenery animation, nearest filtering, paused frames, resource cleanup and new weapon fire/reload art. Eight focused save checks cover every chapter/difficulty pairing and reject corrupt or incompatible snapshots. Rendered playability checks are distinct from simulation tests. Physical-device performance, Firefox/Edge execution and human campaign completion time have not been benchmarked.
+The pickup and device update passes **96 integrated browser checks** across desktop, a narrow desktop window, and emulated phones in landscape and portrait. Real keyboard/mouse and native CDP touch input cover simultaneous movement, running, aiming and firing, independent finger release, cancellation/lost capture, the touch actions, explicit overrides, pickup-card identity, accepted capped ammunition, mixed crates, paused timers and queued notices. **30 additional checks** run against the unmodified compiled Pages build across desktop and both phone orientations: real walking collects a weapon, FIRE spends ammunition, RELOAD loads it, USE opens a door, and pause/resume restores controls. The production JS/CSS hashes are verified; no TypeScript source is requested. Five further checks on the unmodified compiled page confirm that active Auto Touch on a fine-pointer desktop profile is preserved when changing volume or resolution. These browser profiles emulate mobile input and viewport capabilities rather than proving performance on physical phones.
+
+The eight-chapter campaign release passed **62 Chromium browser checks** with software WebGL2. The 45 integrated checks cover eight rendered maps, six real reinforcement waves, four dinosaur boss models and health displays, all six weapon slots, actual mouse capture and controls, visible ammunition dropped by a killed soldier, restart cleanup, next-chapter inventory transfer, compatible Continue saves and the final ending. Seventeen additional checks use the unmodified compiled production page under `/fossil-noir/3d/`, including doors, new rail/arc firing and reloading, all four difficulty options, settings and resizing; no TypeScript source is requested. Independent rendered checks verify chapter scenery animation, nearest filtering, paused frames, resource cleanup and new weapon fire/reload art. Eight focused save checks cover every chapter/difficulty pairing and reject corrupt or incompatible snapshots. Rendered playability checks are distinct from simulation tests. Physical-device performance, Firefox/Edge execution and human campaign completion time have not been benchmarked.

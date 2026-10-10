@@ -1,4 +1,4 @@
-import type {Destructible, Difficulty, Door, Effect, Enemy, EnemyDef, GameState, InputFrame, LevelData, Player, Vec2, WeaponId} from './types';
+import type {Destructible, Difficulty, Door, Effect, Enemy, EnemyDef, GameState, InputFrame, LevelData, PickupReceipt, Player, Vec2, WeaponId} from './types';
 
 import {DIFFICULTIES, WEAPON_IDS, WEAPONS} from './arsenal';
 export {WEAPONS} from './arsenal';
@@ -506,14 +506,19 @@ export class Simulation {
     for(const item of s.pickups){
       if(item.collected||dist(item,p)>1.1||p.y>1.5||!this.visible(p,item,.45))continue;
       if(item.kind==='health'&&p.health>=100||item.kind==='armor'&&p.armor>=100)continue;
+      let receipt:PickupReceipt|undefined;
       if(IDS.includes(item.kind as WeaponId)){
         const id=item.kind as WeaponId,first=!p.owned.includes(id);
         if(first){
+          const before=p.reserve[id];
           p.owned.push(id);p.ammo[id]=WEAPONS[id].clip;p.reserve[id]=Math.min(WEAPONS[id].reserveCap,p.reserve[id]+this.startingReserve(id));
+          const added=p.reserve[id]-before;
+          receipt={pickupId:item.id,kind:'weapon',weapon:id,loaded:p.ammo[id],ammunition:added>0?[{weapon:id,added}]:[]};
           p.weapon=id;p.reload=0;this.reloading=null;p.cooldown=.15;p.recoil=.2;
           this.message(`${WEAPONS[id].name.toUpperCase()} ACQUIRED — ${p.ammo[id]} loaded.`,2.5);
         }else{
           const added=this.addReserve(id,item.amount??WEAPONS[id].ammoPickup);if(added===0)continue;
+          receipt={pickupId:item.id,kind:'ammo',weapon:id,ammunition:[{weapon:id,added}]};
           this.message(`${WEAPONS[id].name.toUpperCase()} AMMO +${added}`,1.6);
         }
       }else if(item.kind==='health'){p.health=Math.min(100,p.health+38);this.message('MEDKIT +38 HEALTH',1.6);}
@@ -521,10 +526,14 @@ export class Simulation {
       else if(item.kind==='ammo'){
         if(item.ammoFor){
           const added=this.addReserve(item.ammoFor,item.amount??WEAPONS[item.ammoFor].ammoPickup);if(added===0)continue;
+          receipt={pickupId:item.id,kind:'ammo',weapon:item.ammoFor,ammunition:[{weapon:item.ammoFor,added}]};
           this.message(`${WEAPONS[item.ammoFor].name.toUpperCase()} AMMO +${added}`,1.6);
         }else{
           const counts:Record<WeaponId,number>={revolver:24,shotgun:16,plasma:45,machinegun:80,railgun:8,arc:12};
-          let added=0;for(const id of IDS)added+=this.addReserve(id,item.amount??counts[id]);if(added===0)continue;
+          const ammunition:PickupReceipt['ammunition']=[];
+          for(const id of IDS){const added=this.addReserve(id,item.amount??counts[id]);if(added>0)ammunition.push({weapon:id,added});}
+          if(ammunition.length===0)continue;
+          receipt={pickupId:item.id,kind:'cache',ammunition};
           this.message('AMMUNITION CACHE — supplies replenished.',2);
         }
       }else if(item.kind==='evidence'){
@@ -533,7 +542,7 @@ export class Simulation {
         p.keycard=true;s.checkpoint=true;checkpointCollected=true;
         this.message(`SECURITY KEYCARD ACQUIRED — CHECKPOINT SAVED. ${this.level.objective??'Unlock the laboratory.'}`,4);
       }
-      item.collected=true;s.events.push({type:'pickup'});
+      item.collected=true;s.events.push(receipt?{type:'pickup',pickup:receipt}:{type:'pickup'});
     }
     // A keycard and supplies can overlap; snapshot the complete collection pass.
     if(checkpointCollected){
