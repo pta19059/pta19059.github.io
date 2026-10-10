@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation, WEAPONS } from '../src/simulation';
+import { WEAPON_IDS } from '../src/arsenal';
 import { LEVEL } from '../src/level';
 import { EMPTY_INPUT, type Enemy, type InputFrame, type LevelData, type Vec2, type WeaponId } from '../src/types';
 
@@ -8,7 +9,7 @@ import { EMPTY_INPUT, type Enemy, type InputFrame, type LevelData, type Vec2, ty
 const STEP = 0.05;
 const input = (changes: Partial<InputFrame> = {}): InputFrame => ({ ...EMPTY_INPUT, ...changes });
 const distance = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.z - b.z);
-const ids: WeaponId[] = ['revolver', 'shotgun', 'plasma', 'machinegun'];
+const ids: WeaponId[] = [...WEAPON_IDS];
 
 function advance(sim: Simulation, seconds: number, changes: Partial<InputFrame> = {}) {
   for (let elapsed = 0; elapsed < seconds - 1e-8; elapsed += STEP) sim.update(Math.min(STEP, seconds - elapsed), input(changes));
@@ -54,7 +55,7 @@ function playerTick(sim: Simulation, movement?: Vec2, dt = STEP) {
   const pitch = enemy ? Math.atan2(height - (p.y + (p.mounted ? 2.6 : 1.65)), distance(p, enemy)) : 0;
   let slot = 0;
   if (enemy && !p.mounted) {
-    const candidates: WeaponId[] = distance(p, enemy) < 7 ? ['shotgun', 'plasma', 'machinegun', 'revolver'] : ['plasma', 'machinegun', 'revolver', 'shotgun'];
+    const candidates: WeaponId[] = distance(p, enemy) < 7 ? ['arc', 'shotgun', 'plasma', 'machinegun', 'railgun', 'revolver'] : ['railgun', 'plasma', 'machinegun', 'arc', 'revolver', 'shotgun'];
     const best = candidates.find(id => p.owned.includes(id) && (p.ammo[id] > 0 || p.reserve[id] > 0));
     if (best && p.weapon !== best && !p.reload) slot = ids.indexOf(best) + 1;
   }
@@ -108,9 +109,9 @@ test('movement collides with cover, allows wall sliding, and jump returns to gro
   assert.equal(sim.state.player.crouching, true);
 });
 
-test('four distinct weapons spend ammunition, damage enemies, and obey wall occlusion', () => {
-  assert.equal(new Set(ids.map(id => WEAPONS[id].damage)).size, 4);
-  assert.equal(new Set(ids.map(id => WEAPONS[id].interval)).size, 4);
+test('six distinct weapons spend ammunition, damage enemies, and obey wall occlusion', () => {
+  assert.equal(new Set(ids.map(id => WEAPONS[id].damage)).size, ids.length);
+  assert.equal(new Set(ids.map(id => WEAPONS[id].interval)).size, ids.length);
   for (const id of ids) {
     const sim = armedArena(id, { enemies: [{ id: 'target', kind: 'brute', x: 0, z: -5 }] });
     aim(sim, sim.state.enemies[0]);
@@ -424,6 +425,8 @@ test('LEVEL 01 completes by walking, collecting weapons/keycard, fighting, unloc
   sim.update(STEP, input({ interact: true }));
   assert.equal(sim.state.player.mounted, false);
   walk(sim, { x: -10, z: -17 });
+  walk(sim, LEVEL.pickups.find(p => p.id === 'street-railgun')!);
+  assert.ok(sim.state.player.owned.includes('railgun'));
   open(sim, 'facility', { x: 0, z: -18.3 });
   walk(sim, LEVEL.checkpoint);
   walk(sim, { x: -5.5, z: -22 });
@@ -432,9 +435,11 @@ test('LEVEL 01 completes by walking, collecting weapons/keycard, fighting, unloc
   assert.equal(sim.state.player.keycard, true);
   assert.equal(sim.state.checkpoint, true);
   walk(sim, { x: 13.8, z: -25.5 });
-  assert.equal(sim.state.player.owned.length, 4);
+  assert.ok(['revolver', 'shotgun', 'plasma', 'machinegun', 'railgun'].every(id => sim.state.player.owned.includes(id as WeaponId)));
   walk(sim, { x: 10, z: -30.7 });
   open(sim, 'laboratory', { x: 0, z: -30.5 });
+  walk(sim, LEVEL.pickups.find(p => p.id === 'lab-arc')!);
+  assert.equal(new Set(sim.state.player.owned).size, ids.length);
   walk(sim, { x: 8.2, z: -33.8 });
   walk(sim, { x: 8, z: -38.5 });
   walk(sim, { x: 8.3, z: -44.5 });

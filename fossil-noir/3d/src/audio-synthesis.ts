@@ -19,9 +19,9 @@ function clip(seconds: number, stereo = false, sampleRate = AUDIO_SAMPLE_RATE): 
 
 /** A muzzle impulse is several pressure/noise bands, not a single electronic beep. */
 export function renderWeaponSound(weapon: WeaponId, sampleRate = AUDIO_SAMPLE_RATE): SynthClip {
-  const duration = { revolver: 0.82, shotgun: 1.1, plasma: 0.72, machinegun: 0.43 }[weapon];
+  const duration = { revolver: 0.82, shotgun: 1.1, plasma: 0.72, machinegun: 0.43, railgun: 1.16, arc: 0.78 }[weapon];
   const output = clip(duration, true, sampleRate), dry = new Float32Array(output.channels[0].length);
-  const noise = random({ revolver: 6721, shotgun: 1297, plasma: 9919, machinegun: 4049 }[weapon]);
+  const noise = random({ revolver: 6721, shotgun: 1297, plasma: 9919, machinegun: 4049, railgun: 82111, arc: 17413 }[weapon]);
   let low = 0, mid = 0, phase = 0, phase2 = 0;
   const isShotgun = weapon === 'shotgun', isPlasma = weapon === 'plasma', isMachine = weapon === 'machinegun';
   for (let i = 0; i < dry.length; i++) {
@@ -31,7 +31,35 @@ export function renderWeaponSound(weapon: WeaponId, sampleRate = AUDIO_SAMPLE_RA
     const high = n - mid;
     const attack = Math.min(1, t / 0.0012);
     let value: number;
-    if (isPlasma) {
+    if (weapon === 'railgun') {
+      // Magnetic launch: an abrupt pressure crack, subsonic mass and ringing rails.
+      phase += TAU * (38 + 134 * Math.exp(-t * 28)) / sampleRate;
+      phase2 += TAU * (510 + 1140 * Math.exp(-t * 12)) / sampleRate;
+      value = Math.sin(phase) * 0.94 * Math.exp(-t * 10);
+      value += (high * 2.4 * Math.exp(-t * 140) + mid * 1.35 * Math.exp(-t * 25) + low * 0.85 * Math.exp(-t * 9));
+      value += (Math.sin(phase2) + Math.sin(phase2 * 1.417) * 0.42) * 0.36 * Math.exp(-t * 8.5);
+      if (t > 0.095) {
+        const u = t - 0.095;
+        value += (Math.sin(TAU * 1420 * u) * 0.19 + Math.sin(TAU * 2197 * u) * 0.085) * Math.exp(-u * 7);
+      }
+      if (t > 0.27) value += high * 0.14 * Math.exp(-(t - 0.27) * 55);
+    } else if (weapon === 'arc') {
+      // Four unstable branches snap in succession, followed by the discharge coil.
+      phase += TAU * (63 + 238 * Math.exp(-t * 30)) / sampleRate;
+      phase2 += TAU * (460 + 1080 * Math.exp(-t * 20)) / sampleRate;
+      value = Math.sin(phase) * 0.72 * Math.exp(-t * 12);
+      value += (high * 1.75 * Math.exp(-t * 80) + mid * 0.9 * Math.exp(-t * 26));
+      value += Math.sin(phase2 + Math.sin(phase2 * 1.731) * 1.1) * 0.32 * Math.exp(-t * 11);
+      for (const snap of [0.023, 0.057, 0.109, 0.167]) {
+        if (t < snap) continue;
+        const u = t - snap, strength = 1 - snap * 2.4;
+        value += strength * (high * 0.85 + Math.sin(TAU * 620 * u) * 0.24 + Math.sin(TAU * 1739 * u) * 0.17) * Math.exp(-u * 54);
+      }
+      if (t > 0.08) {
+        const u = t - 0.08;
+        value += Math.sin(TAU * 807 * u + Math.sin(TAU * 91 * u) * 0.7) * 0.23 * Math.exp(-u * 8);
+      }
+    } else if (isPlasma) {
       phase += TAU * (72 + 970 * Math.exp(-t * 20)) / sampleRate;
       phase2 += TAU * (114 + 1430 * Math.exp(-t * 17)) / sampleRate;
       value = (Math.sin(phase + Math.sin(phase2) * 1.5) * 0.58 + Math.sin(phase2) * 0.24) * Math.exp(-t * 10);
@@ -75,6 +103,42 @@ export function renderWeaponSound(weapon: WeaponId, sampleRate = AUDIO_SAMPLE_RA
       output.channels[side][i] = Math.tanh((dry[i] + reflection) * 0.94) * 0.97;
     }
   }
+  return output;
+}
+
+/** Capacitor changes have a physical latch, cell handling and a rising coil test. */
+export function renderCapacitorReload(weapon: 'railgun' | 'arc', sampleRate = AUDIO_SAMPLE_RATE): SynthClip {
+  const rail = weapon === 'railgun', duration = rail ? 1.72 : 1.45;
+  const output = clip(duration, true, sampleRate), dry = output.channels[0];
+  const noise = random(rail ? 13579 : 27893);
+  const latches = rail ? [0.015, 0.31, 0.63, 1.34] : [0.015, 0.22, 0.48, 1.1];
+  const chargeStart = rail ? 0.72 : 0.58, chargeEnd = rail ? 1.42 : 1.19;
+  let low = 0, phase = 0;
+  for (let i = 0; i < dry.length; i++) {
+    const t = i / sampleRate, n = noise(); low += (n - low) * 0.24;
+    let value = 0;
+    for (let click = 0; click < latches.length; click++) {
+      const u = t - latches[click];
+      if (u < 0) continue;
+      const pitch = rail ? 960 + click * 131 : 1490 + click * 217;
+      value += ((n - low) * 0.61 + Math.sin(TAU * pitch * u) * 0.18 + Math.sin(TAU * 163 * u) * 0.17) * Math.exp(-u * (click === 1 ? 26 : 64)) * Math.min(1, u / 0.0008);
+    }
+    if (t >= chargeStart && t <= chargeEnd) {
+      const u = t - chargeStart, span = chargeEnd - chargeStart;
+      phase += TAU * (rail ? 105 + 605 * u / span : 240 + 950 * u / span) / sampleRate;
+      const envelope = Math.min(1, u / 0.12) * Math.min(1, (chargeEnd - t) / 0.11);
+      value += (Math.sin(phase) * 0.18 + Math.sin(phase * (rail ? 2.003 : 1.719)) * 0.085) * envelope;
+    }
+    const ringTime = rail ? 1.4 : 1.18;
+    if (t > ringTime) {
+      const u = t - ringTime;
+      value += (Math.sin(TAU * (rail ? 1920 : 2650) * u) * 0.13 + Math.sin(TAU * (rail ? 2870 : 1841) * u) * 0.07) * Math.exp(-u * 26);
+    }
+    dry[i] = Math.tanh(value * 1.15) * 0.72 * Math.min(1, (duration - t) / 0.025);
+  }
+  // A quiet opposite-side reflection adds width without smearing the mechanical cues.
+  const right = output.channels[1], delay = Math.round(sampleRate * 0.009);
+  for (let i = 0; i < dry.length; i++) right[i] = dry[i] * 0.94 + (i >= delay ? dry[i - delay] * 0.045 : 0);
   return output;
 }
 

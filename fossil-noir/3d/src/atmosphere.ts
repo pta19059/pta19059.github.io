@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {LEVEL} from './level';
-import type {Effect,GameState,Settings} from './types';
+import type {Effect,GameState,Settings,LevelData} from './types';
 
 const noise=(n:number)=>{const v=Math.sin(n*127.1+91.7)*43758.5453;return v-Math.floor(v)};
 const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
@@ -46,22 +46,24 @@ export class Atmosphere {
  private previous?:GameState;
  private materials:THREE.Material[]=[];
  private vents=[{x:4,z:-3},{x:-11.65,z:-11},{x:11.65,z:-17},{x:-9.6,z:-38.8},{x:9.6,z:-41}];
- constructor(scene:THREE.Scene){
+ constructor(scene:THREE.Scene,private readonly level:LevelData=LEVEL){
+  if((this.level.chapterId??0)!==0)this.vents=this.level.props.filter(p=>p.kind==='vent'||p.kind==='tank'||p.kind==='reactor').slice(0,8).map(p=>({x:p.x,z:p.z}));
+  if(!this.vents.length)this.vents=[{x:this.level.switch.x,z:this.level.switch.z}];
   const mask=(kind:Stamp,opacity=1)=>{
    const m=new THREE.MeshBasicMaterial({map:stamp(kind),transparent:opacity<1,opacity,alphaTest:.01,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});this.materials.push(m);return m;
   };
   const instances=(geometry:THREE.BufferGeometry,material:THREE.Material,budget:number)=>{
    const mesh=new THREE.InstancedMesh(geometry,material,budget);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;mesh.count=0;scene.add(mesh);return mesh;
   };
-  this.shadows=instances(new THREE.PlaneGeometry(1,1),mask('shadow',.38),32);
-  this.blood=instances(new THREE.PlaneGeometry(1,1),mask('blood'),32);
+  this.shadows=instances(new THREE.PlaneGeometry(1,1),mask('shadow',.38),128);
+  this.blood=instances(new THREE.PlaneGeometry(1,1),mask('blood'),128);
   this.impacts=instances(new THREE.PlaneGeometry(1,1),mask('impact'),64);
   this.impacts.renderOrder=1;this.blood.renderOrder=1;
   this.mist=instances(new THREE.PlaneGeometry(1,1),mask('mist',.2),20);
   const rainMat=new THREE.MeshBasicMaterial({color:0x8db6b4,transparent:true,opacity:.35,depthWrite:false});this.materials.push(rainMat);
   this.rain=instances(new THREE.BoxGeometry(.013,.31,.013),rainMat,112);
  }
- private floor(x:number,z:number){return z>-20&&z<4&&Math.abs(x)>10.5?.167:.057}
+ private floor(x:number,z:number){if((this.level.chapterId??0)!==0)return .057;return z>-20&&z<4&&Math.abs(x)>10.5?.167:.057}
  private ground(mesh:THREE.InstancedMesh,index:number,x:number,z:number,width:number,depth:number,y=this.floor(x,z)){
   this.object.position.set(x,y,z);this.object.rotation.set(-Math.PI/2,0,0);this.object.scale.set(width,depth,1);this.object.updateMatrix();mesh.setMatrixAt(index,this.object.matrix);
  }
@@ -70,16 +72,16 @@ export class Atmosphere {
   let shadowCount=0,bloodCount=0;
   for(const enemy of state.enemies){
    const r=enemy.kind==='brute'?1.05:enemy.kind==='raptor'?.6:.48;
-   this.ground(this.shadows,shadowCount++,enemy.x,enemy.z,r*2.4,r*1.7);
-   if(!enemy.alive)this.ground(this.blood,bloodCount++,enemy.x,enemy.z,r*2.8,r*2.1,this.floor(enemy.x,enemy.z)+.004);
+   if(shadowCount<128)this.ground(this.shadows,shadowCount++,enemy.x,enemy.z,r*2.4,r*1.7);
+   if(!enemy.alive&&bloodCount<128)this.ground(this.blood,bloodCount++,enemy.x,enemy.z,r*2.8,r*2.1,this.floor(enemy.x,enemy.z)+.004);
   }
-  if(!state.player.mounted)this.ground(this.shadows,shadowCount++,state.mount.x,state.mount.z,2.7,1.65);
+  if(!state.player.mounted&&!this.level.safe&&state.mount.x>=this.level.bounds.minX&&state.mount.x<=this.level.bounds.maxX&&state.mount.z>=this.level.bounds.minZ&&state.mount.z<=this.level.bounds.maxZ&&shadowCount<128)this.ground(this.shadows,shadowCount++,state.mount.x,state.mount.z,2.7,1.65);
   this.shadows.count=shadowCount;this.blood.count=bloodCount;this.shadows.instanceMatrix.needsUpdate=this.blood.instanceMatrix.needsUpdate=true;
   // A few rain streaks outside, rather than a full-screen rain overlay indoors.
-  this.rain.visible=settings.quality==='high';this.rain.count=this.rain.visible?112:0;
+  this.rain.visible=settings.quality==='high'&&['district','docks','jungle'].includes(this.level.theme??'district');this.rain.count=this.rain.visible?112:0;
   if(this.rain.visible)for(let i=0;i<this.rain.count;i++){
    const phase=(noise(i+40)+time*(.54+noise(i+53)*.23))%1;
-   this.object.position.set(-11.8+noise(i+7)*23.6,.3+(1-phase)*7.5,3-noise(i+29)*22);
+   const b=this.level.bounds;this.object.position.set((this.level.chapterId??0)===0?-11.8+noise(i+7)*23.6:b.minX+1+noise(i+7)*(b.maxX-b.minX-2),.3+(1-phase)*7.5,(this.level.chapterId??0)===0?3-noise(i+29)*22:b.minZ+1+noise(i+29)*(b.maxZ-b.minZ-2));
    this.object.rotation.set(0,0,-.13);this.object.scale.set(1,.6+noise(i+8)*.7,1);this.object.updateMatrix();this.rain.setMatrixAt(i,this.object.matrix);
   }
   this.rain.instanceMatrix.needsUpdate=true;
@@ -101,7 +103,7 @@ export class Atmosphere {
  }
  private recordImpact(effect:Effect){
   let closest=.045,point:THREE.Vector3|undefined,normal:THREE.Vector3|undefined;
-  for(const wall of LEVEL.walls){
+  for(const wall of this.level.walls){
    const y0=wall.y??0,y1=y0+wall.h;
    const axes=[{axis:'x' as const,value:effect.x,center:wall.x,half:wall.w/2},{axis:'z' as const,value:effect.z,center:wall.z,half:wall.d/2}];
    if(effect.y<y0-.02||effect.y>y1+.02)continue;

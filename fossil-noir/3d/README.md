@@ -1,6 +1,6 @@
-# Fossil Noir 3D — The Neon District
+# Fossil Noir 3D — The Black Rain Campaign
 
-An original retro first-person shooter set in Vesper, 2091. Elias Vane follows Mara's signal from his abandoned detective agency into an Axiom research facility, where Project Lazarus has escaped containment.
+An original eight-chapter retro first-person shooter set in Vesper, 2091. Elias Vane follows Mara Vale's signal from the Neon District through Axiom's laboratories, Blackwater harbour, a moving freight train and the prehistoric breach, before broadcasting the truth from Axiom's tower. The chapter names, order, case files and central story are preserved from Fossil Noir's original 2D campaign.
 
 Play at **https://pta19059.github.io/fossil-noir/3d/**. The original eight-chapter game remains at https://pta19059.github.io/fossil-noir/.
 
@@ -22,18 +22,37 @@ npm run build
 
 The build type-checks TypeScript, bundles Three.js with Vite, and copies the generated entry point and hashed assets into this folder. Commit `index.html`, `assets/`, and the source project. No backend, CDN, API key or paid service is required. Vite's base path is `/fossil-noir/3d/`; assets use that same prefix.
 
-## The mission
+## The campaign
 
-1. Collect the revolver and ammunition in the office. Read the case evidence.
-2. Open the agency door with **E** and enter the Neon District.
-3. Recover the shotgun, fight escaped raptors, and approach Axiom's facility. The Last Chance hides extra supplies and a plasma rifle.
-4. Enter the research lobby. The security annex contains a keycard and heavy machine gun.
-5. Use the keycard to open the restricted laboratory. Your checkpoint is saved in this browser.
-6. Survive the containment breach, restore the freight lift's power at the switch, and escape through the lift.
+| Chapter | Location and objective |
+| --- | --- |
+| 01 — Rain Over Vesper | The Neon District: collect weapons, find the witness note, breach the facility and reach Safehouse 09. |
+| 02 — Safehouse 09 | A quiet precinct refuge: read both case files, resupply and take the service lift. |
+| 03 — Axiom Research Wing | Explore the specimen wing, recover Lazarus evidence and unlock reactor access. |
+| 04 — The Fracture | Destroy Crown Rex and seal the first breach. |
+| 05 — Blackwater Docks | Fight through container yards, stop the cargo and board the last train. |
+| 06 — Iron Express | Cross connected carriages, find Mara's signal and destroy Iron Jaw. |
+| 07 — The Lost Canopy | Explore jungle ruins and the Axiom outpost, recover Mara's log and defeat Root Crown. |
+| 08 — Axiom Zero | Reach the transmitter, destroy Omega and broadcast the evidence. |
 
-Interact with the cyan-saddled Strider in the street to ride it. Interact again to dismount. Health, armor and ammunition are collected on contact. Evidence and the secret room reward exploration.
+Choose any chapter from the main menu or play them in order using **NEXT CHAPTER**. Acquired weapons, ammunition and recovered dossiers carry forward. Each chapter has its own layout, gates, supplies and exit. Safehouse 09 preserves the original narrative pause. The other chapters include combat encounters; later chapters add triggered reinforcement waves and bosses.
 
-Shoot the marked fuel canisters to damage nearby enemies, but keep your distance from their blast. The diner and Eden display windows shatter when hit; the shop walls remain solid. Destruction is preserved at a checkpoint and resets with a new mission.
+Weapons and colour-coded ammunition are collected by walking over them. Ammunition has separate finite reserves for each weapon, can be stored before its weapon is found, and remains on the ground when that reserve is full. Duplicate weapons supply spare ammunition. Cybernetic soldiers leave physical ammunition packs to collect rather than granting supplies remotely. Side routes and secret rooms reward exploration.
+
+Interact with a cyan-saddled Strider to ride it. Press **E** again to dismount. Mounts are restricted to each map's designated riding area. Fuel canisters produce occluded explosions that damage nearby enemies and Elias; marked glass shatters. Destruction, drops, triggered waves and progress are restored at saved checkpoints and reset on a new chapter run.
+
+## Arsenal and difficulty
+
+| Slot | Weapon | Combat role |
+| --- | --- | --- |
+| 1 | Detective Revolver | Accurate medium-damage pistol, six-round cylinder. |
+| 2 | Tactical Shotgun | Eight pellets and powerful close-range bursts. |
+| 3 | Plasma Rifle | Rapid green energy fire. |
+| 4 | Heavy Machine Gun | Automatic fire and sixty-round belts. |
+| 5 | Rail Rifle | Precise high-damage magnetic shots, five-round magazine. |
+| 6 | Arc Disruptor | Electrical hits chain to up to two nearby enemies with line of sight. |
+
+Four difficulties are selectable before starting: **Rookie, Detective, Nightmare and Extinction**. They change enemy health, movement, attack rate, damage, accuracy and the amount of ammunition collected. Settings changes do not silently change the difficulty of a mission already in progress.
 
 ## Controls
 
@@ -47,7 +66,7 @@ Shoot the marked fuel canisters to damage nearby enemies, but keep your distance
 | Crouch | Ctrl or C |
 | Interact / ride / dismount | E |
 | Reload | R |
-| Change weapon | Mouse wheel or 1–4 |
+| Change weapon | Mouse wheel or 1–6 |
 | Instinct | Hold Q |
 | Pause / release pointer | Esc or P |
 
@@ -55,7 +74,7 @@ Touch mode provides a movement joystick, drag-to-look area, and action buttons. 
 
 ## Retro presentation
 
-Actual 3D geometry is rendered at 640×400 by default, with a 320×200 classic option, and scaled with nearest-neighbor filtering. Saved resolution preferences are preserved. Original 128-pixel material tiles have brick relief, rivets, vents, rust, aggregate, cracks and scuffed floors. Detailed creatures have articulated limbs, teeth, claws, scales and armor, with rigid geometry batched within each animation pivot. Four native 320×200 weapon sprites use broad painted steel shading, restrained dithering, mechanical fingers, copper coils and ammo indicators. Office case files, laboratory instruments and containment plumbing enrich the mission. Neon signage, fog, impacts and synthesized audio are original artwork and code. No Duke Nukem assets, characters or music are distributed.
+Actual 3D geometry is rendered at 640×400 by default, with a 320×200 classic option, and scaled with nearest-neighbor filtering. Saved resolution preferences are preserved. Original 128-pixel material tiles have brick relief, rivets, vents, rust, aggregate, cracks and scuffed floors. Detailed creatures have articulated limbs, teeth, claws, scales and armor, with rigid geometry batched within each animation pivot. Six native 320×200 weapon sprites use broad painted steel shading, restrained dithering, mechanical fingers, copper coils and ammo indicators. Office case files, laboratory instruments and containment plumbing enrich the mission. Neon signage, fog, impacts and synthesized audio are original artwork and code. No Duke Nukem assets, characters or music are distributed.
 
 Six distinct street frontages include a terracotta diner, the Last Chance, a cinema, a blue record shop, Eden's nightclub and a cream-and-teal Helix clinic. Cornices, pilasters, projecting signs, striped awnings and original illustrated posters give each building a recognizable silhouette. Lit window grids on surrounding towers extend the skyline. Neutral moonlight reveals cracked asphalt and pale masonry, while warm diner light, magenta club light and green laboratory light distinguish the areas. Raptors have earthy hide and ivory claws, soldiers have cool armor and amber visors, and mutants have pale scarred flesh so targets remain readable against their surroundings.
 
@@ -77,9 +96,12 @@ Settings include mouse sensitivity, render resolution, graphics quality, separat
 
 | Module | Responsibility |
 | --- | --- |
-| `main.ts` | Game lifecycle, checkpoint persistence, integration |
+| `main.ts` | Eight-chapter transitions, inventory carry, validated local saves, game lifecycle |
 | `types.ts` | Shared state and input contracts |
-| `level.ts` | Level geometry, objects, progression and spawns |
+| `level.ts` | Original Neon District geometry and pickups |
+| `campaign.ts` / `campaign-levels.ts` | Eight chapters, handcrafted maps, reinforcement triggers and original case files |
+| `campaign-dressing.ts` / `campaign-textures.ts` | Batched chapter-specific props, original pixel surfaces and moving scenery |
+| `arsenal.ts` | Six weapon definitions, ammunition limits and difficulty rules |
 | `simulation.ts` | Movement, physics, weapons, AI and interactions |
 | `renderer.ts` | Three.js world, batched scenery and creature integration |
 | `creature-rig.ts` | Original creature anatomy, articulated gait, planted feet, attacks and death poses |
@@ -99,14 +121,6 @@ Three.js is MIT licensed. Dependency versions and licenses are recorded by npm; 
 
 ## Validation
 
-All 31 automated tests pass. The suite covers weapons, reloads, AI, wall and door occlusion, physics, hazards, riding, keycard and elevator gates, checkpoint restoration, death and a complete input-only playthrough with all 20 enemies defeated. Creature checks additionally verify collision-resolved motion, stopping, attack synchronization, articulated knees, planted feet, pause, fresh-mission pose reset and geometry budgets. Destructible checks verify collision removal, barrel-top landings, bullet and blast occlusion, finite chain reactions, distance falloff, armor, glass boundary preservation and checkpoint/restart state.
+All **81 automated tests** pass, and the production build passes TypeScript and Vite. The checks cover simulation, arsenal, campaign, creatures, destructibles and original audio. Every chapter completes on Rookie and Detective using ordinary movement, combat, finite ammunition, keycards, switches and exits. A continuous Detective campaign also completes with the actual production inventory-transfer factory: **167 hostiles defeated and all nine original case files collected**. The deterministic test player has perfect aim; simulated completion time is not a human play-time estimate.
 
-Audio checks verify substantial weapon transients and bodies, decaying tails, different shotgun/machine-gun/plasma waveforms, bounded finite samples, synchronized score-stem lengths, stereo separation and closed loop boundaries.
-
-Chromium with software WebGL2 was used to inspect the office, street, security wing, laboratory, lift and all four weapons, with no JavaScript or shader errors. The compiled production page was separately served under `/fossil-noir/3d/`: both hashed assets returned HTTP 200, no TypeScript source was requested, Pointer Lock worked, movement collected the revolver and Escape paused the mission.
-
-The current district was visually inspected at both retro resolutions and multiple desktop viewport sizes. Browser checks confirmed barrel collision removal, rendered explosion/light decay, glass shards, restored props after restart and creature visibility after a door opens. A rendered input-only run completed the mission with all 20 kills. Production-page checks exercised aiming, firing, reload, door interaction, pause/resume, settings and resizing. Test runs use a controlled frame clock with software rendering; simulated completion time is not a human playtime measurement. Weapon checks confirmed frozen paused frames and one muzzle flash per automatic shot at both 60 and 120 simulated frame rates.
-
-Browser interaction checks also passed for keyboard and touch input, firing, reloading, office door interaction, pause/resume, settings persistence and mobile portrait/landscape layouts. Touch checks used a browser device emulation rather than a physical phone.
-
-Physical-device performance, Firefox/Edge execution and the intended 5–10 minute human playtime have not been benchmarked.
+All **62 Chromium browser checks** pass with software WebGL2. The 45 integrated checks cover eight rendered maps, six real reinforcement waves, four dinosaur boss models and health displays, all six weapon slots, actual mouse capture and controls, visible ammunition dropped by a killed soldier, restart cleanup, next-chapter inventory transfer, compatible Continue saves and the final ending. Seventeen additional checks use the unmodified compiled production page under `/fossil-noir/3d/`, including doors, new rail/arc firing and reloading, all four difficulty options, settings and resizing; no TypeScript source is requested. Independent rendered checks verify chapter scenery animation, nearest filtering, paused frames, resource cleanup and new weapon fire/reload art. Eight focused save checks cover every chapter/difficulty pairing and reject corrupt or incompatible snapshots. Rendered playability checks are distinct from simulation tests. Physical-device performance, Firefox/Edge execution and human campaign completion time have not been benchmarked.

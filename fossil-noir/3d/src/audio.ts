@@ -1,5 +1,6 @@
 import type { GameEvent, GameState, WeaponId } from './types';
-import { renderScore, renderWeaponSound, type SynthClip } from './audio-synthesis';
+import { renderCapacitorReload, renderScore, renderWeaponSound, type SynthClip } from './audio-synthesis';
+import { WEAPON_IDS } from './arsenal';
 
 /** Original layered weapons and a composed, adaptive industrial/noir score. */
 export class AudioSystem {
@@ -14,6 +15,7 @@ export class AudioSystem {
   private district?: AudioBuffer;
   private combat?: AudioBuffer;
   private weapons = new Map<WeaponId, AudioBuffer>();
+  private capacitorReloads = new Map<WeaponId, AudioBuffer>();
   private musicSources: AudioBufferSourceNode[] = [];
   private musicStarted = 0;
   private musicOffset = 0;
@@ -49,7 +51,8 @@ export class AudioSystem {
         const data = this.noise.getChannelData(0);
         let seed = 1793;
         for (let i = 0; i < length; i++) { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; data[i] = seed / 2147483648 - 1; }
-        for (const weapon of ['revolver', 'shotgun', 'plasma', 'machinegun'] as WeaponId[]) this.weapons.set(weapon, this.buffer(renderWeaponSound(weapon)));
+        for (const weapon of WEAPON_IDS) this.weapons.set(weapon, this.buffer(renderWeaponSound(weapon)));
+        for (const weapon of ['railgun', 'arc'] as const) this.capacitorReloads.set(weapon, this.buffer(renderCapacitorReload(weapon)));
         const score = renderScore();
         this.district = this.buffer(score.district); this.combat = this.buffer(score.combat);
       }
@@ -171,7 +174,7 @@ export class AudioSystem {
     if (!c || !buffer || !this.fx) return;
     const source = c.createBufferSource(), gain = c.createGain();
     source.buffer = buffer; source.playbackRate.value = 0.985 + Math.random() * 0.03;
-    gain.gain.value = { revolver: 0.84, shotgun: 1, plasma: 0.74, machinegun: 0.70 }[weapon];
+    gain.gain.value = { revolver: 0.84, shotgun: 1, plasma: 0.74, machinegun: 0.70, railgun: 0.86, arc: 0.76 }[weapon];
     source.connect(gain); gain.connect(this.fx); source.start();
     source.onended = () => { source.disconnect(); gain.disconnect(); };
     // A gentle transient dip lets each muzzle crack cut through the score.
@@ -185,6 +188,14 @@ export class AudioSystem {
   }
 
   private reload(weapon: WeaponId): void {
+    if (weapon === 'railgun' || weapon === 'arc') {
+      const c = this.context, buffer = this.capacitorReloads.get(weapon);
+      if (!c || !buffer || !this.fx) return;
+      const source = c.createBufferSource(), gain = c.createGain();
+      source.buffer = buffer; gain.gain.value = weapon === 'railgun' ? 0.68 : 0.64;
+      source.connect(gain); gain.connect(this.fx); source.start();
+      source.onended = () => { source.disconnect(); gain.disconnect(); }; return;
+    }
     if (weapon === 'plasma') {
       this.tone(180, 0.28, 0.13, 'sawtooth', 740); this.burst(0.17, 0.15, 2900, 0.25);
       this.tone(1320, 0.18, 0.09, 'triangle', 420, 0.47); return;

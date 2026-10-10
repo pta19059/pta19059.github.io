@@ -1,13 +1,9 @@
-import type {Destructible, Door, Effect, Enemy, GameState, InputFrame, LevelData, Player, Vec2, WeaponId} from './types';
+import type {Destructible, Difficulty, Door, Effect, Enemy, EnemyDef, GameState, InputFrame, LevelData, Player, Vec2, WeaponId} from './types';
 
-export const WEAPONS: Record<WeaponId, {name:string;damage:number;interval:number;clip:number;range:number;reload:number;pellets:number;spread:number}> = {
-  revolver:{name:'Detective Revolver',damage:36,interval:.32,clip:6,range:58,reload:1.35,pellets:1,spread:.003},
-  shotgun:{name:'Tactical Shotgun',damage:21,interval:.72,clip:8,range:27,reload:1.75,pellets:8,spread:.065},
-  plasma:{name:'Plasma Rifle',damage:27,interval:.16,clip:30,range:48,reload:1.25,pellets:1,spread:.012},
-  machinegun:{name:'Heavy Machine Gun',damage:19,interval:.085,clip:60,range:52,reload:2.1,pellets:1,spread:.026},
-};
-const IDS:WeaponId[]=['revolver','shotgun','plasma','machinegun'];
-const START_AMMO={revolver:0,shotgun:0,plasma:0,machinegun:0};
+import {DIFFICULTIES, WEAPON_IDS, WEAPONS} from './arsenal';
+export {WEAPONS} from './arsenal';
+const IDS=WEAPON_IDS;
+const START_AMMO:Record<WeaponId,number>={revolver:0,shotgun:0,plasma:0,machinegun:0,railgun:0,arc:0};
 const STATS={
   raptor:{health:78,speed:3.6,damage:12,range:1.35,interval:1.0,height:1.65,radius:.42},
   soldier:{health:112,speed:1.65,damage:9,range:15,interval:1.35,height:1.95,radius:.43},
@@ -24,43 +20,89 @@ export class Simulation {
   private checkpointSecrets:string[]=[];
   private reloading:WeaponId|null=null;
   private attackWindups=new Map<string,number>();
+  private bossTargets=new Map<string,Vec2>();
   private secretDoors=new Set<string>();
   private hazardTime=0;
   private seed=91271;
   private jumpHeld=false;
   private emptyClick=0;
-  constructor(public readonly level:LevelData,difficulty:'easy'|'normal'|'hard'='normal') {
+  constructor(public readonly level:LevelData,difficulty:Difficulty='normal') {
     this.resetState(difficulty);
   }
 
   private resetState(difficulty:GameState['difficulty']):void {
-    const healthScale=difficulty==='easy'?.8:difficulty==='hard'?1.18:1;
+    const loadout=this.level.defaultLoadout??[];
     const player:Player={...this.level.spawn,y:0,vy:0,yaw:0,pitch:0,health:100,armor:0,keycard:false,evidence:0,
-      mounted:false,crouching:false,grounded:true,weapon:'revolver',owned:[],ammo:{...START_AMMO},reserve:{...START_AMMO},reload:0,cooldown:0,recoil:0,hurt:0};
-    this.state={player,enemies:this.level.enemies.map(e=>({...e,health:Math.round(STATS[e.kind].health*healthScale),maxHealth:Math.round(STATS[e.kind].health*healthScale),
-      alive:true,alert:false,cooldown:.7,hurt:0,phase:0,heading:0,speed:0,attack:0,vx:0,vz:0,path:[],pathTime:0})),
+      mounted:false,crouching:false,grounded:true,weapon:loadout[0]??'revolver',owned:[...loadout],ammo:{...START_AMMO},reserve:{...START_AMMO},reload:0,cooldown:0,recoil:0,hurt:0};
+    for(const id of loadout){player.ammo[id]=WEAPONS[id].clip;player.reserve[id]=this.startingReserve(id,difficulty);}
+    this.state={player,enemies:this.level.enemies.map(e=>this.createEnemy(e,difficulty)),
       doors:this.level.doors.map(d=>({...d,open:0,target:0})),pickups:this.level.pickups.map(p=>({...p,collected:false})),
       destructibles:(this.level.destructibles??[]).map(prop=>({...prop,maxHealth:prop.health,destroyed:false})),effects:[],
-      status:'playing',kills:0,time:0,message:'ELIAS VANE: "Another night. Another extinction event." Find your revolver.',
-      messageTime:5,powered:false,checkpoint:false,secrets:0,slow:1,events:[],mount:{...this.level.mount},difficulty};
-    this.reloading=null;this.attackWindups.clear();this.secretDoors.clear();
+      status:'playing',kills:0,time:0,message:this.level.intro??'ELIAS VANE: "Another night. Another extinction event." Find your revolver.',
+      messageTime:5,powered:false,checkpoint:false,secrets:0,discoveredSecrets:[],slow:1,events:[],mount:{...this.level.mount},difficulty,triggeredWaves:[],chapterId:this.level.chapterId};
+    this.reloading=null;this.attackWindups.clear();this.bossTargets.clear();this.secretDoors.clear();
     this.hazardTime=0;this.seed=91271;this.jumpHeld=false;this.emptyClick=0;
+  }
+
+  private startingReserve(id:WeaponId,difficulty=this.state.difficulty):number {
+    return Math.min(WEAPONS[id].reserveCap,Math.round((id==='revolver'?24:WEAPONS[id].clip*2)*DIFFICULTIES[difficulty].ammo));
+  }
+
+  private createEnemy(def:EnemyDef,difficulty=this.state.difficulty):Enemy {
+    const health=Math.round((def.health??STATS[def.kind].health)*DIFFICULTIES[difficulty].health);
+    return {...def,health,maxHealth:health,alive:true,alert:false,cooldown:.7,hurt:0,phase:0,heading:0,speed:0,attack:0,vx:0,vz:0,path:[],pathTime:0};
+  }
+
+  /** Restore a checkpoint snapshot without browser dependencies or stale transients. */
+  restoreSavedState(saved:GameState):boolean {
+    try {
+      if(!saved||saved.chapterId!==this.level.chapterId||!DIFFICULTIES[saved.difficulty]||!saved.player||
+        !Array.isArray(saved.enemies)||!Array.isArray(saved.doors)||!Array.isArray(saved.pickups)||!Array.isArray(saved.destructibles))return false;
+      const p=saved.player,b=this.level.bounds;
+      if(![p.x,p.z,p.health,p.armor,p.yaw,p.pitch,saved.time,saved.kills].every(Number.isFinite)||p.x<b.minX||p.x>b.maxX||p.z<b.minZ||p.z>b.maxZ||
+        !Array.isArray(p.owned)||p.owned.some(id=>!IDS.includes(id))||!IDS.includes(p.weapon)||!p.ammo||!p.reserve)return false;
+      const definitions=[...this.level.enemies,...(this.level.waves??[]).flatMap(w=>w.enemies)];
+      if(saved.enemies.length>definitions.length||saved.enemies.some(e=>!definitions.some(d=>d.id===e.id&&d.kind===e.kind)||![e.x,e.z,e.health].every(Number.isFinite)))return false;
+      if(saved.pickups.length>this.level.pickups.length+definitions.length||saved.doors.length!==this.level.doors.length||saved.destructibles.length!==(this.level.destructibles??[]).length)return false;
+      const restored=structuredClone(saved);
+      restored.triggeredWaves=(saved.triggeredWaves??[]).filter(id=>this.level.waves?.some(w=>w.id===id));
+      restored.discoveredSecrets=(saved.discoveredSecrets??saved.doors.filter(d=>d.secret&&d.target>.5).map(d=>d.id)).filter(id=>this.level.doors.some(d=>d.id===id&&d.secret));
+      restored.secrets=restored.discoveredSecrets.length;
+      for(const id of IDS){restored.player.ammo[id]=clamp(Number(restored.player.ammo[id])||0,0,WEAPONS[id].clip);restored.player.reserve[id]=clamp(Number(restored.player.reserve[id])||0,0,WEAPONS[id].reserveCap);}
+      restored.player.owned=[...new Set(restored.player.owned)];
+      this.checkpointSecrets=[...restored.discoveredSecrets];
+      if(restored.checkpoint){this.checkpointState=restored;this.state.difficulty=restored.difficulty;this.restart(true);}
+      else{
+        this.checkpointState=null;this.state=restored;this.state.status='playing';this.state.events=[];this.state.effects=[];
+        this.state.player.reload=0;this.state.player.cooldown=0;this.state.player.hurt=0;this.state.player.mounted=false;
+        this.reloading=null;this.attackWindups.clear();this.bossTargets.clear();this.jumpHeld=false;this.hazardTime=0;this.emptyClick=0;
+        this.secretDoors=new Set(this.checkpointSecrets);
+        for(const e of this.state.enemies){e.path=[];e.pathTime=0;e.cooldown=1.1;e.speed=0;e.vx=0;e.vz=0;e.attack=0;}
+      }
+      return true;
+    }catch{return false;}
   }
 
   restart(checkpoint=false):void {
     if(checkpoint&&!this.checkpointState){
-      // A saved browser checkpoint can be resumed after reloading the page. The
-      // in-memory snapshot is more exact; this fair baseline needs no backend.
       this.resetState(this.state.difficulty);
       const s=this.state,p=s.player;
-      p.keycard=true;p.owned=['revolver','shotgun','machinegun'];p.weapon='machinegun';
-      p.health=100;p.armor=55;
-      for(const id of p.owned){p.ammo[id]=WEAPONS[id].clip;p.reserve[id]=WEAPONS[id].clip*4;}
-      for(const item of s.pickups){if(item.z>-32.2&&item.kind!=='evidence'&&item.x>-13)item.collected=true;}
-      for(const e of s.enemies){if(e.z>-32.2){e.alive=false;e.health=0;e.speed=0;e.vx=0;e.vz=0;e.attack=0;s.kills++;}}
-      for(const d of s.doors){if(['office','facility','security'].includes(d.id)){d.open=1;d.target=1;}}
-      s.checkpoint=true;this.checkpointState=structuredClone(s);
-      this.checkpointSecrets=[];
+      p.health=100;p.armor=55;p.keycard=this.level.pickups.some(item=>item.kind==='keycard');
+      // The original district has a known guard-room checkpoint. Every gun
+      // before it is granted before marking its pickup, including secret guns.
+      if(this.level.chapterId===undefined||this.level.chapterId===0){
+        for(const item of s.pickups){
+          if(item.z<=-32.2||item.kind==='evidence'||item.x<=-13)continue;
+          if(IDS.includes(item.kind as WeaponId)&&!p.owned.includes(item.kind as WeaponId))p.owned.push(item.kind as WeaponId);
+          item.collected=true;
+        }
+        for(const id of ['revolver','shotgun','machinegun'] as WeaponId[])if(!p.owned.includes(id))p.owned.push(id);
+        for(const e of s.enemies){if(e.z>-32.2){e.alive=false;e.health=0;e.speed=0;e.vx=0;e.vz=0;e.attack=0;s.kills++;}}
+        for(const d of s.doors){if(['office','facility','security'].includes(d.id)){d.open=1;d.target=1;}}
+      }
+      for(const id of p.owned){p.ammo[id]=WEAPONS[id].clip;p.reserve[id]=this.startingReserve(id);}
+      p.weapon=p.owned.at(-1)??'revolver';
+      s.checkpoint=true;this.checkpointState=structuredClone(s);this.checkpointSecrets=[];
     }
     if(checkpoint&&this.checkpointState){
       this.state=structuredClone(this.checkpointState);
@@ -68,10 +110,10 @@ export class Simulation {
       p.x=this.level.checkpoint.x;p.z=this.level.checkpoint.z;p.y=0;p.vy=0;p.grounded=true;p.mounted=false;
       p.health=Math.max(p.health,75);p.armor=Math.max(p.armor,25);p.cooldown=0;p.reload=0;p.hurt=0;
       this.state.status='playing';this.state.effects=[];this.state.events=[];
-      this.attackWindups.clear();this.reloading=null;this.jumpHeld=false;
+      this.attackWindups.clear();this.bossTargets.clear();this.reloading=null;this.jumpHeld=false;
       this.secretDoors=new Set(this.checkpointSecrets);this.hazardTime=0;this.emptyClick=0;
       for(const e of this.state.enemies){e.path=[];e.pathTime=0;e.cooldown=1.1;e.speed=0;e.vx=0;e.vz=0;e.attack=0;}
-      this.message('CHECKPOINT RESTORED — keycard secured. Enter the restricted laboratory.',4);
+      this.message(`CHECKPOINT RESTORED — ${this.level.objective??'keycard secured. Enter the restricted laboratory.'}`,4);
     }else{this.checkpointState=null;this.checkpointSecrets=[];this.resetState(this.state.difficulty);}
   }
 
@@ -96,6 +138,7 @@ export class Simulation {
     this.updateDoors(dt);
     this.movePlayer(dt,input);
     this.collectPickups();
+    this.triggerWaves();
     if(input.fire)this.fire();
     const slow=input.slow&&s.slow>.015;
     s.slow=clamp(s.slow+(slow?-.17:.085)*dt,0,1);
@@ -110,7 +153,7 @@ export class Simulation {
   private eyeHeight():number {const p=this.state.player;return p.y+(p.mounted?2.6:p.crouching?.9:1.65);}
 
   canOccupy(x:number,z:number,radius=.32,y=this.state.player.y):boolean {
-    if(this.state.player.mounted&&(z<-19.1||z>3.2))return false;
+    if(this.state.player.mounted&&!this.insideMountBounds(x,z))return false;
     return this.clearAt(x,z,radius,y,this.height());
   }
 
@@ -147,7 +190,7 @@ export class Simulation {
     const speed=p.mounted?8.0:p.crouching?2.3:input.sprint?6.4:4.4;
     const dx=(-Math.sin(p.yaw)*forward+Math.cos(p.yaw)*strafe)*speed*dt/n;
     const dz=(-Math.cos(p.yaw)*forward-Math.sin(p.yaw)*strafe)*speed*dt/n;
-    if(p.mounted&&(p.z+dz<-19.1||p.z+dz>3.2))this.message('Your strider stays in the street. Press E to dismount and enter the building.',2);
+    if(p.mounted&&!this.insideMountBounds(p.x+dx,p.z+dz))this.message('Your strider stays in this area. Press E to dismount.',2);
     const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.14)),radius=p.mounted?.53:.32;
     for(let i=0;i<steps;i++){
       if(this.canOccupy(p.x+dx/steps,p.z,radius))p.x+=dx/steps;
@@ -179,7 +222,7 @@ export class Simulation {
     const p=this.state.player;
     if(!p.owned.length)return;
     let id:WeaponId;
-    if(slot){id=IDS[clamp(Math.round(slot)-1,0,3)];if(!p.owned.includes(id)){this.message('Weapon not acquired yet.',1.5);return;}}
+    if(slot){id=IDS[clamp(Math.round(slot)-1,0,IDS.length-1)];if(!p.owned.includes(id)){this.message('Weapon not acquired yet.',1.5);return;}}
     else{const owned=IDS.filter(w=>p.owned.includes(w)),i=owned.indexOf(p.weapon);id=owned[(i+(delta>0?1:-1)+owned.length)%owned.length];}
     if(id===p.weapon)return;
     p.weapon=id;p.reload=0;p.cooldown=.22;p.recoil=.22;this.reloading=null;
@@ -213,7 +256,7 @@ export class Simulation {
       let hitDistance=this.rayWalls(p.x,ey,p.z,dx,dy,dz,w.range),hit:Enemy|null=null,propHit:Destructible|null=null;
       for(const enemy of this.state.enemies){
         if(!enemy.alive)continue;
-        const stat=STATS[enemy.kind],t=this.rayEnemy(enemy,p.x,ey,p.z,dx,dy,dz,stat.radius,stat.height);
+        const stat=STATS[enemy.kind],scale=enemy.boss?1.15:1,t=this.rayEnemy(enemy,p.x,ey,p.z,dx,dy,dz,stat.radius*scale,stat.height*scale);
         if(t!==null&&t>=0&&t<hitDistance){hitDistance=t;hit=enemy;}
       }
       for(const prop of this.state.destructibles){
@@ -227,12 +270,55 @@ export class Simulation {
       }else if(hit){
         const falloff=p.weapon==='shotgun'?Math.max(.35,1-hitDistance/42):1;
         this.damageEnemy(hit,w.damage*falloff);this.effect('blood',hx,hz,hy,.24);
+        if(p.weapon==='arc')this.chainArc(hit);
       }else if(hitDistance<w.range)this.effect('spark',hx,hz,hy,.15);
+      if(p.weapon==='railgun'||p.weapon==='arc')this.trace(p.weapon==='railgun'?'rail':'arc',p.x,ey,p.z,hx,hy,hz);
       if(p.weapon==='plasma'){
         const count=Math.min(12,Math.ceil(hitDistance/1.5));
         for(let j=1;j<=count;j++){const t=hitDistance*j/count;this.effect('plasma',p.x+dx*t,p.z+dz*t,ey+dy*t,.14);}
       }
     }
+  }
+
+  /** Renderers see actual trace samples; no decorative hits can trigger damage. */
+  private trace(kind:'rail'|'arc',x:number,y:number,z:number,tx:number,ty:number,tz:number):void {
+    const length=Math.hypot(tx-x,ty-y,tz-z),count=Math.min(kind==='rail'?28:14,Math.max(2,Math.ceil(length/.7)));
+    for(let i=1;i<=count;i++){
+      const t=i/count,jitter=kind==='arc'&&i<count?Math.sin(i*2.3)*.1:0;
+      this.effect(kind,x+(tx-x)*t+jitter,z+(tz-z)*t-jitter,y+(ty-y)*t,kind==='rail'?.18:.23);
+    }
+  }
+
+  private chainArc(first:Enemy):void {
+    const used=new Set([first.id]);let source=first;
+    for(let chain=0;chain<2;chain++){
+      const sy=STATS[source.kind].height*(source.boss?1.15:1)*.55;
+      let nearest:Enemy|null=null,gap=5.00001;
+      for(const candidate of this.state.enemies){
+        if(!candidate.alive||used.has(candidate.id))continue;
+        const ty=STATS[candidate.kind].height*(candidate.boss?1.15:1)*.55,d=Math.hypot(candidate.x-source.x,candidate.z-source.z,ty-sy);
+        if(d>5||d>=gap||!this.lineClear(source.x,sy,source.z,candidate.x,ty,candidate.z))continue;
+        nearest=candidate;gap=d;
+      }
+      if(!nearest)break;
+      const ty=STATS[nearest.kind].height*(nearest.boss?1.15:1)*.55;
+      this.trace('arc',source.x,sy,source.z,nearest.x,ty,nearest.z);
+      this.damageEnemy(nearest,40);this.effect('spark',nearest.x,nearest.z,ty,.25);
+      used.add(nearest.id);source=nearest;
+    }
+  }
+
+  private lineClear(x:number,y:number,z:number,tx:number,ty:number,tz:number):boolean {
+    const dx=tx-x,dy=ty-y,dz=tz-z,length=Math.hypot(dx,dy,dz);
+    if(length<.001)return true;
+    const nx=dx/length,ny=dy/length,nz=dz/length;
+    if(this.rayWalls(x,y,z,nx,ny,nz,length)<length-.02)return false;
+    for(const prop of this.state.destructibles){
+      if(prop.destroyed)continue;
+      const t=this.rayBox(x,y,z,nx,ny,nz,prop.x-prop.w/2,prop.x+prop.w/2,prop.y,prop.y+prop.h,prop.z-prop.d/2,prop.z+prop.d/2);
+      if(t!==null&&t<length-.02)return false;
+    }
+    return true;
   }
 
   private bite():void {
@@ -285,7 +371,7 @@ export class Simulation {
 
   private visible(a:Vec2,b:Vec2,height=1.2):boolean {
     const d=dist(a,b);if(d<.001)return true;
-    return this.rayWalls(a.x,height,a.z,(b.x-a.x)/d,0,(b.z-a.z)/d,d)>=d-.1;
+    return this.lineClear(a.x,height,a.z,b.x,height,b.z);
   }
 
   private enemySees(enemy:Enemy):boolean {
@@ -299,12 +385,12 @@ export class Simulation {
     if(!e.alive)return;
     e.health-=damage;e.hurt=1;e.alert=true;
     if(e.health>0)return;
-    e.health=0;e.alive=false;e.path=[];e.speed=0;e.vx=0;e.vz=0;e.attack=0;this.attackWindups.delete(e.id);this.state.kills++;
+    e.health=0;e.alive=false;e.path=[];e.speed=0;e.vx=0;e.vz=0;e.attack=0;this.attackWindups.delete(e.id);this.bossTargets.delete(e.id);this.state.kills++;
     this.state.events.push({type:'kill'});this.effect('blood',e.x,e.z,.7,.5);
-    // Small salvage drops prevent an unlucky route from making the level unwinnable.
-    const p=this.state.player;
-    p.reserve.revolver+=2;p.reserve.plasma+=2;p.reserve.machinegun+=3;
-    if(e.kind==='brute')this.message('Containment beast neutralized. Restore the elevator power.',3);
+    // Supplies remain physically in the level until the detective reaches them.
+    if(e.kind==='soldier'&&!this.state.pickups.some(item=>item.id===`drop-${e.id}`))this.state.pickups.push({id:`drop-${e.id}`,kind:'ammo',ammoFor:'machinegun',amount:20,label:'Soldier ammunition',x:e.x,z:e.z,collected:false});
+    if(e.boss)this.message(`${e.label??e.boss.toUpperCase()} NEUTRALIZED — ${this.level.objective??'find the extraction route.'}`,3);
+    else if(e.kind==='brute')this.message('Containment beast neutralized. Restore the exit power.',3);
   }
 
   private damageDestructible(prop:Destructible,damage:number):void {
@@ -381,76 +467,117 @@ export class Simulation {
       p.mounted=false;p.x=spot.x;p.z=spot.z;p.y=0;p.vy=0;s.events.push({type:'mount'});this.message('Dismounted. Your strider will wait here.',2);return;
     }
     if(dist(p,this.level.switch)<2.5){
-      if(!s.powered){s.powered=true;s.events.push({type:'door'});this.message('ELEVATOR POWER RESTORED — eliminate the laboratory threats and reach the lift.',4);}
-      else this.message('Power online. The industrial lift is ready.',2);
+      if(!s.powered){s.powered=true;s.events.push({type:'door'});this.message(`${(this.level.exitLabel??'EXIT').toUpperCase()} POWER RESTORED — ${this.level.objective??'eliminate the laboratory threats and reach the lift.'}`,4);}
+      else this.message('Power online. The exit is ready once the area is clear.',2);
       return;
     }
-    if(dist(p,s.mount)<2.6&&p.z>-19){
+    if(dist(p,s.mount)<2.6&&this.insideMountBounds(p.x,p.z)){
       p.mounted=true;p.crouching=false;s.mount.x=p.x;s.mount.z=p.z;s.events.push({type:'mount'});
-      this.message('STRIDER MOUNTED — faster movement. Fire to bite; E to dismount. Street area only.',4);return;
+      this.message('STRIDER MOUNTED — faster movement. Fire to bite; E to dismount.',4);return;
     }
     const nearby=s.doors.filter(d=>dist(p,d)<2.9).sort((a,b)=>dist(a,p)-dist(b,p));
     if(nearby.length){
       const d=nearby[0];
       if(p.mounted&&d.id==='facility'){this.message('Dismount before entering the research facility.',2);return;}
       if(d.locked&&!p.keycard){this.message('RESTRICTED — find the security keycard in the guard room.',3);return;}
-      if(d.id==='elevator'){
-        if(!s.powered){this.message('LIFT OFFLINE — restore power at the laboratory switch.',3);return;}
-        if(this.finalThreats()>0){this.message(`${this.finalThreats()} laboratory threats remain. Clear containment before extraction.`,3);return;}
+      if(d.id==='elevator'||d.id==='exit'){
+        if(!s.powered){this.message('EXIT OFFLINE — restore power at the control switch.',3);return;}
+        if(this.finalThreats()>0){this.message(`${this.finalThreats()} threats remain. Clear the area before extraction.`,3);return;}
+        if(s.player.evidence<(this.level.requiredEvidence??0)){this.message(`Collect ${this.level.requiredEvidence} case files before leaving.`,3);return;}
       }
       d.target=d.target>.5?0:1;s.events.push({type:'door'});
-      if(d.secret&&!this.secretDoors.has(d.id)){this.secretDoors.add(d.id);s.secrets++;this.message('SECRET FOUND — the city still keeps a few things off the record.',3);}
+      if(d.secret&&!this.secretDoors.has(d.id)){this.secretDoors.add(d.id);s.discoveredSecrets.push(d.id);s.secrets++;this.message('SECRET FOUND — the city still keeps a few things off the record.',3);}
       else this.message(`${d.label}: ${d.target?'opening':'closing'}.`,1.6);
       return;
     }
     if(dist(p,this.level.exit)<3){this.checkExit();if(!s.powered)this.message('Restore elevator power first.',2);return;}
     this.collectPickups();
-    this.message(p.keycard?'Find the laboratory power switch, then clear the lift route.':'Search the security wing for a keycard.',2);
+    this.message(this.level.objective??(p.keycard?'Find the laboratory power switch, then clear the lift route.':'Search the security wing for a keycard.'),2);
+  }
+
+  private addReserve(id:WeaponId,amount:number):number {
+    const p=this.state.player,w=WEAPONS[id],before=p.reserve[id];
+    p.reserve[id]=Math.min(w.reserveCap,before+Math.max(0,Math.round(amount*DIFFICULTIES[this.state.difficulty].ammo)));
+    return p.reserve[id]-before;
   }
 
   private collectPickups():void {
-    const s=this.state,p=s.player;
+    const s=this.state,p=s.player;let checkpointCollected=false;
     for(const item of s.pickups){
       if(item.collected||dist(item,p)>1.1||p.y>1.5||!this.visible(p,item,.45))continue;
       if(item.kind==='health'&&p.health>=100||item.kind==='armor'&&p.armor>=100)continue;
-      item.collected=true;s.events.push({type:'pickup'});
       if(IDS.includes(item.kind as WeaponId)){
         const id=item.kind as WeaponId,first=!p.owned.includes(id);
-        if(first)p.owned.push(id);
-        p.ammo[id]=WEAPONS[id].clip;p.reserve[id]+=WEAPONS[id].clip*(id==='revolver'?8:3);
-        if(first){p.weapon=id;p.reload=0;this.reloading=null;p.cooldown=.15;p.recoil=.2;}
-        this.message(`${WEAPONS[id].name.toUpperCase()} ACQUIRED — ${p.ammo[id]} loaded.`,2.5);
+        if(first){
+          p.owned.push(id);p.ammo[id]=WEAPONS[id].clip;p.reserve[id]=Math.min(WEAPONS[id].reserveCap,p.reserve[id]+this.startingReserve(id));
+          p.weapon=id;p.reload=0;this.reloading=null;p.cooldown=.15;p.recoil=.2;
+          this.message(`${WEAPONS[id].name.toUpperCase()} ACQUIRED — ${p.ammo[id]} loaded.`,2.5);
+        }else{
+          const added=this.addReserve(id,item.amount??WEAPONS[id].ammoPickup);if(added===0)continue;
+          this.message(`${WEAPONS[id].name.toUpperCase()} AMMO +${added}`,1.6);
+        }
       }else if(item.kind==='health'){p.health=Math.min(100,p.health+38);this.message('MEDKIT +38 HEALTH',1.6);}
       else if(item.kind==='armor'){p.armor=Math.min(100,p.armor+55);this.message('BODY ARMOR +55',1.6);}
       else if(item.kind==='ammo'){
-        p.reserve.revolver+=24;p.reserve.shotgun+=16;p.reserve.plasma+=45;p.reserve.machinegun+=80;
-        this.message('AMMUNITION CACHE — supplies replenished.',2);
-      }else if(item.kind==='evidence'){p.evidence++;this.message('EVIDENCE RECOVERED — AXIOM / LAZARUS: Mara Vale warned us. Human trials authorized.',3.5);}
-      else if(item.kind==='keycard'){
-        p.keycard=true;s.checkpoint=true;
-        this.message('SECURITY KEYCARD ACQUIRED — CHECKPOINT SAVED. Unlock the laboratory.',4);
-        s.events.push({type:'checkpoint'});
-        this.checkpointState=structuredClone(s);this.checkpointState.events=[];
-        this.checkpointSecrets=[...this.secretDoors];
+        if(item.ammoFor){
+          const added=this.addReserve(item.ammoFor,item.amount??WEAPONS[item.ammoFor].ammoPickup);if(added===0)continue;
+          this.message(`${WEAPONS[item.ammoFor].name.toUpperCase()} AMMO +${added}`,1.6);
+        }else{
+          const counts:Record<WeaponId,number>={revolver:24,shotgun:16,plasma:45,machinegun:80,railgun:8,arc:12};
+          let added=0;for(const id of IDS)added+=this.addReserve(id,item.amount??counts[id]);if(added===0)continue;
+          this.message('AMMUNITION CACHE — supplies replenished.',2);
+        }
+      }else if(item.kind==='evidence'){
+        p.evidence++;this.message(item.label?`CASE FILE RECOVERED — ${item.label}`:'EVIDENCE RECOVERED — AXIOM / LAZARUS: Mara Vale warned us. Human trials authorized.',3.5);
+      }else if(item.kind==='keycard'){
+        p.keycard=true;s.checkpoint=true;checkpointCollected=true;
+        this.message(`SECURITY KEYCARD ACQUIRED — CHECKPOINT SAVED. ${this.level.objective??'Unlock the laboratory.'}`,4);
       }
+      item.collected=true;s.events.push({type:'pickup'});
+    }
+    // A keycard and supplies can overlap; snapshot the complete collection pass.
+    if(checkpointCollected){
+      s.events.push({type:'checkpoint'});this.checkpointState=structuredClone(s);this.checkpointState.events=[];this.checkpointState.effects=[];
+      this.checkpointSecrets=[...this.secretDoors];
+    }
+  }
+
+  private insideMountBounds(x:number,z:number):boolean {
+    const bounds=this.level.mountBounds??{minX:this.level.bounds.minX,maxX:this.level.bounds.maxX,minZ:-19.1,maxZ:3.2};
+    return x>=bounds.minX&&x<=bounds.maxX&&z>=bounds.minZ&&z<=bounds.maxZ;
+  }
+
+  private triggerWaves():void {
+    for(const wave of this.level.waves??[]){
+      if(this.state.triggeredWaves.includes(wave.id)||dist(this.state.player,wave.trigger)>wave.radius)continue;
+      this.state.triggeredWaves.push(wave.id);
+      for(const def of wave.enemies)if(!this.state.enemies.some(e=>e.id===def.id)){const enemy=this.createEnemy(def);enemy.alert=true;this.state.enemies.push(enemy);}
+      this.message(`AMBUSH — ${wave.enemies.length} hostiles detected. Keep moving.`,3);
     }
   }
 
   private finalThreats():number {
+    if(this.level.requiredKills){
+      let threats=0;
+      for(const id of this.level.requiredKills)if(!this.state.enemies.some(e=>e.id===id&&!e.alive))threats++;
+      const required=new Set(this.level.requiredKills);
+      for(const e of this.state.enemies)if(e.alive&&!required.has(e.id)&&!(this.level.enemies.some(def=>def.id===e.id)))threats++;
+      return threats;
+    }
     return this.state.enemies.filter(e=>e.alive&&(this.level.enemies.find(def=>def.id===e.id)?.z??e.z)<-32).length;
   }
 
   private checkExit():void {
     const s=this.state;
     if(dist(s.player,this.level.exit)>1.5||s.status!=='playing')return;
-    if(!s.powered||this.finalThreats()>0)return;
-    s.status='complete';s.events.push({type:'complete'});s.player.reload=0;
-    this.message('NEON DISTRICT CLEARED — Elias Vane lives to investigate another night.',99);
+    if(!s.powered||this.finalThreats()>0||s.player.evidence<(this.level.requiredEvidence??0))return;
+    s.status='complete';s.events.push({type:'complete'});s.player.reload=0;this.reloading=null;
+    this.message(this.level.completionMessage??'NEON DISTRICT CLEARED — Elias Vane lives to investigate another night.',99);
   }
 
   private updateEnemies(dt:number,frameDt=dt):void {
     if(dt<=0)return;
-    const p=this.state.player,difficulty=this.state.difficulty,detect=difficulty==='easy'?13:17;
+    const p=this.state.player,difficulty=this.state.difficulty,tuning=DIFFICULTIES[difficulty],detect=tuning.detect;
     for(const e of this.state.enemies){
       if(!e.alive)continue;
       const stats=STATS[e.kind],distance=dist(e,p);
@@ -464,29 +591,34 @@ export class Simulation {
       if(windup!==undefined){
         e.vx=0;e.vz=0;
         this.faceEnemy(e,p.x-e.x,p.z-e.z,dt);
-        const duration=e.kind==='soldier'?.42:.32;
+        const duration=e.boss?.8:e.kind==='soldier'?.42:.32;
         const remaining=windup-dt;
         e.attack=.15+.85*clamp(1-remaining/duration,0,1);
         if(remaining<=0){
           this.attackWindups.delete(e.id);
           e.attack=1;
-          if(this.enemySees(e)&&distance<stats.range+(e.kind==='soldier'?2:.55)){
+          if(e.boss){this.bossStrike(e);}
+          else if(this.enemySees(e)&&distance<stats.range+(e.kind==='soldier'?2:.55)){
             if(e.kind==='soldier'){
               this.effect('muzzle',e.x,e.z,1.4,.12);
-              const chance=difficulty==='easy'?.55:difficulty==='hard'?.88:.72;
-              if(this.random()<chance)this.hurtPlayer(stats.damage);
+              if(this.random()<tuning.accuracy)this.hurtPlayer(stats.damage);
               this.effect('spark',p.x,p.z,Math.min(1.65,this.eyeHeight()),.1);
             }else{this.hurtPlayer(stats.damage);this.effect('blood',p.x,p.z,.65,.17);}
           }
-          e.cooldown=stats.interval*(difficulty==='hard'?.8:difficulty==='easy'?1.2:1);
+          e.cooldown=(e.boss?2.1:stats.interval)*tuning.attackInterval;
         }else this.attackWindups.set(e.id,remaining);
         continue;
       }
       const sees=this.enemySees(e);
-      if(distance<stats.range&&sees&&e.cooldown<=0){
+      if(distance<(e.boss?12:stats.range)&&sees&&e.cooldown<=0){
         e.vx=0;e.vz=0;e.attack=.15;
         this.faceEnemy(e,p.x-e.x,p.z-e.z,dt);
-        this.attackWindups.set(e.id,e.kind==='soldier'?.42:.32);
+        this.attackWindups.set(e.id,e.boss?.8:e.kind==='soldier'?.42:.32);
+        if(e.boss){
+          this.bossTargets.set(e.id,{x:p.x,z:p.z});
+          this.effect('arc',p.x,p.z,.15,.8);this.effect('spark',p.x,p.z,.35,.8);
+          this.message(`${e.label??e.boss.toUpperCase()} ${e.boss==='crown'||e.boss==='ironjaw'?'CHARGING — MOVE!':'OVERLOAD — MOVE CLEAR!'}`,1.2);
+        }
         this.state.events.push({type:'enemy',message:e.kind==='soldier'?'Enemy charging shot':'Predator attacking'});
         if(e.kind==='soldier')this.effect('plasma',e.x,e.z,1.65,.4);
         continue;
@@ -505,7 +637,7 @@ export class Simulation {
       }
       const length=dist(e,target);if(length<.01){e.vx=0;e.vz=0;continue;}
       const acceleration=e.kind==='raptor'?12:e.kind==='mutant'?8:5;
-      let speed=stats.speed*(difficulty==='easy'?.88:difficulty==='hard'?1.12:1)*(e.hurt>0?.42:1);
+      let speed=stats.speed*tuning.speed*(e.hurt>0?.42:1);
       // Brake before entering the attack/aim distance instead of snapping from
       // full speed to an idle pose. Waypoints keep full speed through turns.
       if(target===p&&sees)speed=Math.min(speed,Math.sqrt(2*acceleration*Math.max(0,distance-stopDistance)));
@@ -534,6 +666,29 @@ export class Simulation {
       e.vx=movedX/dt;e.vz=movedZ/dt;
       if(moved>.00001)this.faceEnemy(e,movedX,movedZ,dt);
     }
+  }
+
+  /** Boss attacks telegraph a fixed target so a moving player can evade them. */
+  private bossStrike(enemy:Enemy):void {
+    const target=this.bossTargets.get(enemy.id);this.bossTargets.delete(enemy.id);
+    if(!target)return;
+    const charging=enemy.boss==='crown'||enemy.boss==='ironjaw';
+    if(charging){
+      const dx=target.x-enemy.x,dz=target.z-enemy.z,length=Math.hypot(dx,dz),travel=Math.min(length,4.5);
+      const steps=Math.max(1,Math.ceil(travel/.12)),sx=enemy.x,sz=enemy.z;
+      for(let i=0;i<steps;i++){
+        const nx=enemy.x+dx/Math.max(length,.001)*travel/steps,nz=enemy.z+dz/Math.max(length,.001)*travel/steps;
+        if(!this.enemyCanMove(enemy,nx,nz))break;
+        enemy.x=nx;enemy.z=nz;
+      }
+      enemy.phase+=Math.hypot(enemy.x-sx,enemy.z-sz);
+    }
+    const impact=charging?enemy:target,radius=charging?2.5:enemy.boss==='omega'?3.4:2.7;
+    this.effect(charging?'explosion':'arc',impact.x,impact.z,.45,.4);
+    for(let i=0;i<8;i++){const angle=i*Math.PI/4;this.effect(charging?'spark':'plasma',impact.x+Math.sin(angle)*radius,impact.z+Math.cos(angle)*radius,.22,.42);}
+    const p=this.state.player;
+    if(dist(p,impact)<radius&&this.lineClear(enemy.x,1.3,enemy.z,p.x,this.eyeHeight(),p.z))this.hurtPlayer(enemy.boss==='omega'?38:charging?34:28);
+    this.state.events.push({type:'enemy',message:charging?'Boss charge impact':'Boss electrical overload'});
   }
 
   private faceEnemy(e:Enemy,dx:number,dz:number,dt:number):void {
@@ -589,7 +744,7 @@ export class Simulation {
 
   private hurtPlayer(amount:number):void {
     const s=this.state,p=s.player;if(s.status!=='playing')return;
-    amount*=s.difficulty==='easy'?.65:s.difficulty==='hard'?1.22:1;
+    amount*=DIFFICULTIES[s.difficulty].damage;
     if(p.mounted)amount*=.65;
     const absorbed=Math.min(p.armor,amount*.65);p.armor-=absorbed;p.health=Math.max(0,p.health-(amount-absorbed));p.hurt=1;
     s.events.push({type:'hurt'});

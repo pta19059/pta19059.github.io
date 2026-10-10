@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
     <meta name="theme-color" content="#080d0a" />
     <meta name="description" content="Fossil Noir 3D. A complete original retro first-person shooter: cybernetic enemies, mutated dinosaurs, and the neon-soaked streets of Vesper, 2091. Play in your browser." />
-    <title>Fossil Noir 3D — The Neon District</title>
+    <title>Fossil Noir 3D — The Lazarus Campaign</title>
   </head>
   <body>
     <main id="game" aria-label="Fossil Noir 3D browser game">
@@ -14,11 +14,13 @@
       <div class="screen-treatment" aria-hidden="true"></div>
       <div id="crosshair" class="crosshair" aria-hidden="true"><i></i><b></b></div>
       <div id="status-top" class="status-top">
-        <div class="level-label"><span>01</span><div>THE NEON DISTRICT<small>VESPER CITY / 2091</small></div></div>
+        <div class="level-label"><span id="chapter-number">01</span><div><b id="chapter-title">THE NEON DISTRICT</b><small id="chapter-subtitle">VESPER CITY / 2091</small><small id="hud-difficulty">DETECTIVE</small></div></div>
         <div id="objective" class="objective">FIND YOUR REVOLVER</div>
       </div>
+      <div id="boss-status" class="boss-status" aria-label="Boss health" hidden><div><b id="boss-name">PRIORITY HOSTILE</b><span id="boss-health"></span></div><i><b id="boss-bar"></b></i></div>
       <div id="message" class="game-message" aria-live="polite"></div>
       <div id="interaction" class="interaction-hint"></div>
+      <div id="arsenal" class="arsenal" aria-label="Weapons and ammunition"></div>
       <footer id="hud" class="hud" aria-label="Player status">
         <div class="hud-stat health-stat"><span>HEALTH</span><strong id="hud-health">100</strong><div class="meter"><i id="health-bar"></i></div></div>
         <div class="hud-stat"><span>ARMOR</span><strong id="hud-armor">000</strong><div class="meter armor"><i id="armor-bar"></i></div></div>

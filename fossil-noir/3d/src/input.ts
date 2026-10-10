@@ -36,7 +36,7 @@ export class Input {
         if (event.code === 'Space') this.pending.jump = true;
         if (event.code === 'KeyE') this.pending.interact = true;
         if (event.code === 'KeyR') this.pending.reload = true;
-        if (/^Digit[1-4]$/.test(event.code)) this.pending.weaponSlot = Number(event.code.slice(-1));
+        if (/^Digit[1-6]$/.test(event.code)) this.pending.weaponSlot = Number(event.code.slice(-1));
       }
     });
     document.addEventListener('keyup', (event) => this.keys.delete(event.code));
